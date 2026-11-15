@@ -114,7 +114,10 @@ export interface IMessageDocument extends Document {
   contextRef?: {
     kind: 'product' | 'job';
     id: string;
+    hashId?: string;
     title: string;
+    priceLabel?: string;
+    imageUrl?: string;
   } | null;
   createdAt: Date;
   updatedAt: Date;
@@ -150,7 +153,10 @@ const MessageSchema = new Schema<IMessageDocument>(
       type: {
         kind: { type: String, enum: ['product', 'job'] },
         id: { type: String },
+        hashId: { type: String },
         title: { type: String },
+        priceLabel: { type: String },
+        imageUrl: { type: String },
       },
       default: null,
       _id: false,

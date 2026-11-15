@@ -24,7 +24,7 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/modal';
+import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { ReportModal } from '@/components/modals/ReportModal';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -185,7 +185,18 @@ export function PostCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [repostMenuOpen, setRepostMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const postImages = (post.media || []).filter((m) => m.type === 'image');
+  const postGifOffset = post.gifUrl ? 1 : 0;
+  const lightboxImages = [
+    ...(post.gifUrl ? [{ url: post.gifUrl, lqipBase64: null, alt: 'GIF attachment' }] : []),
+    ...postImages.map((m) => ({
+      url: m.publicUrl || m.url || '',
+      lqipBase64: m.lqipBase64,
+      alt: m.filename || 'Publication media',
+    })),
+  ];
 
   const isOwner = user && String(post.author?._id) === user.id;
 
@@ -412,11 +423,11 @@ export function PostCard({
       )}
 
       <div className="flex gap-3">
-        <Link href={`/@${post.author?.username}`} className="shrink-0">
+        <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="shrink-0">
           <Avatar
-            src={post.author?.avatar}
-            alt={post.author?.username}
-            verified={post.author?.verified}
+            src={isOwner ? user.avatar : post.author?.avatar}
+            alt={isOwner ? user.username : post.author?.username}
+            verified={isOwner ? user.verified : post.author?.verified}
             size="sm"
           />
         </Link>
@@ -426,13 +437,13 @@ export function PostCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <Link
-                href={`/@${post.author?.username}`}
+                href={`/@${isOwner ? user.username : post.author?.username}`}
                 className="text-par-n font-bold text-lab-pr hover:underline truncate"
               >
-                {post.author?.firstName} {post.author?.lastName}
+                {isOwner ? `${user.firstName} ${user.lastName}` : `${post.author?.firstName} ${post.author?.lastName}`}
               </Link>
-              <Link href={`/@${post.author?.username}`} className="text-cap-l text-lab-sc truncate">
-                @{post.author?.username}
+              <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="text-cap-l text-lab-sc truncate">
+                @{isOwner ? user.username : post.author?.username}
               </Link>
               <span className="text-lab-tr">·</span>
               <Link
@@ -535,7 +546,7 @@ export function PostCard({
               {post.gifUrl && (
                 <button
                   type="button"
-                  onClick={() => setLightboxUrl(post.gifUrl || null)}
+                  onClick={() => setLightboxIndex(0)}
                   className="block w-full relative rounded-2xl overflow-hidden border border-bord-card bg-fill-qt cursor-pointer text-left"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -543,6 +554,7 @@ export function PostCard({
                     src={post.gifUrl}
                     alt="GIF attachment"
                     loading="lazy"
+                    decoding="async"
                     className="w-full max-h-[460px] min-h-40 object-cover block"
                   />
                   <GiphyAttribution className="absolute bottom-2.5 left-2.5 z-10" />
@@ -567,7 +579,7 @@ export function PostCard({
                         return (
                           <button
                             type="button"
-                            onClick={() => setLightboxUrl(src)}
+                            onClick={() => setLightboxIndex(postGifOffset)}
                             className="block w-full rounded-2xl overflow-hidden border border-bord-card bg-fill-qt cursor-pointer"
                             style={
                               m.lqipBase64
@@ -579,7 +591,8 @@ export function PostCard({
                             <img
                               src={src}
                               alt={m.filename || 'Post image'}
-                              loading="lazy"
+                              loading="eager"
+                              decoding="async"
                               className="w-full max-h-[500px] min-h-40 object-cover block"
                             />
                           </button>
@@ -594,14 +607,14 @@ export function PostCard({
                               <button
                                 key={m.id || idx}
                                 type="button"
-                                onClick={() => setLightboxUrl(src)}
+                                onClick={() => setLightboxIndex(postGifOffset + idx)}
                                 className="block w-full h-64 sm:h-72 overflow-hidden bg-fill-qt cursor-pointer"
                                 style={
                                   m.lqipBase64
                                     ? {
-                                        backgroundImage: `url(${m.lqipBase64})`,
-                                        backgroundSize: 'cover',
-                                      }
+                                      backgroundImage: `url(${m.lqipBase64})`,
+                                      backgroundSize: 'cover',
+                                    }
                                     : undefined
                                 }
                               >
@@ -610,6 +623,7 @@ export function PostCard({
                                   src={src}
                                   alt={m.filename || 'Post image'}
                                   loading="lazy"
+                                  decoding="async"
                                   className="w-full h-full object-cover block hover:scale-[1.01] transition-transform"
                                 />
                               </button>
@@ -626,7 +640,7 @@ export function PostCard({
                               <button
                                 key={m.id || idx}
                                 type="button"
-                                onClick={() => setLightboxUrl(src)}
+                                onClick={() => setLightboxIndex(postGifOffset + idx)}
                                 className={cn(
                                   'block w-full h-full overflow-hidden bg-fill-qt cursor-pointer',
                                   idx === 0 && 'col-span-2 row-span-2'
@@ -634,9 +648,9 @@ export function PostCard({
                                 style={
                                   m.lqipBase64
                                     ? {
-                                        backgroundImage: `url(${m.lqipBase64})`,
-                                        backgroundSize: 'cover',
-                                      }
+                                      backgroundImage: `url(${m.lqipBase64})`,
+                                      backgroundSize: 'cover',
+                                    }
                                     : undefined
                                 }
                               >
@@ -645,6 +659,7 @@ export function PostCard({
                                   src={src}
                                   alt={m.filename || 'Post image'}
                                   loading="lazy"
+                                  decoding="async"
                                   className="w-full h-full object-cover block hover:scale-[1.01] transition-transform"
                                 />
                               </button>
@@ -661,7 +676,7 @@ export function PostCard({
                               <button
                                 key={m.id || idx}
                                 type="button"
-                                onClick={() => setLightboxUrl(src)}
+                                onClick={() => setLightboxIndex(postGifOffset + idx)}
                                 className={cn(
                                   'block w-full overflow-hidden bg-fill-qt cursor-pointer',
                                   idx === 3 ? 'col-span-3 h-48 sm:h-52' : 'h-36 sm:h-40'
@@ -669,9 +684,9 @@ export function PostCard({
                                 style={
                                   m.lqipBase64
                                     ? {
-                                        backgroundImage: `url(${m.lqipBase64})`,
-                                        backgroundSize: 'cover',
-                                      }
+                                      backgroundImage: `url(${m.lqipBase64})`,
+                                      backgroundSize: 'cover',
+                                    }
                                     : undefined
                                 }
                               >
@@ -680,6 +695,7 @@ export function PostCard({
                                   src={src}
                                   alt={m.filename || 'Post image'}
                                   loading="lazy"
+                                  decoding="async"
                                   className="w-full h-full object-cover block hover:scale-[1.01] transition-transform"
                                 />
                               </button>
@@ -697,14 +713,20 @@ export function PostCard({
                                 <button
                                   key={m.id || idx}
                                   type="button"
-                                  onClick={() => setLightboxUrl(src)}
+                                  onClick={() => setLightboxIndex(postGifOffset + idx)}
                                   className="block w-full h-36 sm:h-40 overflow-hidden bg-fill-qt cursor-pointer"
+                                  style={
+                                    m.lqipBase64
+                                      ? { backgroundImage: `url(${m.lqipBase64})`, backgroundSize: 'cover' }
+                                      : undefined
+                                  }
                                 >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={src}
                                     alt={m.filename || 'Post image'}
                                     loading="lazy"
+                                    decoding="async"
                                     className="w-full h-full object-cover block"
                                   />
                                 </button>
@@ -719,14 +741,20 @@ export function PostCard({
                                 <button
                                   key={m.id || idx + 3}
                                   type="button"
-                                  onClick={() => setLightboxUrl(src)}
+                                  onClick={() => setLightboxIndex(postGifOffset + idx + 3)}
                                   className="relative block w-full h-40 sm:h-44 overflow-hidden bg-fill-qt cursor-pointer"
+                                  style={
+                                    m.lqipBase64
+                                      ? { backgroundImage: `url(${m.lqipBase64})`, backgroundSize: 'cover' }
+                                      : undefined
+                                  }
                                 >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={src}
                                     alt={m.filename || 'Post image'}
                                     loading="lazy"
+                                    decoding="async"
                                     className="w-full h-full object-cover block"
                                   />
                                   {extraCount > 0 && (
@@ -1089,19 +1117,18 @@ export function PostCard({
         targetId={post.id}
       />
 
-      {lightboxUrl && (
-        <Modal
-          open={Boolean(lightboxUrl)}
-          onClose={() => setLightboxUrl(null)}
-          title="Media Preview"
-          maxWidthClass="max-w-3xl"
-        >
-          <div className="flex justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={lightboxUrl} alt="Publication media" className="max-h-[78vh] w-auto rounded-2xl object-contain" />
-          </div>
-        </Modal>
-      )}
+      <MediaLightbox
+        open={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        initialIndex={lightboxIndex ?? 0}
+        images={lightboxImages}
+        albumName={
+          post.author
+            ? `${post.author.firstName} ${post.author.lastName} (@${post.author.username})`
+            : undefined
+        }
+        date={formatRelativeTime(post.createdAt)}
+      />
     </article>
   );
 }

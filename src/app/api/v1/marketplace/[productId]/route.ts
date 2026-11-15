@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
@@ -6,7 +7,7 @@ import { apiError, apiSuccess, ForbiddenError, NotFoundError } from '@/lib/api-r
 import { Product } from '@/models/Commerce';
 import { Bookmark } from '@/models/Post';
 import { Media } from '@/models/Media';
-import { ProductStatus, UserRole } from '@/types/enums';
+import { ProductCondition, ProductStatus, ProductType, UserRole } from '@/types/enums';
 import { isObjectIdLike } from '@/lib/hashids';
 import { deleteMediaRecord, serializeMedia } from '@/services/media.service';
 
@@ -63,6 +64,10 @@ const patchProductSchema = z.object({
   action: z.enum(['update', 'bookmark', 'toggle_status']).default('update'),
   title: z.string().min(3).max(160).optional(),
   description: z.string().max(5000).optional(),
+  categoryId: z.string().nullable().optional(),
+  condition: z.nativeEnum(ProductCondition).optional(),
+  type: z.nativeEnum(ProductType).optional(),
+  currency: z.string().max(8).optional(),
   price: z.number().min(0).optional(),
   discount: z.number().min(0).max(99).optional(),
   stockQuantity: z.number().int().min(0).optional(),
@@ -102,8 +107,24 @@ export async function PATCH(
     const isAdmin = user.role === UserRole.ROOT || user.role === UserRole.ADMIN;
     if (!isOwner && !isAdmin) throw new ForbiddenError('Cannot modify this product.');
 
+    if (body.action === 'toggle_status') {
+      product.status =
+        product.status === ProductStatus.ACTIVE ? ProductStatus.INACTIVE : ProductStatus.ACTIVE;
+      await product.save();
+      return apiSuccess({ id: String(product._id), status: product.status, updated: true });
+    }
+
     if (body.title !== undefined) product.title = body.title.trim();
     if (body.description !== undefined) product.description = body.description.trim();
+    if (body.categoryId !== undefined) {
+      product.categoryId =
+        body.categoryId && Types.ObjectId.isValid(body.categoryId)
+          ? new Types.ObjectId(body.categoryId)
+          : null;
+    }
+    if (body.condition !== undefined) product.condition = body.condition;
+    if (body.type !== undefined) product.type = body.type;
+    if (body.currency !== undefined) product.currency = body.currency.toUpperCase();
     if (body.price !== undefined) product.price = body.price;
     if (body.discount !== undefined) product.discount = body.discount;
     if (body.stockQuantity !== undefined) product.stockQuantity = body.stockQuantity;
@@ -112,7 +133,7 @@ export async function PATCH(
     if (body.status !== undefined) product.status = body.status;
 
     await product.save();
-    return apiSuccess({ id: String(product._id), updated: true });
+    return apiSuccess({ id: String(product._id), status: product.status, updated: true });
   } catch (err) {
     return apiError(err);
   }

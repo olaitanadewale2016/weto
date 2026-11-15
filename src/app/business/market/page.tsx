@@ -1,60 +1,221 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Edit3, Plus, Power, ShoppingBag, Trash2 } from 'lucide-react';
 import { BusinessPortalHeader } from '@/components/business/BusinessPortalHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import {
+  EditableProductData,
+  MarketplaceCategoryOption,
+  ProductCreateModal,
+} from '@/components/marketplace/ProductCreateModal';
 import { apiFetch } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 import { useApp } from '@/components/providers/AppContext';
+import { useToast } from '@/components/providers/ToastProvider';
 
 interface MyProduct {
   id: string;
   hashId: string;
   title: string;
+  description?: string;
+  price: number;
   salePrice: number;
+  discount?: number;
   currency: string;
+  condition?: string;
+  type?: string;
+  stockQuantity?: number;
+  address?: string;
   status: string;
   approval: string;
   previewImageUrl: string;
+  category?: { _id?: string; id?: string };
 }
 
 export default function BusinessMarketPage() {
   const { bootstrap, locale } = useApp();
+  const { error, success } = useToast();
   const [items, setItems] = useState<MyProduct[]>([]);
+  const [categories, setCategories] = useState<MarketplaceCategoryOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<EditableProductData | null>(null);
+
+  const loadInventory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch<{
+        products: MyProduct[];
+        categories: MarketplaceCategoryOption[];
+      }>('/marketplace?mine=true');
+      setItems(res.products || []);
+      setCategories(res.categories || []);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    apiFetch<{ products: MyProduct[] }>('/marketplace?mine=true')
-      .then((res) => setItems(res.products || []))
-      .catch(() => setItems([]));
-  }, []);
+    const id = setTimeout(() => {
+      void loadInventory();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [loadInventory]);
+
+  async function toggleStatus(productId: string) {
+    try {
+      const res = await apiFetch<{ status: string }>(`/marketplace/${productId}`, {
+        method: 'PATCH',
+        json: { action: 'toggle_status' },
+      });
+      setItems((prev) =>
+        prev.map((item) => (item.id === productId ? { ...item, status: res.status } : item))
+      );
+      success(`Listing marked ${res.status}`);
+    } catch (err) {
+      error('Could not update status', err instanceof Error ? err.message : undefined);
+    }
+  }
+
+  async function deleteProduct(productId: string) {
+    if (!window.confirm('Delete this product listing permanently?')) return;
+    try {
+      await apiFetch(`/marketplace/${productId}`, { method: 'DELETE' });
+      setItems((prev) => prev.filter((item) => item.id !== productId));
+      success('Listing deleted');
+    } catch (err) {
+      error('Delete failed', err instanceof Error ? err.message : undefined);
+    }
+  }
 
   return (
     <div className="space-y-6">
-        <BusinessPortalHeader title="My Store Listings" subtitle="Manage inventory published under your account." />
-        <div className="flex justify-end">
-          <Link href="/marketplace">
-            <Button variant="primary">Open Marketplace</Button>
-          </Link>
-        </div>
+      <BusinessPortalHeader
+        title="My Store Listings"
+        subtitle="Create, edit, pause, or remove inventory published under your account."
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/marketplace">
+          <Button variant="outline">View Public Marketplace</Button>
+        </Link>
+        <Button
+          variant="primary"
+          onClick={() => {
+            setEditing(null);
+            setCreateOpen(true);
+          }}
+        >
+          <Plus className="h-4 w-4" /> New Listing
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-lab-sc py-8 text-center">Loading inventory...</p>
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={ShoppingBag}
+          title="No store listings yet"
+          description="Create your first product listing to sell on Weto Marketplace."
+        />
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((p) => (
-            <Link key={p.id} href={`/marketplace/product/${p.hashId || p.id}`} className="rounded-3xl border border-bord-card bg-bg-pr overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.previewImageUrl} alt={p.title} className="h-40 w-full object-cover" />
-              <div className="p-4 space-y-1.5">
-                <div className="flex justify-between gap-2">
-                  <p className="font-bold text-lab-pr truncate">{p.title}</p>
-                  <Badge variant="brand">{p.status}</Badge>
+            <div
+              key={p.id}
+              className="rounded-3xl border border-bord-card bg-bg-pr overflow-hidden flex flex-col"
+            >
+              <Link href={`/marketplace/product/${p.hashId || p.id}`} className="block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={p.previewImageUrl}
+                  alt={p.title}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-44 w-full object-cover bg-fill-qt"
+                />
+              </Link>
+              <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={`/marketplace/product/${p.hashId || p.id}`}
+                      className="font-bold text-lab-pr hover:underline line-clamp-1"
+                    >
+                      {p.title}
+                    </Link>
+                    <Badge variant={p.status === 'active' ? 'success' : 'default'}>
+                      {p.status}
+                    </Badge>
+                  </div>
+                  <p className="font-bold text-brand-900">
+                    {formatCurrency(p.salePrice, p.currency, bootstrap?.currencies, locale)}
+                  </p>
                 </div>
-                <p className="font-bold text-brand-900">
-                  {formatCurrency(p.salePrice, p.currency, bootstrap?.currencies, locale)}
-                </p>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-bord-tr">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setEditing({
+                        id: p.id,
+                        title: p.title,
+                        description: p.description || '',
+                        categoryId: p.category?._id || p.category?.id || '',
+                        condition: p.condition || 'new',
+                        type: p.type || 'physical',
+                        currency: p.currency,
+                        stockQuantity: p.stockQuantity ?? 1,
+                        price: p.price,
+                        discount: p.discount ?? 0,
+                        address: p.address || '',
+                      });
+                      setCreateOpen(true);
+                    }}
+                  >
+                    <Edit3 className="h-3.5 w-3.5" /> Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleStatus(p.id)}
+                    title={p.status === 'active' ? 'Pause listing' : 'Activate listing'}
+                  >
+                    <Power className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => deleteProduct(p.id)}
+                    title="Delete listing"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
-      </div>
+      )}
+
+      <ProductCreateModal
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setEditing(null);
+        }}
+        categories={categories}
+        editProduct={editing}
+        onSaved={() => void loadInventory()}
+      />
+    </div>
   );
 }

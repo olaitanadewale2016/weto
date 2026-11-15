@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { AppProvider } from '@/components/providers/AppContext';
+import { publicEnv } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: {
@@ -33,8 +34,27 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let r2Origin: string | null = null;
+  if (publicEnv.r2PublicUrl) {
+    try {
+      r2Origin = new URL(publicEnv.r2PublicUrl).origin;
+    } catch {
+      r2Origin = null;
+    }
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {r2Origin ? (
+          <>
+            <link rel="preconnect" href={r2Origin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={r2Origin} />
+          </>
+        ) : null}
+        <link rel="preconnect" href="https://media0.giphy.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://media0.giphy.com" />
+      </head>
       <body className="min-h-screen bg-bg-pr text-lab-pr antialiased font-sans overflow-x-clip">
         <ToastProvider>
           <AppProvider>{children}</AppProvider>

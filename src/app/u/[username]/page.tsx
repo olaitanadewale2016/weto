@@ -13,6 +13,7 @@ import {
   MapPin,
   MessageCircle,
   MoreHorizontal,
+  Settings,
   UserCheck,
   UserPlus,
   VolumeX,
@@ -22,8 +23,10 @@ import { Avatar, VerifiedBadge } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/ui/tabs';
 import { Modal } from '@/components/ui/modal';
+import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { FeedList } from '@/components/feed/FeedList';
 import { ReportModal } from '@/components/modals/ReportModal';
+import { ProfileEditModal } from '@/components/profile/ProfileEditModal';
 import { apiFetch } from '@/lib/api-client';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -79,6 +82,8 @@ export default function UserProfilePage() {
   const [activeTab, setActiveTab] = useState<'posts' | 'about'>('posts');
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [mediaLightbox, setMediaLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const [listModal, setListModal] = useState<'followers' | 'followings' | null>(null);
   const [listUsers, setListUsers] = useState<RelationUser[]>([]);
@@ -201,34 +206,68 @@ export default function UserProfilePage() {
       </div>
 
       {/* Cover Banner */}
-      <div className="relative h-44 sm:h-52 bg-fill-sc overflow-hidden">
+      <button
+        type="button"
+        onClick={() => {
+          if (profile.cover) {
+            setMediaLightbox({
+              url: profile.cover,
+              label: `${profile.firstName} ${profile.lastName} · Cover`,
+            });
+          }
+        }}
+        className="relative block w-full h-44 sm:h-52 bg-fill-sc overflow-hidden text-left cursor-pointer"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={profile.cover || '/assets/covers/default-cover.png'}
           alt="Profile cover"
+          decoding="async"
+          fetchPriority="high"
           className="h-full w-full object-cover"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
           }}
         />
-      </div>
+      </button>
 
       {/* Profile Header */}
       <div className="px-4 pb-4 border-b border-bord-pr">
         <div className="flex items-end justify-between -mt-12 mb-3">
-          <Avatar
-            src={profile.avatar}
-            alt={profile.username}
-            size="xl"
-            verified={profile.verified}
-            className="ring-4 ring-bg-pr"
-          />
+          <button
+            type="button"
+            onClick={() => {
+              if (profile.avatar) {
+                setMediaLightbox({
+                  url: profile.avatar,
+                  label: `@${profile.username}`,
+                });
+              }
+            }}
+            className="rounded-full cursor-pointer relative z-10"
+            aria-label="Preview profile picture"
+          >
+            <Avatar
+              src={profile.avatar}
+              alt={profile.username}
+              size="xl"
+              verified={profile.verified}
+              className="ring-4 ring-bg-pr"
+            />
+          </button>
 
           <div className="flex items-center gap-2 pt-14">
             {profile.viewerContext.isSelf ? (
-              <Link href="/settings">
-                <Button variant="outline" size="sm">Edit profile</Button>
-              </Link>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                  Edit profile
+                </Button>
+                <Link href="/settings" aria-label="Account settings">
+                  <Button variant="outline" size="icon" title="Account settings">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </>
             ) : (
               <>
                 <Button variant="outline" size="icon" onClick={handleStartChat} title="Send message">
@@ -427,6 +466,32 @@ export default function UserProfilePage() {
         onClose={() => setReportOpen(false)}
         targetType="user"
         targetId={profile.id}
+      />
+
+      {profile.viewerContext.isSelf && editOpen && (
+        <ProfileEditModal
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          initial={{
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            bio: profile.bio || '',
+            caption: profile.caption || '',
+            website: profile.website || '',
+            avatar: profile.avatar || '',
+            cover: profile.cover || '',
+          }}
+          onUpdated={(patch) => {
+            setProfile((prev) => (prev ? { ...prev, ...patch } : prev));
+          }}
+        />
+      )}
+
+      <MediaLightbox
+        open={Boolean(mediaLightbox)}
+        onClose={() => setMediaLightbox(null)}
+        images={mediaLightbox ? [{ url: mediaLightbox.url, alt: mediaLightbox.label }] : []}
+        albumName={mediaLightbox?.label}
       />
     </AppShell>
   );

@@ -132,6 +132,7 @@ interface AppContextValue {
   soundbarTrack: SoundbarTrack | null;
   isAudioPlaying: boolean;
   refreshBootstrap: () => Promise<void>;
+  updateUserPatch: (patch: Partial<BootstrapUser>) => void;
   setTheme: (next: 'light' | 'dark') => Promise<void>;
   toggleTheme: () => Promise<void>;
   setLocale: (next: string) => Promise<void>;
@@ -195,6 +196,25 @@ export function AppProvider({
     },
     []
   );
+
+  const updateUserPatch = useCallback((patch: Partial<BootstrapUser>) => {
+    const cleanPatch = Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined)
+    ) as Partial<BootstrapUser>;
+    setBootstrap((prev) => {
+      if (!prev || !prev.user) return prev;
+      const next: BootstrapData = {
+        ...prev,
+        user: { ...prev.user, ...cleanPatch },
+      };
+      try {
+        sessionStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: next }));
+      } catch {
+        // ignore storage quota errors
+      }
+      return next;
+    });
+  }, []);
 
   const refreshBootstrap = useCallback(async () => {
     try {
@@ -730,6 +750,7 @@ export function AppProvider({
         soundbarTrack,
         isAudioPlaying,
         refreshBootstrap,
+        updateUserPatch,
         setTheme,
         toggleTheme,
         setLocale,

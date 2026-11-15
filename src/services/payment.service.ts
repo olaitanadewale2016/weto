@@ -128,6 +128,13 @@ export async function initiateWalletDeposit(params: {
     if (!acq.stripeStatus || !acq.stripeSecretKey) {
       throw new ValidationError('Stripe payment gateway is not configured.');
     }
+    const zeroDecimalCurrencies = new Set([
+      'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA',
+      'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF',
+    ]);
+    const unitAmount = zeroDecimalCurrencies.has(currency)
+      ? Math.round(params.amount)
+      : Math.round(params.amount * 100);
     const stripe = new Stripe(acq.stripeSecretKey);
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -137,17 +144,20 @@ export async function initiateWalletDeposit(params: {
           price_data: {
             currency: currency.toLowerCase(),
             product_data: { name: `${appCfg.name} Wallet Deposit` },
-            unit_amount: Math.round(params.amount * 100),
+            unit_amount: unitAmount,
           },
           quantity: 1,
         },
       ],
       metadata: { paymentUuid, userId: params.userId, paymentType: PaymentType.DEPOSIT },
-      success_url: `${baseUrl}/wallet?deposit=success&provider=stripe`,
+      success_url: `${baseUrl}/api/v1/payments/callback/stripe?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/wallet?deposit=cancelled`,
     });
+    if (!session.url) {
+      throw new ValidationError('Failed to initialize Stripe checkout session.');
+    }
     referenceId = session.id;
-    checkoutUrl = session.url || `${baseUrl}/wallet`;
+    checkoutUrl = session.url;
   } else if (params.provider === 'paypal') {
     if (!acq.paypalStatus || !acq.paypalClientId || !acq.paypalSecretKey) {
       throw new ValidationError('PayPal payment gateway is not configured.');
@@ -164,8 +174,10 @@ export async function initiateWalletDeposit(params: {
       },
       body: 'grant_type=client_credentials',
     });
-    const tokenJson = (await tokenRes.json()) as { access_token?: string };
-    if (!tokenJson.access_token) throw new ValidationError('Failed to authenticate with PayPal.');
+    const tokenJson = (await tokenRes.json()) as { access_token?: string; error_description?: string };
+    if (!tokenRes.ok || !tokenJson.access_token) {
+      throw new ValidationError(tokenJson.error_description || 'Failed to authenticate with PayPal.');
+    }
 
     const orderRes = await fetch(`${ppBase}/v2/checkout/orders`, {
       method: 'POST',
@@ -188,12 +200,16 @@ export async function initiateWalletDeposit(params: {
       }),
     });
     const orderJson = (await orderRes.json()) as {
-      id: string;
+      id?: string;
+      message?: string;
       links?: Array<{ rel: string; href: string }>;
     };
+    const approveUrl = orderJson.links?.find((l) => l.rel === 'approve')?.href;
+    if (!orderRes.ok || !orderJson.id || !approveUrl) {
+      throw new ValidationError(orderJson.message || 'Failed to initialize PayPal checkout order.');
+    }
     referenceId = orderJson.id;
-    checkoutUrl =
-      orderJson.links?.find((l) => l.rel === 'approve')?.href || `${baseUrl}/wallet`;
+    checkoutUrl = approveUrl;
   } else if (params.provider === 'yoo_kassa') {
     if (!acq.ykStatus || !acq.ykShopId || !acq.ykSecretKey) {
       throw new ValidationError('YooKassa payment gateway is not configured.');
@@ -210,7 +226,7 @@ export async function initiateWalletDeposit(params: {
         amount: { value: params.amount.toFixed(2), currency: ykCurrency },
         confirmation: {
           type: 'redirect',
-          return_url: `${baseUrl}/wallet?deposit=processing&provider=yoo_kassa`,
+          return_url: `${baseUrl}/api/v1/payments/callback/yookassa?paymentUuid=${paymentUuid}`,
         },
         capture: true,
         description: `${appCfg.name} Wallet Deposit`,
@@ -218,11 +234,15 @@ export async function initiateWalletDeposit(params: {
       }),
     });
     const ykJson = (await res.json()) as {
-      id: string;
+      id?: string;
+      description?: string;
       confirmation?: { confirmation_url?: string };
     };
+    if (!res.ok || !ykJson.id || !ykJson.confirmation?.confirmation_url) {
+      throw new ValidationError(ykJson.description || 'Failed to initialize YooKassa payment.');
+    }
     referenceId = ykJson.id;
-    checkoutUrl = ykJson.confirmation?.confirmation_url || `${baseUrl}/wallet`;
+    checkoutUrl = ykJson.confirmation.confirmation_url;
   } else if (params.provider === 'robokassa') {
     if (!acq.rkStatus || !acq.rkMerchantLogin || !acq.rkPassOne) {
       throw new ValidationError('RoboKassa payment gateway is not configured.');

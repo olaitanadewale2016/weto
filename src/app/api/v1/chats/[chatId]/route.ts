@@ -92,7 +92,10 @@ const sendMessageSchema = z.object({
     .object({
       kind: z.enum(['product', 'job']),
       id: z.string(),
+      hashId: z.string().optional(),
       title: z.string(),
+      priceLabel: z.string().optional(),
+      imageUrl: z.string().optional(),
     })
     .optional(),
 });

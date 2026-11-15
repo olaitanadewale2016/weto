@@ -36,6 +36,7 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
@@ -102,7 +103,14 @@ interface ChatMessage {
     filename?: string;
   } | null;
   linkSnapshot?: { url: string; title?: string; description?: string; domain?: string } | null;
-  contextRef?: { kind: 'product' | 'job'; id: string; title: string } | null;
+  contextRef?: {
+    kind: 'product' | 'job';
+    id: string;
+    hashId?: string;
+    title: string;
+    priceLabel?: string;
+    imageUrl?: string;
+  } | null;
   reactionSummary?: Array<{ unifiedId: string; nativeSymbol: string; count: number }>;
   deliveredTo?: string[];
   readBy?: string[];
@@ -1121,6 +1129,28 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       ? bootstrap?.config?.logos?.dark || '/assets/logos/dark.png'
       : bootstrap?.config?.logos?.light || '/assets/logos/light.png';
 
+  const chatMediaImages = messages
+    .filter(
+      (msg) =>
+        !msg.isDeleted &&
+        (msg.type === 'image' || msg.type === 'gif') &&
+        Boolean(msg.media?.publicUrl || msg.media?.url)
+    )
+    .map((msg) => ({
+      url: String(msg.media?.publicUrl || msg.media?.url || ''),
+      alt: msg.media?.filename || (msg.type === 'gif' ? 'GIF' : 'Attachment'),
+    }));
+  const matchedLightboxIdx = lightboxImageUrl
+    ? chatMediaImages.findIndex((item) => item.url === lightboxImageUrl)
+    : -1;
+  const lightboxItems =
+    chatMediaImages.length > 0 && matchedLightboxIdx >= 0
+      ? chatMediaImages
+      : lightboxImageUrl
+        ? [{ url: lightboxImageUrl, alt: 'Attachment preview' }]
+        : [];
+  const lightboxInitialIndex = matchedLightboxIdx >= 0 ? matchedLightboxIdx : 0;
+
   const renderMessageBody = (m: ChatMessage, variant: 'desktop' | 'mobile-mine' | 'mobile-other') => {
     if (m.isDeleted) {
       return <p className="text-cap-l italic text-lab-sc">Message deleted</p>;
@@ -1149,6 +1179,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   <img
                     src={mediaUrl}
                     alt={m.media?.filename || (m.type === 'gif' ? 'GIF' : 'Image attachment')}
+                    loading="lazy"
+                    decoding="async"
                     className="max-h-72 max-w-full object-cover"
                   />
                 </button>
@@ -1241,11 +1273,42 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           </a>
         )}
 
-        {m.contextRef?.title && (
-          <div className={cn('rounded-xl px-2.5 py-1.5 border text-cap-s font-medium text-lab-sc max-w-md', boxClass)}>
-            {m.contextRef.kind === 'product' ? 'Product' : 'Job'}: {m.contextRef.title}
-          </div>
-        )}
+        {m.contextRef?.title && (() => {
+          const refHref =
+            m.contextRef.kind === 'product'
+              ? `/marketplace/product/${encodeURIComponent(m.contextRef.hashId || m.contextRef.id)}`
+              : '/jobs';
+          return (
+            <Link
+              href={refHref}
+              className={cn(
+                'flex items-center gap-2.5 rounded-xl p-2 border transition-opacity hover:opacity-90 max-w-md text-left',
+                boxClass
+              )}
+            >
+              {m.contextRef.imageUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={m.contextRef.imageUrl}
+                  alt={m.contextRef.title}
+                  loading="lazy"
+                  decoding="async"
+                  className="size-11 rounded-lg object-cover shrink-0 bg-fill-qt"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] uppercase tracking-wide font-semibold text-lab-sc">
+                  {m.contextRef.kind === 'product' ? 'Marketplace Product' : 'Job Listing'}
+                </p>
+                <p className="text-cap-l font-semibold text-lab-pr truncate">{m.contextRef.title}</p>
+                {m.contextRef.priceLabel ? (
+                  <p className="text-cap-s font-semibold text-brand-900">{m.contextRef.priceLabel}</p>
+                ) : null}
+              </div>
+              <ExternalLink className="h-3.5 w-3.5 text-lab-sc shrink-0" />
+            </Link>
+          );
+        })()}
       </>
     );
   };
@@ -2551,33 +2614,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </Modal>
       )}
 
-      {/* Lightbox Image Preview */}
-      {lightboxImageUrl && (
-        <Modal
-          open={Boolean(lightboxImageUrl)}
-          onClose={() => setLightboxImageUrl(null)}
-          title="Attachment Preview"
-          maxWidthClass="max-w-3xl"
-        >
-          <div className="flex flex-col items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={lightboxImageUrl}
-              alt="Full size attachment"
-              className="max-h-[75vh] w-auto rounded-2xl object-contain"
-            />
-            <a
-              href={lightboxImageUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              download
-              className="inline-flex items-center gap-1.5 text-cap-l font-semibold text-brand-900 hover:underline"
-            >
-              <FileDown className="h-4 w-4" /> Open / Download original
-            </a>
-          </div>
-        </Modal>
-      )}
+      {/* Fullscreen PHP-parity Media Lightbox */}
+      <MediaLightbox
+        open={Boolean(lightboxImageUrl)}
+        onClose={() => setLightboxImageUrl(null)}
+        images={lightboxItems}
+        initialIndex={lightboxInitialIndex}
+        albumName={activeTitle}
+      />
     </div>
   );
 }

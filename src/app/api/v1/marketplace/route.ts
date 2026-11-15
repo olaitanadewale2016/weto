@@ -27,8 +27,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') || '').trim();
     const categoryId = searchParams.get('categoryId');
+    const categoriesParam = searchParams.get('categories');
     const condition = searchParams.get('condition');
+    const conditionsParam = searchParams.get('conditions');
     const type = searchParams.get('type');
+    const typesParam = searchParams.get('types');
+    const currenciesParam = searchParams.get('currencies');
+    const priceFromRaw = searchParams.get('priceFrom');
+    const priceToRaw = searchParams.get('priceTo');
+    const withDiscount = searchParams.get('withDiscount') === 'true';
     const savedOnly = searchParams.get('saved') === 'true';
     const mine = searchParams.get('mine') === 'true';
     const page = Math.max(1, Number(searchParams.get('page') || 1));
@@ -42,9 +49,48 @@ export async function GET(req: NextRequest) {
       filter.approval = ProductApproval.APPROVED;
     }
 
-    if (categoryId) filter.categoryId = new Types.ObjectId(categoryId);
-    if (condition) filter.condition = condition;
-    if (type) filter.type = type;
+    if (categoriesParam) {
+      const catIds = categoriesParam
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id));
+      if (catIds.length > 0) filter.categoryId = { $in: catIds };
+    } else if (categoryId && Types.ObjectId.isValid(categoryId)) {
+      filter.categoryId = new Types.ObjectId(categoryId);
+    }
+
+    if (conditionsParam) {
+      const conds = conditionsParam.split(',').map((s) => s.trim()).filter(Boolean);
+      if (conds.length > 0) filter.condition = { $in: conds };
+    } else if (condition) {
+      filter.condition = condition;
+    }
+
+    if (typesParam) {
+      const types = typesParam.split(',').map((s) => s.trim()).filter(Boolean);
+      if (types.length > 0) filter.type = { $in: types };
+    } else if (type) {
+      filter.type = type;
+    }
+
+    if (currenciesParam) {
+      const currs = currenciesParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+      if (currs.length > 0) filter.currency = { $in: currs };
+    }
+
+    const priceRange: Record<string, number> = {};
+    if (priceFromRaw !== null && priceFromRaw.trim() !== '') {
+      const n = Number(priceFromRaw);
+      if (Number.isFinite(n) && n >= 0) priceRange.$gte = n;
+    }
+    if (priceToRaw !== null && priceToRaw.trim() !== '') {
+      const n = Number(priceToRaw);
+      if (Number.isFinite(n) && n >= 0) priceRange.$lte = n;
+    }
+    if (Object.keys(priceRange).length > 0) filter.price = priceRange;
+
+    if (withDiscount) filter.discount = { $gt: 0 };
 
     if (savedOnly && authCtx) {
       const bms = await Bookmark.find({ userId: authCtx.user._id, targetType: 'product' }).lean();

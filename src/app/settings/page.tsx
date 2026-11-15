@@ -92,8 +92,9 @@ interface GeoSummary {
 }
 
 export default function SettingsPage() {
-  const { user, refreshBootstrap, setTheme, setLocale, bootstrap, logout } = useApp();
+  const { user, refreshBootstrap, updateUserPatch, setTheme, setLocale, bootstrap, logout } = useApp();
   const { error, success } = useToast();
+  const currentUserId = user?.id;
 
   const [tab, setTab] = useState('account');
   const [mobileInDetail, setMobileInDetail] = useState(false);
@@ -117,34 +118,37 @@ export default function SettingsPage() {
   const [geo, setGeo] = useState<GeoSummary | null>(null);
   const [terminatingDevices, setTerminatingDevices] = useState(false);
 
-  const loadSettings = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const [res, devRes, geoRes] = await Promise.all([
-        apiFetch<SettingsPayload>('/settings'),
-        apiFetch<DeviceSession[]>('/devices').catch(() => []),
-        apiFetch<GeoSummary>('/geo').catch(() => null),
-      ]);
-      setData(res);
-      setAccountForm(res.profile);
-      setPrivacyForm(res.privacySettings || {});
-      setPermitsForm(res.permitSettings || {});
-      setNotifForm(res.notificationSettings || { email: {}, push: {} });
-      const linksMap: Record<string, string> = {};
-      for (const s of res.socialLinks || []) linksMap[s.platform] = s.url;
-      setSocialForm(linksMap);
-      setDevices(Array.isArray(devRes) ? devRes : []);
-      if (geoRes) setGeo(geoRes);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const loadSettings = useCallback(
+    async (silent = false) => {
+      if (!currentUserId) {
+        setLoading(false);
+        return;
+      }
+      if (!silent) setLoading(true);
+      try {
+        const [res, devRes, geoRes] = await Promise.all([
+          apiFetch<SettingsPayload>('/settings'),
+          apiFetch<DeviceSession[]>('/devices').catch(() => []),
+          apiFetch<GeoSummary>('/geo').catch(() => null),
+        ]);
+        setData(res);
+        setAccountForm(res.profile);
+        setPrivacyForm(res.privacySettings || {});
+        setPermitsForm(res.permitSettings || {});
+        setNotifForm(res.notificationSettings || { email: {}, push: {} });
+        const linksMap: Record<string, string> = {};
+        for (const s of res.socialLinks || []) linksMap[s.platform] = s.url;
+        setSocialForm(linksMap);
+        setDevices(Array.isArray(devRes) ? devRes : []);
+        if (geoRes) setGeo(geoRes);
+      } catch {
+        // ignore
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [currentUserId]
+  );
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -160,9 +164,21 @@ export default function SettingsPage() {
         method: 'PATCH',
         json: { section, data: payload },
       });
+      if (section === 'account') {
+        updateUserPatch({
+          firstName: typeof payload.firstName === 'string' ? payload.firstName.trim() : undefined,
+          lastName: typeof payload.lastName === 'string' ? payload.lastName.trim() : undefined,
+          username: typeof payload.username === 'string' ? payload.username.toLowerCase().trim() : undefined,
+          bio: typeof payload.bio === 'string' ? payload.bio.trim() : undefined,
+          country: typeof payload.country === 'string' ? payload.country : undefined,
+          city: typeof payload.city === 'string' ? payload.city.trim() : undefined,
+        });
+      } else if ((section === 'avatar' || section === 'cover') && typeof payload.url === 'string') {
+        updateUserPatch({ [section]: payload.url });
+      }
       success(msg);
-      await refreshBootstrap();
-      await loadSettings();
+      void refreshBootstrap();
+      void loadSettings(true);
       return res;
     } catch (err) {
       error('Could not save settings', err instanceof Error ? err.message : undefined);
@@ -177,17 +193,24 @@ export default function SettingsPage() {
     e.target.value = '';
     if (!file) return;
     setUploadingImage(kind);
+    const localPreview = URL.createObjectURL(file);
+    setAccountForm((prev) => (prev ? { ...prev, [kind]: localPreview } : prev));
+    updateUserPatch({ [kind]: localPreview });
     try {
       const up = await uploadFileToR2(
         file,
         kind === 'avatar' ? 'avatars' : 'covers',
         kind === 'avatar' ? 'user_avatar' : 'user_cover'
       );
+      setAccountForm((prev) => (prev ? { ...prev, [kind]: up.publicUrl } : prev));
+      updateUserPatch({ [kind]: up.publicUrl });
       await patchSection(kind, { url: up.publicUrl }, `${kind === 'avatar' ? 'Avatar' : 'Cover'} updated!`);
     } catch (err) {
       error('Upload failed', err instanceof Error ? err.message : undefined);
+      void loadSettings(true);
     } finally {
       setUploadingImage(null);
+      URL.revokeObjectURL(localPreview);
     }
   }
 

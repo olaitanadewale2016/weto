@@ -13,11 +13,11 @@ export async function GET(req: NextRequest) {
       throw new ValidationError('Invalid R2 object key');
     }
 
-    const signedUrl = await createPresignedDownloadUrl(key, 300);
+    const signedUrl = await createPresignedDownloadUrl(key, 604800);
     return NextResponse.redirect(signedUrl, {
       status: 302,
       headers: {
-        'Cache-Control': 'private, max-age=240',
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=86400',
       },
     });
   } catch (err) {

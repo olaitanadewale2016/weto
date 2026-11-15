@@ -130,16 +130,28 @@ export default function WalletPage() {
     const qs = new URLSearchParams(window.location.search);
     const depositStatus = qs.get('deposit');
     if (depositStatus) {
+      let timerId: ReturnType<typeof setTimeout> | null = null;
       if (depositStatus === 'success') {
         success('Wallet deposit completed!');
+        timerId = setTimeout(() => {
+          void loadWallet();
+        }, 0);
+      } else if (depositStatus === 'processing') {
+        info('Payment is being confirmed and will reflect in your balance shortly.');
+        timerId = setTimeout(() => {
+          void loadWallet();
+        }, 0);
       } else if (depositStatus === 'cancelled') {
         info('Deposit was cancelled.');
       } else {
         error('Deposit could not be completed.');
       }
       window.history.replaceState(null, '', '/wallet');
+      return () => {
+        if (timerId) clearTimeout(timerId);
+      };
     }
-  }, [success, info, error]);
+  }, [success, info, error, loadWallet]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -349,22 +361,33 @@ export default function WalletPage() {
             <div className="space-y-2">
               <h2 className="text-par-m font-bold text-lab-pr">Withdrawal Requests</h2>
               <div className="space-y-2">
-                {data.cashouts.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center justify-between rounded-2xl border border-bord-pr p-3.5"
-                  >
-                    <div>
-                      <p className="text-par-n font-semibold text-lab-pr">
-                        {formatCurrency(c.amount, c.currency, bootstrap?.currencies, locale)} · {c.paymentMethod}
-                      </p>
-                      <p className="text-cap-s text-lab-sc">{formatLocalizedDate(c.createdAt, locale)}</p>
+                {data.cashouts.map((c) => {
+                  const st = String(c.status || '').toLowerCase();
+                  const badgeVariant =
+                    st === 'paid' || st === 'approved'
+                      ? 'success'
+                      : st === 'rejected' || st === 'declined' || st === 'cancelled'
+                        ? 'danger'
+                        : 'brand';
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between rounded-2xl border border-bord-pr p-3.5"
+                    >
+                      <div className="min-w-0 pr-3">
+                        <p className="text-par-n font-semibold text-lab-pr truncate">
+                          {formatCurrency(c.amount, c.currency, bootstrap?.currencies, locale)} · {c.paymentMethod.replace(/_/g, ' ')}
+                        </p>
+                        <p className="text-cap-s text-lab-sc truncate">
+                          {formatLocalizedDate(c.createdAt, locale)}
+                        </p>
+                      </div>
+                      <Badge variant={badgeVariant} className="capitalize shrink-0">
+                        {c.status}
+                      </Badge>
                     </div>
-                    <Badge variant={c.status === 'approved' ? 'success' : c.status === 'declined' ? 'danger' : 'brand'}>
-                      {c.status}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -387,8 +410,8 @@ export default function WalletPage() {
                     type="button"
                     onClick={() => setTxFilter(pill.key)}
                     className={`px-3 py-1 rounded-full text-cap-s font-semibold transition-colors cursor-pointer ${txFilter === pill.key
-                        ? 'bg-brand-900 text-white'
-                        : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                      ? 'bg-brand-900 text-white'
+                      : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
                       }`}
                   >
                     {pill.label}
@@ -403,7 +426,11 @@ export default function WalletPage() {
                 if (txFilter === 'transfer') {
                   return tx.transactionType === 'transfer' || tx.transactionType === 'transfer_in';
                 }
-                return tx.transactionType === 'withdrawal' || tx.transactionType === 'refund';
+                return (
+                  tx.transactionType === 'withdraw' ||
+                  tx.transactionType === 'withdrawal' ||
+                  tx.transactionType === 'refund'
+                );
               });
               if (filtered.length === 0) {
                 return (
@@ -473,11 +500,11 @@ export default function WalletPage() {
               <div className="text-right">
                 <p
                   className={`text-par-l font-bold ${selectedTx.direction === 'incoming' ||
-                      selectedTx.transactionType === 'deposit' ||
-                      selectedTx.transactionType === 'refund' ||
-                      selectedTx.transactionType === 'transfer_in'
-                      ? 'text-green-900'
-                      : 'text-lab-pr'
+                    selectedTx.transactionType === 'deposit' ||
+                    selectedTx.transactionType === 'refund' ||
+                    selectedTx.transactionType === 'transfer_in'
+                    ? 'text-green-900'
+                    : 'text-lab-pr'
                     }`}
                 >
                   {selectedTx.direction === 'incoming' ||
@@ -614,9 +641,9 @@ export default function WalletPage() {
                           setRecipientPreview(rec);
                         }}
                         className={`flex items-center gap-2 rounded-full border px-2.5 py-1 text-cap-s shrink-0 cursor-pointer transition-colors ${recipient === rec.walletNumber ||
-                            recipient.replace(/^@/, '').toLowerCase() === rec.user.username.toLowerCase()
-                            ? 'border-brand-900 bg-brand-900/10 text-lab-pr'
-                            : 'border-bord-pr bg-fill-qt text-lab-sc hover:text-lab-pr'
+                          recipient.replace(/^@/, '').toLowerCase() === rec.user.username.toLowerCase()
+                          ? 'border-brand-900 bg-brand-900/10 text-lab-pr'
+                          : 'border-bord-pr bg-fill-qt text-lab-sc hover:text-lab-pr'
                           }`}
                       >
                         <Avatar src={rec.user.avatar} alt={rec.user.username} size="xs" />
