@@ -11,6 +11,7 @@ import crypto from 'crypto';
 
 export const SESSION_COOKIE_NAME = '__session';
 export const ACTIVE_ACCOUNT_COOKIE_NAME = 'cp_active_account';
+export const PREVIOUS_ACCOUNT_COOKIE_NAME = 'cp_prev_account';
 
 export interface AuthContext {
   user: IUserDocument;

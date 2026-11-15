@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { AccountSwitcherModal } from '@/components/modals/AccountSwitcherModal';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, normalizeCoverSrc } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -398,7 +398,17 @@ export default function SettingsPage() {
                   {accountForm.cover && (
                     <div className="h-28 w-full bg-fill-qt overflow-hidden border-b border-bord-pr">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={accountForm.cover} alt="Profile cover" className="h-full w-full object-cover" />
+                      <img
+                        src={normalizeCoverSrc(accountForm.cover)}
+                        alt="Profile cover"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                            e.currentTarget.dataset.fallbackApplied = '1';
+                            e.currentTarget.src = '/assets/covers/default-cover.png';
+                          }
+                        }}
+                      />
                     </div>
                   )}
                   <div className="flex flex-wrap items-center gap-4 p-4">

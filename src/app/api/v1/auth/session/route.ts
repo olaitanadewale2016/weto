@@ -6,6 +6,7 @@ import { User } from '@/models/User';
 import { Device } from '@/models/Device';
 import {
   ACTIVE_ACCOUNT_COOKIE_NAME,
+  PREVIOUS_ACCOUNT_COOKIE_NAME,
   SESSION_COOKIE_NAME,
   assertIpNotBlacklisted,
   getClientIp,
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
       maxAge: Math.floor(expiresInMs / 1000),
     });
     response.cookies.delete(ACTIVE_ACCOUNT_COOKIE_NAME);
+    response.cookies.delete(PREVIOUS_ACCOUNT_COOKIE_NAME);
 
     return response;
   } catch (err) {
@@ -198,6 +200,7 @@ export async function DELETE() {
   const response = apiSuccess({ loggedOut: true });
   response.cookies.delete(SESSION_COOKIE_NAME);
   response.cookies.delete(ACTIVE_ACCOUNT_COOKIE_NAME);
+  response.cookies.delete(PREVIOUS_ACCOUNT_COOKIE_NAME);
   return response;
 }
 

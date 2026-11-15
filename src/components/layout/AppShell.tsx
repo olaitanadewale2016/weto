@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   PlusSquare,
   Radio,
+  RotateCcw,
   Search,
   Settings,
   ShieldCheck,
@@ -39,6 +40,8 @@ import { Soundbar } from './Soundbar';
 import { AccountSwitcherModal } from '@/components/modals/AccountSwitcherModal';
 import { HotkeysModal } from '@/components/modals/HotkeysModal';
 import { DeviceSwitcherOverlay } from './DeviceSwitcherOverlay';
+import { clearBootstrapCache } from '@/components/providers/AppContext';
+import { apiFetch } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 export function AppShell({
@@ -56,8 +59,27 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading, bootstrap, theme, toggleTheme, counters, logout, dict } = useApp();
+  const { user, loading, bootstrap, theme, toggleTheme, counters, logout, refreshBootstrap, dict } =
+    useApp();
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [switchingBack, setSwitchingBack] = useState(false);
+
+  async function handleQuickSwitchBack() {
+    if (!bootstrap?.previousAccount || switchingBack) return;
+    setSwitchingBack(true);
+    try {
+      await apiFetch('/api/v1/auth/accounts', {
+        method: 'POST',
+        json: { action: 'switch_back' },
+      });
+      clearBootstrapCache();
+      await refreshBootstrap();
+      window.location.reload();
+    } catch {
+      setSwitchingBack(false);
+      setSwitcherOpen(true);
+    }
+  }
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [mobileCreateOpen, setMobileCreateOpen] = useState(false);
@@ -416,6 +438,19 @@ export function AppShell({
                         <Keyboard className="size-4 text-lab-sc" />
                         <span>Keyboard shortcuts</span>
                       </button>
+                      {user && bootstrap?.previousAccount && (
+                        <button
+                          type="button"
+                          disabled={switchingBack}
+                          onClick={handleQuickSwitchBack}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-brand-900 font-medium hover:bg-fill-qt cursor-pointer disabled:opacity-60"
+                        >
+                          <RotateCcw className="size-4 shrink-0" />
+                          <span className="truncate">
+                            Switch back to @{bootstrap.previousAccount.username}
+                          </span>
+                        </button>
+                      )}
                       {user && (
                         <button
                           type="button"
@@ -663,6 +698,16 @@ export function AppShell({
                   router.push('/settings');
                 }}
               />
+              {bootstrap?.previousAccount && (
+                <ActionSheetItem
+                  label={`Switch back to @${bootstrap.previousAccount.username}`}
+                  icon={RotateCcw}
+                  onClick={() => {
+                    setMobileHeaderMenuOpen(false);
+                    void handleQuickSwitchBack();
+                  }}
+                />
+              )}
               <ActionSheetItem
                 label="Switch account"
                 icon={Users}

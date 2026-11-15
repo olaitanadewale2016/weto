@@ -543,15 +543,15 @@ export async function GET(req: NextRequest) {
         mFilter.type = filterParam;
       }
       if (re) {
-        mFilter.$or = [{ key: re }, { targetType: re }, { storageProvider: re }];
+        mFilter.$or = [{ r2Key: re }, { externalUrl: re }, { targetType: re }, { storageProvider: re }];
       }
       const [stats, rawMedia, totalFiles, sizeAgg, providerAgg] = await Promise.all([
         DataStat.find({}).lean(),
         Media.find(mFilter).sort({ createdAt: -1 }).limit(50).populate('ownerId', 'username').lean(),
         Media.countDocuments({}),
-        Media.aggregate([{ $group: { _id: null, bytes: { $sum: '$size' } } }]),
+        Media.aggregate([{ $group: { _id: null, bytes: { $sum: '$sizeBytes' } } }]),
         Media.aggregate([
-          { $group: { _id: '$storageProvider', count: { $sum: 1 }, bytes: { $sum: '$size' } } },
+          { $group: { _id: '$storageProvider', count: { $sum: 1 }, bytes: { $sum: '$sizeBytes' } } },
         ]),
       ]);
       const recentMedia = rawMedia.map((m) => ({

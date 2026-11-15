@@ -376,7 +376,11 @@ export async function deleteMediaRecord(mediaId: string) {
 
 export function serializeMedia(media: IMediaDocument) {
   const resolvedUrl =
-    media.storageProvider === 'external' ? media.externalUrl || '' : getPublicR2Url(media.r2Key);
+    media.storageProvider === 'external'
+      ? getPublicR2Url(media.externalUrl) || ''
+      : getPublicR2Url(media.r2Key);
+  const rawThumb =
+    media.thumbnailR2Key || (media.metadata?.thumbnailUrl as string | undefined) || '';
   return {
     id: String(media._id),
     type: media.type,
@@ -391,9 +395,7 @@ export function serializeMedia(media: IMediaDocument) {
     lqipBase64: media.lqipBase64 || null,
     url: resolvedUrl,
     publicUrl: resolvedUrl,
-    thumbnailUrl: media.thumbnailR2Key
-      ? getPublicR2Url(media.thumbnailR2Key)
-      : ((media.metadata?.thumbnailUrl as string | undefined) ?? null),
+    thumbnailUrl: rawThumb ? getPublicR2Url(rawThumb) : null,
     metadata: media.metadata,
   };
 }

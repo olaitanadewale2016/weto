@@ -7,6 +7,7 @@ import {
   Link2,
   Loader2,
   Plus,
+  RotateCcw,
   ShieldCheck,
   Unlink,
   UserCheck,
@@ -34,8 +35,18 @@ export interface LinkedAccount {
   status?: string;
   isActive: boolean;
   isMaster?: boolean;
+  isPrevious?: boolean;
   canSwitch?: boolean;
   canUnlink?: boolean;
+}
+
+interface PreviousAccountInfo {
+  id: string;
+  username: string;
+  fullName: string;
+  avatar: string;
+  verified?: boolean;
+  isMaster?: boolean;
 }
 
 interface AccountsOverviewResponse {
@@ -46,6 +57,7 @@ interface AccountsOverviewResponse {
   linkEnabled: boolean;
   maxLinkedAccounts: number;
   canAddMore: boolean;
+  previousAccount?: PreviousAccountInfo | null;
   accounts: LinkedAccount[];
 }
 
@@ -76,6 +88,7 @@ export function AccountManagerPanel({
   const { success, error } = useToast();
 
   const [accounts, setAccounts] = useState<LinkedAccount[]>([]);
+  const [previousAccount, setPreviousAccount] = useState<PreviousAccountInfo | null>(null);
   const [meta, setMeta] = useState<{
     isMasterSession: boolean;
     switchEnabled: boolean;
@@ -115,6 +128,7 @@ export function AccountManagerPanel({
     try {
       const data = await apiFetch<AccountsOverviewResponse>('/api/v1/auth/accounts');
       setAccounts(data.accounts || []);
+      setPreviousAccount(data.previousAccount ?? null);
       setMeta({
         isMasterSession: data.isMasterSession ?? true,
         switchEnabled: data.switchEnabled ?? true,
@@ -170,6 +184,21 @@ export function AccountManagerPanel({
       await finalizeAccountTransition(`Switched to @${acc.username}`);
     } catch (err) {
       error(err instanceof Error ? err.message : 'Unable to switch accounts.');
+      setSwitchingId(null);
+    }
+  }
+
+  async function switchBackToPrevious() {
+    if (!previousAccount || switchingId) return;
+    setSwitchingId(previousAccount.id);
+    try {
+      const res = await apiFetch<{ username?: string }>('/api/v1/auth/accounts', {
+        method: 'POST',
+        json: { action: 'switch_back' },
+      });
+      await finalizeAccountTransition(`Switched back to @${res.username || previousAccount.username}`);
+    } catch (err) {
+      error(err instanceof Error ? err.message : 'Unable to switch back to previous account.');
       setSwitchingId(null);
     }
   }
@@ -433,6 +462,36 @@ export function AccountManagerPanel({
 
   return (
     <div className="space-y-4">
+      {previousAccount && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-brand-900/25 bg-brand-900/5 p-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Avatar
+              src={previousAccount.avatar}
+              alt={previousAccount.username}
+              size="sm"
+              verified={previousAccount.verified}
+            />
+            <div className="min-w-0">
+              <p className="text-cap-s text-lab-sc">Previous account</p>
+              <p className="text-par-s font-semibold text-lab-pr truncate">
+                @{previousAccount.username}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={switchingId === previousAccount.id}
+            disabled={Boolean(switchingId)}
+            onClick={switchBackToPrevious}
+            className="shrink-0"
+          >
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            Switch back
+          </Button>
+        </div>
+      )}
+
       {!meta.isMasterSession && (
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-cap-l text-amber-800 dark:text-amber-300">
           <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
@@ -508,6 +567,11 @@ export function AccountManagerPanel({
                         {acc.isMaster && (
                           <Badge variant="outline" className="text-[11px] px-1.5 py-0">
                             Master account
+                          </Badge>
+                        )}
+                        {acc.isPrevious && !acc.isActive && (
+                          <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                            Previous
                           </Badge>
                         )}
                         {acc.isActive && (

@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
-import { getOptionalAuth } from '@/lib/auth/session';
+import { getOptionalAuth, PREVIOUS_ACCOUNT_COOKIE_NAME } from '@/lib/auth/session';
 import { apiError, apiSuccess } from '@/lib/api-response';
 import { getPublicBootstrapConfig } from '@/services/settings.service';
 import { Notification } from '@/models/Notification';
 import { Chat, Message } from '@/models/Messaging';
 import { Currency, Locale } from '@/models/System';
+import { User } from '@/models/User';
+import { UserStatus } from '@/types/enums';
 import { connectDB } from '@/lib/db';
 import { ensureDefaultCurrenciesAndLocales } from '@/services/localization-seed.service';
 
@@ -22,13 +24,58 @@ export async function GET(req: NextRequest) {
     let unreadNotifications = 0;
     let unreadMessages = 0;
     let userPayload = null;
+    let previousAccountPayload: {
+      id: string;
+      username: string;
+      fullName: string;
+      avatar: string;
+      isMaster: boolean;
+    } | null = null;
 
     if (authCtx?.user) {
       const u = authCtx.user;
-      const [notifCount, chats] = await Promise.all([
+      const masterId = u.ownerAccountId || u._id;
+      const prevCookieId = req.cookies.get(PREVIOUS_ACCOUNT_COOKIE_NAME)?.value;
+      const shouldResolvePrev =
+        (Boolean(prevCookieId) && prevCookieId !== String(u._id)) || Boolean(u.ownerAccountId);
+
+      const [notifCount, chats, prevCandidate] = await Promise.all([
         Notification.countDocuments({ userId: u._id, readAt: null }),
         Chat.find({ 'participants.userId': u._id }).select('_id participants').lean(),
+        shouldResolvePrev
+          ? User.findOne({
+              _id: prevCookieId && prevCookieId !== String(u._id) ? prevCookieId : masterId,
+              deletedAt: null,
+              status: { $nin: [UserStatus.BLOCKED, UserStatus.SUSPENDED] },
+              $or: [{ _id: masterId }, { ownerAccountId: masterId }],
+            })
+              .select('username firstName lastName avatar ownerAccountId')
+              .lean()
+          : Promise.resolve(null),
       ]);
+
+      let resolvedPrev = prevCandidate;
+      if (!resolvedPrev && u.ownerAccountId) {
+        resolvedPrev = await User.findOne({
+          _id: masterId,
+          deletedAt: null,
+          status: { $nin: [UserStatus.BLOCKED, UserStatus.SUSPENDED] },
+        })
+          .select('username firstName lastName avatar ownerAccountId')
+          .lean();
+      }
+      if (resolvedPrev && String(resolvedPrev._id) !== String(u._id)) {
+        previousAccountPayload = {
+          id: String(resolvedPrev._id),
+          username: resolvedPrev.username,
+          fullName:
+            `${resolvedPrev.firstName || ''} ${resolvedPrev.lastName || ''}`.trim() ||
+            resolvedPrev.username,
+          avatar: resolvedPrev.avatar || '',
+          isMaster: !resolvedPrev.ownerAccountId,
+        };
+      }
+
       unreadNotifications = notifCount;
 
       const chatConditions = chats
@@ -94,6 +141,7 @@ export async function GET(req: NextRequest) {
       currencies: normalizedCurrencies,
       locales: normalizedLocales,
       user: userPayload,
+      previousAccount: previousAccountPayload,
       counters: {
         unreadNotifications,
         unreadMessages,

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, AlertCircle, X } from 'lucide-react';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { cn } from '@/lib/utils';
 
 export interface LightboxImageItem {
@@ -226,7 +227,7 @@ function MediaLightboxInner({
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               key={active.url}
-              src={active.url}
+              src={resolveMediaUrl(active.url) || active.url}
               alt={active.alt || albumName || 'Media preview'}
               decoding="async"
               fetchPriority="high"

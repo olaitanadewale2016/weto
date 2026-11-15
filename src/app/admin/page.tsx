@@ -967,7 +967,14 @@ const portalHeaderControls = (
                                     <FileText className="h-5 w-5 text-lab-sc" />
                                   ) : m.url ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={m.url} alt="" className="h-full w-full object-cover" />
+                                    <img
+                                      src={m.url}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
                                   ) : null}
                                 </div>
                                 <div className="min-w-0">

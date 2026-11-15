@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Bookmark } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/currency';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useApp } from '@/components/providers/AppContext';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +52,7 @@ export function ProductCard({ product, onToggleBookmark }: ProductCardProps) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={product.previewImageUrl}
+          src={resolveMediaUrl(product.previewImageUrl) || '/assets/products/default-preview.png'}
           alt={product.title}
           loading="lazy"
           decoding="async"

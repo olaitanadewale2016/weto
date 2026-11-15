@@ -6,7 +6,8 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { getServerEnv, publicEnv } from './env';
+import { getServerEnv } from './env';
+import { resolveMediaUrl } from './media-url';
 import crypto from 'crypto';
 
 let r2Client: S3Client | null = null;
@@ -130,6 +131,18 @@ export async function headR2Object(key: string) {
   );
 }
 
+export async function getR2Object(key: string, range?: string) {
+  const env = getServerEnv();
+  const client = getR2Client();
+  return client.send(
+    new GetObjectCommand({
+      Bucket: env.R2_BUCKET_NAME,
+      Key: key,
+      ...(range ? { Range: range } : {}),
+    })
+  );
+}
+
 export async function putR2Buffer(params: {
   key: string;
   body: Buffer | Uint8Array;
@@ -167,11 +180,5 @@ export async function deleteR2Object(key: string) {
 }
 
 export function getPublicR2Url(key?: string | null): string {
-  if (!key) return '';
-  if (key.startsWith('http://') || key.startsWith('https://') || key.startsWith('/')) {
-    return key;
-  }
-  const base = publicEnv.r2PublicUrl.replace(/\/+$/, '');
-  if (!base) return `/api/v1/media/proxy?key=${encodeURIComponent(key)}`;
-  return `${base}/${key.replace(/^\/+/, '')}`;
+  return resolveMediaUrl(key);
 }

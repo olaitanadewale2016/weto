@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useToast } from '@/components/providers/ToastProvider';
 
 export default function BusinessSettingsPage() {
@@ -141,7 +142,7 @@ export default function BusinessSettingsPage() {
             <label className="block text-cap-l font-semibold text-lab-pr">Business Logo</label>
             {logo && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="Business logo" className="h-14 w-14 rounded-xl object-cover border border-bord-pr" />
+              <img src={resolveMediaUrl(logo) || logo} alt="Business logo" className="h-14 w-14 rounded-xl object-cover border border-bord-pr" />
             )}
             <input type="file" accept="image/*" onChange={(e) => uploadAsset('logo', e)} className="text-cap-l block w-full" />
           </div>
@@ -149,7 +150,7 @@ export default function BusinessSettingsPage() {
             <label className="block text-cap-l font-semibold text-lab-pr">Cover Banner</label>
             {cover && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cover} alt="Business cover" className="h-14 w-full rounded-xl object-cover border border-bord-pr" />
+              <img src={resolveMediaUrl(cover) || cover} alt="Business cover" className="h-14 w-full rounded-xl object-cover border border-bord-pr" />
             )}
             <input type="file" accept="image/*" onChange={(e) => uploadAsset('cover', e)} className="text-cap-l block w-full" />
           </div>

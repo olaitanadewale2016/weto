@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export interface SmartImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   src: string;
@@ -25,17 +26,32 @@ export function SmartImage({
   onError,
   ...rest
 }: SmartImageProps) {
+  const resolvedSrc = resolveMediaUrl(src) || src;
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [erroredUrl, setErroredUrl] = useState<string | null>(null);
 
-  const isLoaded = loadedUrl === src;
-  const isError = erroredUrl === src;
+  const isLoaded = loadedUrl === resolvedSrc;
+  const isError = erroredUrl === resolvedSrc;
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img || !resolvedSrc) return;
+    if (img.complete) {
+      if (img.naturalWidth > 0) {
+        queueMicrotask(() => setLoadedUrl(resolvedSrc));
+      } else {
+        queueMicrotask(() => setErroredUrl(resolvedSrc));
+      }
+    }
+  }, [resolvedSrc]);
 
   if (!lqipBase64) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
       <img
-        src={src}
+        ref={imgRef}
+        src={resolvedSrc}
         alt={alt}
         loading={priority ? 'eager' : rest.loading ?? 'lazy'}
         decoding="async"
@@ -43,7 +59,7 @@ export function SmartImage({
         className={cn(className, isError && 'opacity-60')}
         onLoad={onLoad}
         onError={(e) => {
-          setErroredUrl(src);
+          setErroredUrl(resolvedSrc);
           onError?.(e);
         }}
         {...rest}
@@ -64,7 +80,8 @@ export function SmartImage({
       ) : null}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        ref={imgRef}
+        src={resolvedSrc}
         alt={alt}
         loading={priority ? 'eager' : rest.loading ?? 'lazy'}
         decoding="async"
@@ -72,14 +89,14 @@ export function SmartImage({
         className={cn(
           className,
           'relative z-10 transition-opacity duration-200',
-          isLoaded ? 'opacity-100' : 'opacity-0'
+          isLoaded || isError ? 'opacity-100' : 'opacity-0'
         )}
         onLoad={(e) => {
-          setLoadedUrl(src);
+          setLoadedUrl(resolvedSrc);
           onLoad?.(e);
         }}
         onError={(e) => {
-          setErroredUrl(src);
+          setErroredUrl(resolvedSrc);
           onError?.(e);
         }}
         {...rest}

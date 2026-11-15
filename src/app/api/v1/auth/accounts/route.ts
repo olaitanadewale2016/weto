@@ -1,7 +1,12 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { ACTIVE_ACCOUNT_COOKIE_NAME, getClientIp, requireAuth } from '@/lib/auth/session';
+import {
+  ACTIVE_ACCOUNT_COOKIE_NAME,
+  PREVIOUS_ACCOUNT_COOKIE_NAME,
+  getClientIp,
+  requireAuth,
+} from '@/lib/auth/session';
 import {
   apiError,
   apiSuccess,
@@ -23,14 +28,21 @@ import { dispatchNotification } from '@/services/notification.service';
 
 const MAX_LINKED_ACCOUNTS = 5;
 
-function setActiveAccountCookie(res: NextResponse, accountId: string) {
-  res.cookies.set(ACTIVE_ACCOUNT_COOKIE_NAME, accountId, {
+function setAccountCookie(res: NextResponse, cookieName: string, accountId: string) {
+  res.cookies.set(cookieName, accountId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
   });
+}
+
+function applySwitchCookies(res: NextResponse, nextAccountId: string, previousAccountId: string) {
+  setAccountCookie(res, ACTIVE_ACCOUNT_COOKIE_NAME, nextAccountId);
+  if (previousAccountId && previousAccountId !== nextAccountId) {
+    setAccountCookie(res, PREVIOUS_ACCOUNT_COOKIE_NAME, previousAccountId);
+  }
 }
 
 function maskEmail(email?: string | null): string | null {
@@ -66,40 +78,69 @@ export async function GET(req: NextRequest) {
     const linkEnabled =
       featuresCfg.linkAccounts !== false && authCfg.linkAccountsEnabled !== false;
 
+    const prevCookieId = req.cookies.get(PREVIOUS_ACCOUNT_COOKIE_NAME)?.value;
+    const activeIdStr = String(user._id);
     const linkedCount = accounts.filter((a) => Boolean(a.ownerAccountId)).length;
 
+    const mappedAccounts = accounts.map((a) => {
+      const idStr = String(a._id);
+      const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.username;
+      const isMaster = !a.ownerAccountId;
+      const isBlocked =
+        a.status === UserStatus.BLOCKED || a.status === UserStatus.SUSPENDED;
+      const isReturnOption =
+        idStr !== activeIdStr &&
+        ((!isMasterSession && isMaster) || (Boolean(prevCookieId) && idStr === prevCookieId));
+      return {
+        id: idStr,
+        username: a.username,
+        firstName: a.firstName,
+        lastName: a.lastName,
+        fullName,
+        avatar: a.avatar,
+        bio: a.bio || '',
+        website: a.website || '',
+        caption: a.bio ? a.bio : `@${a.username}`,
+        verified: Boolean(a.verified),
+        status: a.status,
+        type: a.type,
+        isActive: idStr === activeIdStr,
+        isMaster,
+        isPrevious: Boolean(prevCookieId && idStr === prevCookieId && idStr !== activeIdStr),
+        canSwitch: !isBlocked && (switchEnabled || isReturnOption),
+        canUnlink: isMasterSession && !isMaster,
+      };
+    });
+
+    const previousCandidate =
+      mappedAccounts.find((a) => prevCookieId && a.id === prevCookieId && !a.isActive && a.canSwitch) ||
+      (!isMasterSession
+        ? mappedAccounts.find((a) => a.isMaster && !a.isActive && a.canSwitch)
+        : undefined) ||
+      null;
+
     return apiSuccess({
-      activeAccountId: String(user._id),
+      activeAccountId: activeIdStr,
       masterAccountId: String(masterId),
       isMasterSession,
       switchEnabled,
       linkEnabled,
       maxLinkedAccounts: MAX_LINKED_ACCOUNTS,
       canAddMore: isMasterSession && linkEnabled && linkedCount < MAX_LINKED_ACCOUNTS,
-      accounts: accounts.map((a) => {
-        const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.username;
-        const isMaster = !a.ownerAccountId;
-        const isBlocked =
-          a.status === UserStatus.BLOCKED || a.status === UserStatus.SUSPENDED;
-        return {
-          id: String(a._id),
-          username: a.username,
-          firstName: a.firstName,
-          lastName: a.lastName,
-          fullName,
-          avatar: a.avatar,
-          bio: a.bio || '',
-          website: a.website || '',
-          caption: a.bio ? a.bio : `@${a.username}`,
-          verified: Boolean(a.verified),
-          status: a.status,
-          type: a.type,
-          isActive: String(a._id) === String(user._id),
-          isMaster,
-          canSwitch: switchEnabled && !isBlocked,
-          canUnlink: isMasterSession && !isMaster,
-        };
-      }),
+      previousAccount: previousCandidate
+        ? {
+            id: previousCandidate.id,
+            username: previousCandidate.username,
+            fullName: previousCandidate.fullName,
+            avatar: previousCandidate.avatar,
+            verified: previousCandidate.verified,
+            isMaster: previousCandidate.isMaster,
+          }
+        : null,
+      accounts: mappedAccounts.map((a) => ({
+        ...a,
+        isPrevious: Boolean(previousCandidate && a.id === previousCandidate.id),
+      })),
     });
   } catch (err) {
     return apiError(err);
@@ -107,7 +148,15 @@ export async function GET(req: NextRequest) {
 }
 
 const accountsActionSchema = z.object({
-  action: z.enum(['create', 'switch', 'lookup', 'link_existing', 'unlink', 'delete_account']),
+  action: z.enum([
+    'create',
+    'switch',
+    'switch_back',
+    'lookup',
+    'link_existing',
+    'unlink',
+    'delete_account',
+  ]),
   targetAccountId: z.string().optional(),
   accountId: z.string().optional(),
   login: z.string().min(2).max(160).optional(),
@@ -196,34 +245,70 @@ export async function POST(req: NextRequest) {
         },
         { status: 201 }
       );
-      setActiveAccountCookie(res, String(linked._id));
+      applySwitchCookies(res, String(linked._id), String(user._id));
       return res;
     }
 
-    if (body.action === 'switch') {
+    if (body.action === 'switch' || body.action === 'switch_back') {
       const { switchEnabled } = await assertSwitchAndLinkFeatures();
-      if (!switchEnabled) {
-        throw new ForbiddenError('Account switching is currently disabled.');
+      const prevCookieId = req.cookies.get(PREVIOUS_ACCOUNT_COOKIE_NAME)?.value;
+      const activeIdStr = String(user._id);
+
+      let targetIdToResolve =
+        body.action === 'switch_back' ? prevCookieId || '' : requestedTargetId || '';
+
+      if (body.action === 'switch_back' && (!targetIdToResolve || targetIdToResolve === activeIdStr)) {
+        targetIdToResolve = !isMasterSession ? String(masterId) : '';
       }
-      if (!requestedTargetId) {
-        throw new ValidationError('Target account ID is required.');
+
+      if (!targetIdToResolve) {
+        throw new ValidationError(
+          body.action === 'switch_back'
+            ? 'No previous account is available to switch back to.'
+            : 'Target account ID is required.'
+        );
       }
 
       const target = await User.findOne({
-        _id: requestedTargetId,
+        _id: targetIdToResolve,
         deletedAt: null,
         $or: [{ _id: masterId }, { ownerAccountId: masterId }],
       });
-      if (!target) throw new NotFoundError('Linked account not found.');
-      if (target.status === UserStatus.BLOCKED || target.status === UserStatus.SUSPENDED) {
+
+      const resolvedTarget =
+        target ||
+        (body.action === 'switch_back' && !isMasterSession
+          ? await User.findOne({ _id: masterId, deletedAt: null })
+          : null);
+
+      if (!resolvedTarget) {
+        throw new NotFoundError('Linked account not found.');
+      }
+
+      const isReturningToMasterOrPrev =
+        !isMasterSession &&
+        (String(resolvedTarget._id) === String(masterId) ||
+          (Boolean(prevCookieId) && String(resolvedTarget._id) === prevCookieId));
+
+      if (!switchEnabled && !isReturningToMasterOrPrev) {
+        throw new ForbiddenError('Account switching is currently disabled.');
+      }
+      if (
+        resolvedTarget.status === UserStatus.BLOCKED ||
+        resolvedTarget.status === UserStatus.SUSPENDED
+      ) {
         throw new ForbiddenError('Cannot switch to a restricted account.');
       }
 
       const res = NextResponse.json({
         status: 'success',
-        data: { activeAccountId: String(target._id), username: target.username },
+        data: {
+          activeAccountId: String(resolvedTarget._id),
+          previousAccountId: activeIdStr,
+          username: resolvedTarget.username,
+        },
       });
-      setActiveAccountCookie(res, String(target._id));
+      applySwitchCookies(res, String(resolvedTarget._id), activeIdStr);
       return res;
     }
 
@@ -390,7 +475,7 @@ export async function POST(req: NextRequest) {
           },
         });
         if (body.switchImmediately) {
-          setActiveAccountCookie(res, String(target._id));
+          applySwitchCookies(res, String(target._id), String(user._id));
         }
         return res;
       }
@@ -451,6 +536,7 @@ export async function POST(req: NextRequest) {
         const res = apiSuccess({ deleted: true });
         res.cookies.delete('__session');
         res.cookies.delete(ACTIVE_ACCOUNT_COOKIE_NAME);
+        res.cookies.delete(PREVIOUS_ACCOUNT_COOKIE_NAME);
         return res;
       }
 

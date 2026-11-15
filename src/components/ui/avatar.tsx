@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export interface AvatarProps {
   src?: string | null;
@@ -23,40 +24,20 @@ const SIZE_CLASSES: Record<NonNullable<AvatarProps['size']>, string> = {
 };
 
 export function normalizeAvatarSrc(src?: string | null): string | undefined {
-  if (!src) return undefined;
-  let trimmed = src.trim();
-  if (!trimmed) return undefined;
-  if (
-    !trimmed.startsWith('http://') &&
-    !trimmed.startsWith('https://') &&
-    !trimmed.startsWith('/') &&
-    !trimmed.startsWith('blob:') &&
-    !trimmed.startsWith('data:')
-  ) {
-    trimmed = `/${trimmed}`;
-  }
-  if (trimmed === '/assets/avatars/default.png' || trimmed === '/assets/avatars/default') {
+  const resolved = resolveMediaUrl(src);
+  if (!resolved) return undefined;
+  if (resolved === '/assets/avatars/default.png' || resolved === '/assets/avatars/default') {
     return '/assets/avatars/default-avatar.png';
   }
-  return trimmed;
+  return resolved;
 }
 
 export function normalizeCoverSrc(src?: string | null): string {
-  if (!src) return '/assets/covers/default-cover.png';
-  let trimmed = src.trim();
-  if (!trimmed || trimmed === '/assets/covers/default.png') {
+  const resolved = resolveMediaUrl(src);
+  if (!resolved || resolved === '/assets/covers/default.png') {
     return '/assets/covers/default-cover.png';
   }
-  if (
-    !trimmed.startsWith('http://') &&
-    !trimmed.startsWith('https://') &&
-    !trimmed.startsWith('/') &&
-    !trimmed.startsWith('blob:') &&
-    !trimmed.startsWith('data:')
-  ) {
-    trimmed = `/${trimmed}`;
-  }
-  return trimmed;
+  return resolved;
 }
 
 export function Avatar({

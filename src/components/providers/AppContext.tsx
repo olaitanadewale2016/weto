@@ -104,11 +104,20 @@ export interface BootstrapConfig {
   attributionEnabled?: boolean;
 }
 
+export interface PreviousAccountSummary {
+  id: string;
+  username: string;
+  fullName: string;
+  avatar?: string;
+  isMaster?: boolean;
+}
+
 export interface BootstrapData {
   config: BootstrapConfig;
   currencies: CurrencyItem[];
   locales: LocaleItem[];
   user: BootstrapUser | null;
+  previousAccount?: PreviousAccountSummary | null;
   counters: {
     unreadNotifications: number;
     unreadMessages: number;
