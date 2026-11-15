@@ -77,6 +77,24 @@ describe('Image Upload MIME Normalization', () => {
     expect(normalizeMediaMime('application/octet-stream', 'phone.heic')).toBe('image/heic');
     expect(normalizeMediaMime('image/x-png', 'avatar.png')).toBe('image/png');
     expect(normalizeMediaMime('image/pjpeg', 'cover.jpg')).toBe('image/jpeg');
+
+    expect(resolveUploadMimeType({ type: '', name: 'resume.docx' })).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    expect(resolveUploadMimeType({ type: 'application/vnd.rar', name: 'bundle.rar' })).toBe(
+      'application/x-rar-compressed'
+    );
+    expect(resolveUploadMimeType({ type: 'audio/x-m4a', name: 'note.m4a' })).toBe('audio/mp4');
+    expect(inferMediaType('', 'contract.pdf')).toBe('document');
+    expect(inferMediaType('audio/x-m4a', 'voice.m4a')).toBe('audio');
+
+    expect(normalizeMediaMime('', 'report.xlsx')).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    expect(normalizeMediaMime('application/vnd.rar', 'archive.rar')).toBe(
+      'application/x-rar-compressed'
+    );
+    expect(normalizeMediaMime('audio/m4a', 'clip.m4a')).toBe('audio/mp4');
   });
 });
 
@@ -321,6 +339,80 @@ describe('Server Upload Route, R2 Presign Headers & Client Upload Routing', () =
       expect(uploaded.mediaId).toBe('media-same-origin-1');
       expect(uploaded.publicUrl).toBe('/api/v1/media/proxy?key=marketplace%2Fu%2Fsmall.jpg');
       expect(progressCalls.at(-1)).toBe(100);
+    } finally {
+      globalThis.XMLHttpRequest = prevXhr;
+      globalThis.fetch = prevFetch;
+    }
+  });
+
+  it('routes <= 3.5 MB document and audio files cleanly through /api/v1/media/upload', async () => {
+    const prevXhr = globalThis.XMLHttpRequest;
+    const prevFetch = globalThis.fetch;
+    const sentForms: Array<{ url: string; mediaType: string | null; namespace: string | null }> = [];
+    const fetchSpy = vi.fn();
+
+    class MockXMLHttpRequest {
+      status = 201;
+      responseText = JSON.stringify({
+        status: 'success',
+        data: {
+          id: 'doc-upload-1',
+          publicUrl: '/api/v1/media/proxy?key=jobs%2Fu%2Fresume.docx',
+        },
+      });
+      withCredentials = false;
+      timeout = 0;
+      upload: { onprogress: ((ev: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = {
+        onprogress: null,
+      };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      ontimeout: (() => void) | null = null;
+      private url = '';
+
+      open(_method: string, url: string) {
+        this.url = url;
+      }
+
+      send(body: FormData) {
+        sentForms.push({
+          url: this.url,
+          mediaType: body.get('mediaType') as string | null,
+          namespace: body.get('namespace') as string | null,
+        });
+        this.upload.onprogress?.({ lengthComputable: true, loaded: 50, total: 50 });
+        this.onload?.();
+      }
+    }
+
+    globalThis.XMLHttpRequest = MockXMLHttpRequest as unknown as typeof XMLHttpRequest;
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    try {
+      const { uploadFileToR2 } = await import('@/lib/api-client');
+      const resumeFile = new File([new Uint8Array([80, 75, 3, 4])], 'cv.docx', { type: '' });
+      const resDoc = await uploadFileToR2(resumeFile, 'jobs', 'job_attachment');
+
+      expect(resDoc.mediaType).toBe('document');
+      expect(resDoc.mimeType).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      );
+      expect(sentForms[0]).toEqual({
+        url: '/api/v1/media/upload',
+        mediaType: 'document',
+        namespace: 'jobs',
+      });
+
+      const audioFile = new File([new Uint8Array([0, 0, 0, 24])], 'voice.m4a', { type: 'audio/x-m4a' });
+      const resAudio = await uploadFileToR2(audioFile, 'chats', 'message');
+      expect(resAudio.mediaType).toBe('audio');
+      expect(resAudio.mimeType).toBe('audio/mp4');
+      expect(sentForms[1]).toEqual({
+        url: '/api/v1/media/upload',
+        mediaType: 'audio',
+        namespace: 'chats',
+      });
+      expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
       globalThis.XMLHttpRequest = prevXhr;
       globalThis.fetch = prevFetch;

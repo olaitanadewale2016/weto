@@ -53,6 +53,8 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [coverLetter, setCoverLetter] = useState('');
   const [resumeMediaId, setResumeMediaId] = useState<string | undefined>();
+  const [resumeFilename, setResumeFilename] = useState<string | null>(null);
+  const [uploadingResume, setUploadingResume] = useState(false);
   const [applying, setApplying] = useState(false);
 
   const loadJob = useCallback(async () => {
@@ -76,13 +78,18 @@ export default function JobDetailPage() {
 
   async function handleResumeUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    setUploadingResume(true);
     try {
       const up = await uploadFileToR2(file, 'jobs', 'job_attachment');
       setResumeMediaId(up.mediaId);
+      setResumeFilename(up.filename || file.name);
       success('Resume attached');
     } catch (err) {
       error('Resume upload failed', err instanceof Error ? err.message : undefined);
+    } finally {
+      setUploadingResume(false);
     }
   }
 
@@ -248,9 +255,20 @@ export default function JobDetailPage() {
             />
             <div className="space-y-1.5">
               <label className="block text-cap-l font-semibold text-lab-pr">Attach Resume / CV (optional)</label>
-              <input type="file" accept=".pdf,.doc,.docx" onChange={handleResumeUpload} className="text-cap-l" />
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx"
+                disabled={uploadingResume}
+                onChange={handleResumeUpload}
+                className="text-cap-l block w-full"
+              />
+              {uploadingResume ? (
+                <p className="text-cap-s text-brand-900">Uploading resume to Cloudflare R2...</p>
+              ) : resumeFilename ? (
+                <p className="text-cap-s text-green-900 font-medium">Attached: {resumeFilename}</p>
+              ) : null}
             </div>
-            <Button type="submit" variant="primary" size="lg" loading={applying}>
+            <Button type="submit" variant="primary" size="lg" loading={applying || uploadingResume}>
               <Send className="h-4 w-4" /> Submit Application
             </Button>
           </form>

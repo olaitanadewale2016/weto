@@ -154,6 +154,12 @@ const CLIENT_MIME_ALIASES: Record<string, string> = {
   'image/x-ms-bmp': 'image/bmp',
   'video/x-m4v': 'video/mp4',
   'audio/mp3': 'audio/mpeg',
+  'audio/m4a': 'audio/mp4',
+  'audio/x-m4a': 'audio/mp4',
+  'application/vnd.rar': 'application/x-rar-compressed',
+  'application/x-rar': 'application/x-rar-compressed',
+  'application/x-zip': 'application/zip',
+  'text/comma-separated-values': 'text/csv',
 };
 
 const CLIENT_EXT_TO_MIME: Record<string, string> = {
@@ -182,6 +188,16 @@ const CLIENT_EXT_TO_MIME: Record<string, string> = {
   aac: 'audio/aac',
   flac: 'audio/flac',
   pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  zip: 'application/zip',
+  rar: 'application/x-rar-compressed',
 };
 
 const MAX_SERVER_UPLOAD_BYTES = Math.floor(3.5 * 1024 * 1024);
@@ -212,29 +228,37 @@ async function compressImageForUpload(file: File, cleanMime: string): Promise<Fi
       try {
         const origW = img.naturalWidth || 1;
         const origH = img.naturalHeight || 1;
-        const outMime = cleanMime === 'image/png' ? 'image/webp' : 'image/jpeg';
-        const outExt = outMime === 'image/webp' ? 'webp' : 'jpg';
+        const mimeCandidates =
+          cleanMime === 'image/png' ? (['image/webp', 'image/jpeg'] as const) : (['image/jpeg'] as const);
         const base = (file.name || 'upload').replace(/\.[^.]+$/, '') || 'upload';
 
-        for (const maxDim of [2048, 1600, 1280]) {
-          const scale = Math.min(1, maxDim / Math.max(origW, origH));
-          const targetW = Math.max(1, Math.round(origW * scale));
-          const targetH = Math.max(1, Math.round(origH * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(null);
-            return;
-          }
-          ctx.drawImage(img, 0, 0, targetW, targetH);
-
-          for (const quality of [0.88, 0.78, 0.65]) {
-            const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, outMime, quality));
-            if (blob && blob.size <= MAX_SERVER_UPLOAD_BYTES) {
-              resolve(new File([blob], `${base}.${outExt}`, { type: outMime }));
+        for (const outMime of mimeCandidates) {
+          const outExt = outMime === 'image/webp' ? 'webp' : 'jpg';
+          for (const maxDim of [2048, 1600, 1280, 960]) {
+            const scale = Math.min(1, maxDim / Math.max(origW, origH));
+            const targetW = Math.max(1, Math.round(origW * scale));
+            const targetH = Math.max(1, Math.round(origH * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(null);
               return;
+            }
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+
+            for (const quality of [0.88, 0.76, 0.62, 0.48]) {
+              const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, outMime, quality));
+              if (!blob) continue;
+              // Some WebKit/PWA builds ignore image/webp and emit uncompressed image/png
+              if (outMime === 'image/webp' && blob.type && blob.type !== 'image/webp') {
+                break;
+              }
+              if (blob.size <= MAX_SERVER_UPLOAD_BYTES) {
+                resolve(new File([blob], `${base}.${outExt}`, { type: outMime }));
+                return;
+              }
             }
           }
         }
@@ -269,6 +293,7 @@ async function uploadViaServerXhr(
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/v1/media/upload');
     xhr.withCredentials = true;
+    xhr.timeout = 120000;
     xhr.upload.onprogress = (ev) => {
       if (ev.lengthComputable) {
         onProgress?.(Math.min(92, 10 + Math.round((ev.loaded / ev.total) * 82)));
@@ -307,6 +332,7 @@ async function uploadViaServerXhr(
       }
     };
     xhr.onerror = () => reject(new Error('Network error uploading media to server'));
+    xhr.ontimeout = () => reject(new Error('Upload timed out. Check your connection and try again.'));
     xhr.send(form);
   });
 }
@@ -420,6 +446,7 @@ export async function uploadFileToR2(
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', presign.uploadUrl);
       xhr.setRequestHeader('Content-Type', rawMime);
+      xhr.timeout = 120000;
       xhr.upload.onprogress = (ev) => {
         if (ev.lengthComputable) {
           onProgress?.(Math.min(90, 20 + Math.round((ev.loaded / ev.total) * 70)));
@@ -430,6 +457,7 @@ export async function uploadFileToR2(
         else reject(new Error(`Upload failed (${xhr.status})`));
       };
       xhr.onerror = () => reject(new Error('Network error uploading media to Cloudflare R2'));
+      xhr.ontimeout = () => reject(new Error('Upload timed out while uploading to Cloudflare R2'));
       xhr.send(file);
     });
     usedDirectPut = true;

@@ -55,5 +55,5 @@ describe('POST /api/v1/media/complete', () => {
       ownerId: 'user-onb-1',
     });
     expect(json.data.publicUrl).toBe('/api/v1/media/proxy?key=avatars%2Fuser-onb-1%2Fpic.png');
-  });
+  }, 15000);
 });

@@ -79,6 +79,12 @@ const MIME_ALIASES: Record<string, string> = {
   'video/x-m4v': 'video/mp4',
   'audio/mp3': 'audio/mpeg',
   'audio/x-mpeg': 'audio/mpeg',
+  'audio/m4a': 'audio/mp4',
+  'audio/x-m4a': 'audio/mp4',
+  'application/vnd.rar': 'application/x-rar-compressed',
+  'application/x-rar': 'application/x-rar-compressed',
+  'application/x-zip': 'application/zip',
+  'text/comma-separated-values': 'text/csv',
 };
 
 const EXT_TO_MIME: Record<string, string> = {
@@ -107,9 +113,16 @@ const EXT_TO_MIME: Record<string, string> = {
   aac: 'audio/aac',
   flac: 'audio/flac',
   pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   txt: 'text/plain',
   csv: 'text/csv',
   zip: 'application/zip',
+  rar: 'application/x-rar-compressed',
 };
 
 export function normalizeMediaMime(mimeType: string, filename = ''): string {

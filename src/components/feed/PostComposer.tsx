@@ -103,6 +103,7 @@ export function PostComposer({
   async function handleFileSelect(files: FileList | null) {
     if (!files || files.length === 0) return;
     const list = Array.from(files).slice(0, 10 - uploads.length);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     for (const file of list) {
       try {
         setUploadProgress(5);
@@ -114,7 +115,6 @@ export function PostComposer({
         setUploadProgress(null);
       }
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function triggerPicker(accept: string) {
@@ -485,7 +485,7 @@ export function PostComposer({
             <button
               type="button"
               onClick={() => triggerPicker('.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar')}
-              className="hidden sm:inline-flex p-2 rounded-full text-lab-pr3 hover:text-lab-pr hover:bg-fill-tr transition-colors cursor-pointer"
+              className="inline-flex p-2 rounded-full text-lab-pr3 hover:text-lab-pr hover:bg-fill-tr transition-colors cursor-pointer"
               title="Attach document"
             >
               <FileText className="h-[18px] w-[18px]" />
@@ -642,7 +642,14 @@ export function PostComposer({
             </div>
           </div>
 
-          <Button type="submit" variant="primary" size="sm" loading={submitting} className="shrink-0">
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            loading={submitting}
+            disabled={submitting || uploadProgress !== null}
+            className="shrink-0"
+          >
             <Send className="h-3.5 w-3.5" /> {dict.feed.publish}
           </Button>
         </div>

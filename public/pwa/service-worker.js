@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weto-pwa-v2';
+const CACHE_NAME = 'weto-pwa-v3';
 const PRECACHE_ASSETS = [
   '/pwa/manifest.json',
   '/pwa/icons/192x192.png',
