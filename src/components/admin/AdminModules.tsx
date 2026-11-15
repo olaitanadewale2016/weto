@@ -66,7 +66,7 @@ export function AdminOverviewSection({
     { label: 'Total Users', value: m.usersCount, tab: 'users' },
     { label: 'Publications', value: m.postsCount, tab: 'posts' },
     { label: 'Active Stories', value: m.storiesCount, tab: 'stories' },
-    { label: 'Products', value: m.productsCount, tab: 'products' },
+    { label: 'Products', value: m.productsCount, tab: 'marketplace' },
     { label: 'Job Listings', value: m.jobsCount, tab: 'jobs' },
     { label: 'Businesses', value: m.businessesCount, tab: 'businesses' },
     { label: 'Pending Reports', value: m.pendingReports, tab: 'reports' },

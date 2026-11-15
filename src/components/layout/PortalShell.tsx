@@ -101,6 +101,7 @@ interface PortalShellProps {
   portal: 'business' | 'admin';
   navItems?: PortalNavItem[];
   headerControls?: React.ReactNode;
+  activeHeading?: string;
   children: React.ReactNode;
 }
 
@@ -108,6 +109,7 @@ export function PortalShell({
   portal,
   navItems,
   headerControls,
+  activeHeading,
   children,
 }: PortalShellProps) {
   const pathname = usePathname();
@@ -136,9 +138,9 @@ export function PortalShell({
 
   function renderNavContent(onSelect?: () => void) {
     return (
-      <div className="h-full overflow-y-auto hidden-scroll">
-        {/* Sticky top-left Logo & Portal Label */}
-        <div className="sticky top-0 z-10 bg-bg-pr/95 backdrop-blur-sm pl-6 pr-8 pt-6 pb-4 mb-4 border-b border-bord-tr/60 flex items-center justify-between">
+      <div className="flex flex-col h-full">
+        {/* Pinned top-left Logo & Portal Label — always sticky/anchored when scrolling nav items */}
+        <div className="shrink-0 bg-bg-pr/95 backdrop-blur-sm pl-6 pr-6 pt-5 pb-4 border-b border-bord-tr/60 flex items-center justify-between">
           <Link href={homeHref} className="flex items-center gap-2 min-w-0" onClick={onSelect}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="h-5 w-auto object-contain shrink-0" src={logoSrc} alt="Weto" />
@@ -156,7 +158,7 @@ export function PortalShell({
           )}
         </div>
 
-        <div className="flex flex-col pl-6 pr-8 pb-6 min-h-[calc(100%-5rem)]">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden hidden-scroll flex flex-col pl-6 pr-8 pt-4 pb-6">
 
           {/* Nav list */}
           <div className="flex flex-col gap-4 mb-4">
@@ -287,21 +289,29 @@ export function PortalShell({
       {/* Fixed top header bar matching Source/resources/views/components/header.blade.php */}
       <header className="fixed top-0 right-0 left-0 md:left-72 z-30 bg-bg-pr border-b border-bord-tr pt-safe px-safe">
         <div className="flex items-center justify-between px-4 md:px-8 h-16">
-          <div className="flex items-center gap-3 md:hidden">
+          <div className="flex items-center gap-3 md:hidden min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="h-9 w-9 rounded-full bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer"
+              className="h-9 w-9 rounded-full bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer shrink-0"
               aria-label="Open menu"
             >
               <Menu className="h-4 w-4" />
             </button>
-            <Link href={homeHref} className="flex items-center gap-2">
+            <Link href={homeHref} className="flex items-center gap-2 min-w-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="h-5 w-auto object-contain" src={logoSrc} alt="Weto" />
-              <span className="font-bold text-lab-pr text-par-s">{portalTitle}</span>
+              <img className="h-5 w-auto object-contain shrink-0" src={logoSrc} alt="Weto" />
+              <span className="font-bold text-lab-pr text-par-s truncate">
+                {activeHeading || portalTitle}
+              </span>
             </Link>
           </div>
+
+          {activeHeading && (
+            <div className="hidden md:flex items-center min-w-0 pr-4">
+              <span className="text-par-n font-semibold text-lab-pr2 truncate">{activeHeading}</span>
+            </div>
+          )}
 
           <div className="ml-auto flex items-center gap-3 leading-none">
             {headerControls}

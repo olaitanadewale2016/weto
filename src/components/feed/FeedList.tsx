@@ -106,7 +106,7 @@ export function FeedList({
   useEffect(() => {
     const cached = feedPostsCache.get(cacheKey);
     const id = setTimeout(() => {
-      if (cached && cached.posts.length > 0) {
+      if (cached) {
         setPosts(cached.posts);
         setHasMore(cached.hasMore);
         setLoading(false);

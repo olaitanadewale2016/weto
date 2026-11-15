@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { apiFetch } from '@/lib/api-client';
-import { useApp } from '@/components/providers/AppContext';
+import { clearBootstrapCache, useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
 export interface LinkedAccount {
@@ -62,15 +62,6 @@ interface LookupAccountPreview {
 }
 
 type ActivePanelMode = 'list' | 'link_existing' | 'create';
-
-function clearBootstrapCache() {
-  try {
-    sessionStorage.removeItem('weto_bootstrap_v1');
-    localStorage.removeItem('weto_bootstrap_v1');
-  } catch {
-    // Ignore storage quota / privacy mode errors
-  }
-}
 
 export function AccountManagerPanel({
   active = true,
@@ -174,7 +165,7 @@ export function AccountManagerPanel({
     try {
       await apiFetch('/api/v1/auth/accounts', {
         method: 'POST',
-        body: JSON.stringify({ action: 'switch', targetAccountId: acc.id }),
+        json: { action: 'switch', targetAccountId: acc.id },
       });
       await finalizeAccountTransition(`Switched to @${acc.username}`);
     } catch (err) {
@@ -189,7 +180,7 @@ export function AccountManagerPanel({
     try {
       await apiFetch('/api/v1/auth/accounts', {
         method: 'POST',
-        body: JSON.stringify({ action: 'unlink', targetAccountId: confirmUnlinkAcc.id }),
+        json: { action: 'unlink', targetAccountId: confirmUnlinkAcc.id },
       });
       success(`Unlinked @${confirmUnlinkAcc.username}`);
       setConfirmUnlinkAcc(null);
@@ -208,7 +199,7 @@ export function AccountManagerPanel({
     try {
       const res = await apiFetch<{ account: LookupAccountPreview }>('/api/v1/auth/accounts', {
         method: 'POST',
-        body: JSON.stringify({ action: 'lookup', login: linkLogin.trim() }),
+        json: { action: 'lookup', login: linkLogin.trim() },
       });
       setLookupPreview(res.account);
       setLinkPassword('');
@@ -228,12 +219,12 @@ export function AccountManagerPanel({
         '/api/v1/auth/accounts',
         {
           method: 'POST',
-          body: JSON.stringify({
+          json: {
             action: 'link_existing',
             login: lookupPreview.username,
             password: linkPassword,
             switchImmediately,
-          }),
+          },
         }
       );
 
@@ -262,12 +253,12 @@ export function AccountManagerPanel({
     try {
       const res = await apiFetch<{ username: string }>('/api/v1/auth/accounts', {
         method: 'POST',
-        body: JSON.stringify({
+        json: {
           action: 'create',
           firstName: firstName.trim() || undefined,
           lastName: lastName.trim() || undefined,
           username: username.trim() || undefined,
-        }),
+        },
       });
       setFirstName('');
       setLastName('');
@@ -491,11 +482,10 @@ export function AccountManagerPanel({
             return (
               <div
                 key={acc.id}
-                className={`flex items-center gap-2 rounded-xl border transition-colors ${
-                  acc.isActive
-                    ? 'border-brand-900 bg-brand-900/5'
-                    : 'border-bord-pr hover:bg-fill-qt'
-                }`}
+                className={`flex items-center gap-2 rounded-xl border transition-colors ${acc.isActive
+                  ? 'border-brand-900 bg-brand-900/5'
+                  : 'border-bord-pr hover:bg-fill-qt'
+                  }`}
               >
                 <button
                   type="button"
@@ -581,6 +571,11 @@ export function AccountManagerPanel({
           >
             <UserPlus className="h-4 w-4" /> Create Linked Profile
           </Button>
+          {!meta.isMasterSession && (
+            <p className="sm:col-span-2 text-center text-cap-s text-lab-sc">
+              Switch back to your master profile to link existing standalone accounts or unlink profiles.
+            </p>
+          )}
           {!meta.canAddMore && meta.isMasterSession && (
             <p className="sm:col-span-2 text-center text-cap-s text-lab-sc">
               Maximum of {meta.maxLinkedAccounts} linked profiles reached.

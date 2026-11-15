@@ -56,7 +56,7 @@ const rightRailCache: {
 
 export function RightRail() {
   const router = useRouter();
-  const { user, bootstrap, locale } = useApp();
+  const { user, loading, bootstrap, locale } = useApp();
   const { success, error } = useToast();
   const [query, setQuery] = useState('');
   const [hashtags, setHashtags] = useState<HashtagItem[]>(() =>
@@ -206,8 +206,8 @@ export function RightRail() {
           </div>
         )}
 
-        {/* Guest Auth CTA */}
-        {!user && (
+        {/* Guest Auth CTA — never flash while initial auth bootstrap is loading */}
+        {!user && !loading && (
           <div className="border border-bord-pr rounded-2xl p-4 space-y-3">
             <h5 className="text-lab-pr2 font-semibold text-par-l">Join {bootstrap?.config?.appName || 'Weto'}</h5>
             <p className="text-par-s text-lab-sc">

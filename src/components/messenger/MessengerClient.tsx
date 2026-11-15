@@ -1553,7 +1553,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       {/* Right Active Thread */}
       <div
         className={cn(
-          'flex-1 flex flex-col bg-bg-pr min-w-0',
+          'flex-1 flex flex-col bg-bg-pr min-w-0 max-w-full overflow-x-hidden',
           activeChatId ? 'fixed inset-0 z-[60] md:static md:inset-auto md:z-auto' : 'hidden md:flex'
         )}
       >
@@ -1758,7 +1758,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             </div>
 
             {/* Messages Timeline (PHP ChatOverview + Desktop Grouped ChatMessage + Mobile Bubbles) */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 md:px-0 md:py-4 space-y-2.5 md:space-y-0.5">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 px-safe md:px-0 md:py-4 space-y-2.5 md:space-y-0.5">
               {!loadingThread && !threadSearchQ && (
                 <div className="border-b border-bord-card px-4 py-7 mb-3 text-center">
                   <div className="flex justify-center mb-3">
@@ -1999,7 +1999,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     >
                       {!mine && <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="xs" />}
 
-                      <div className={cn('min-w-0 max-w-[82%] space-y-1', mine && 'items-end flex flex-col')}>
+                      <div className={cn('min-w-0 max-w-[82%] overflow-hidden space-y-1', mine && 'items-end flex flex-col')}>
                         <div
                           className={cn(
                             'w-fit max-w-full min-w-0 overflow-hidden rounded-2xl px-3 py-2 space-y-1.5 relative border',
@@ -2178,7 +2178,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 </div>
               </div>
             ) : (
-              <div className="px-2.5 sm:px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-bg-pr shrink-0">
+              <div className="px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-bg-pr shrink-0">
                 <form
                   onSubmit={handleSendText}
                   className="flex items-center gap-1 sm:gap-1.5 min-w-0 max-w-full rounded-3xl border border-bord-pr bg-fill-qt md:bg-bg-pr px-2 sm:px-3 py-1"

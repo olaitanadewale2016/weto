@@ -182,7 +182,7 @@ function writeCachedBootstrap(data: BootstrapData) {
   }
 }
 
-function clearCachedBootstrap() {
+export function clearBootstrapCache() {
   if (typeof window === 'undefined') return;
   for (const storage of [window.sessionStorage, window.localStorage]) {
     try {
@@ -221,6 +221,9 @@ export function AppProvider({
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const didInitBootstrapRef = useRef(false);
+  const bootstrapResolvedRef = useRef(Boolean(initialBootstrap));
+  const bootstrapUserRef = useRef<BootstrapUser | null>(initialBootstrap?.user ?? null);
+  const isLoggingOutRef = useRef(false);
 
   const applyThemeClass = useCallback((mode: 'light' | 'dark') => {
     if (typeof document === 'undefined') return;
@@ -262,6 +265,7 @@ export function AppProvider({
   const refreshBootstrap = useCallback(async () => {
     try {
       const data = await apiFetch<BootstrapData>('/bootstrap');
+      bootstrapUserRef.current = data.user ?? null;
       setBootstrap(data);
       setCounters(data.counters || { unreadNotifications: 0, unreadMessages: 0 });
       const resolvedTheme =
@@ -286,6 +290,7 @@ export function AppProvider({
     } catch {
       // Fallback to default state if API unreachable
     } finally {
+      bootstrapResolvedRef.current = true;
       setLoading(false);
     }
   }, [applyLocaleAttrs, applyThemeClass]);
@@ -308,26 +313,34 @@ export function AppProvider({
     } catch {
       // ignore
     }
-    let shouldRefresh = !initialBootstrap;
-    const cached = !initialBootstrap ? readCachedBootstrap() : null;
-    queueMicrotask(() => {
-      if (cached) {
-        setBootstrap(cached.data);
-        setCounters(cached.data.counters || { unreadNotifications: 0, unreadMessages: 0 });
-        const cachedLoc = cached.data.user?.language || cached.data.config?.defaultLocale;
-        if (cachedLoc) {
-          setLocaleState(cachedLoc);
-          applyLocaleAttrs(cachedLoc, cached.data.locales);
-        }
-        setLoading(false);
-        if (Date.now() - cached.ts < 20_000) {
-          shouldRefresh = false;
-        }
+
+    if (initialBootstrap) {
+      bootstrapUserRef.current = initialBootstrap.user ?? null;
+      bootstrapResolvedRef.current = true;
+      return;
+    }
+
+    const cached = readCachedBootstrap();
+    let shouldRefresh = true;
+    if (cached) {
+      bootstrapUserRef.current = cached.data.user ?? null;
+      setBootstrap(cached.data);
+      setCounters(cached.data.counters || { unreadNotifications: 0, unreadMessages: 0 });
+      const cachedLoc = cached.data.user?.language || cached.data.config?.defaultLocale;
+      if (cachedLoc) {
+        setLocaleState(cachedLoc);
+        applyLocaleAttrs(cachedLoc, cached.data.locales);
       }
-      if (shouldRefresh) {
-        void refreshBootstrap();
+      setLoading(false);
+      // Only defer network refresh if we have a fresh cached authenticated user; never skip refresh for guest cache
+      if (cached.data.user && Date.now() - cached.ts < 20_000) {
+        bootstrapResolvedRef.current = true;
+        shouldRefresh = false;
       }
-    });
+    }
+    if (shouldRefresh) {
+      void refreshBootstrap();
+    }
   }, [refreshBootstrap, applyThemeClass, applyLocaleAttrs, initialBootstrap]);
 
   // Register or unregister PWA service worker matching Admin pwaEnabled setting
@@ -368,13 +381,18 @@ export function AppProvider({
     }
   }, [bootstrap?.config?.logos?.favicon]);
 
-  // Firebase Auth ID token sync
+  // Firebase Auth ID token sync — only establish a server session if initial bootstrap completed with no active session
   useEffect(() => {
     if (!isFirebaseClientConfigured()) return;
     try {
       const auth = getFirebaseClientAuth();
       const unsub = onIdTokenChanged(auth, async (fbUser) => {
-        if (fbUser && !bootstrap?.user) {
+        if (
+          fbUser &&
+          bootstrapResolvedRef.current &&
+          !bootstrapUserRef.current &&
+          !isLoggingOutRef.current
+        ) {
           try {
             const idToken = await fbUser.getIdToken();
             await apiFetch('/auth/session', { method: 'POST', json: { idToken } });
@@ -388,7 +406,7 @@ export function AppProvider({
     } catch {
       return undefined;
     }
-  }, [bootstrap?.user, refreshBootstrap]);
+  }, [refreshBootstrap]);
 
   // Socket.IO connection for logged-in users
   useEffect(() => {
@@ -655,14 +673,12 @@ export function AppProvider({
     async (next: 'light' | 'dark') => {
       setThemeState(next);
       applyThemeClass(next);
-      setBootstrap((prev) =>
-        prev && prev.user ? { ...prev, user: { ...prev.user, theme: next } } : prev
-      );
-      try {
-        sessionStorage.removeItem(BOOTSTRAP_CACHE_KEY);
-      } catch {
-        // ignore
-      }
+      setBootstrap((prev) => {
+        if (!prev || !prev.user) return prev;
+        const updated = { ...prev, user: { ...prev.user, theme: next } };
+        writeCachedBootstrap(updated);
+        return updated;
+      });
       if (bootstrap?.user) {
         try {
           await apiFetch('/settings', { method: 'PATCH', json: { section: 'theme', data: { theme: next } } });
@@ -683,12 +699,14 @@ export function AppProvider({
       const normalized = (next || 'en').toLowerCase().slice(0, 2);
       setLocaleState(normalized);
       applyLocaleAttrs(normalized, bootstrap?.locales);
-      setBootstrap((prev) =>
-        prev && prev.user ? { ...prev, user: { ...prev.user, language: normalized } } : prev
-      );
+      setBootstrap((prev) => {
+        if (!prev || !prev.user) return prev;
+        const updated = { ...prev, user: { ...prev.user, language: normalized } };
+        writeCachedBootstrap(updated);
+        return updated;
+      });
       try {
         localStorage.setItem('cp_locale', normalized);
-        sessionStorage.removeItem(BOOTSTRAP_CACHE_KEY);
       } catch {
         // ignore storage errors
       }
@@ -710,6 +728,7 @@ export function AppProvider({
   }, [registerFcmDeviceToken, success]);
 
   const logout = useCallback(async () => {
+    isLoggingOutRef.current = true;
     try {
       await apiFetch('/auth/session', { method: 'DELETE' });
     } catch {
@@ -722,9 +741,11 @@ export function AppProvider({
         // ignore
       }
     }
-    clearCachedBootstrap();
+    bootstrapUserRef.current = null;
+    clearBootstrapCache();
     socket?.disconnect();
     setBootstrap((prev) => (prev ? { ...prev, user: null } : null));
+    isLoggingOutRef.current = false;
     router.push('/auth/login');
   }, [socket, router]);
 

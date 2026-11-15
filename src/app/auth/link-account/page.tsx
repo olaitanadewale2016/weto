@@ -59,7 +59,7 @@ export default function LinkAccountPage() {
               <ArrowLeft className="h-3.5 w-3.5" /> Settings
             </Link>
           </div>
-          <AccountManagerPanel redirectOnSwitch="/home" />
+          <AccountManagerPanel redirectOnSwitch="/" />
         </div>
 
         <div className="border-t border-bord-pr pt-5 space-y-3">

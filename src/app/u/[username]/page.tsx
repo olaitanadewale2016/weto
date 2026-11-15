@@ -29,7 +29,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { Avatar, VerifiedBadge, normalizeCoverSrc } from '@/components/ui/avatar';
+import { Avatar, VerifiedBadge, normalizeAvatarSrc, normalizeCoverSrc } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/ui/tabs';
 import { Modal } from '@/components/ui/modal';
@@ -294,7 +294,7 @@ export default function UserProfilePage() {
             onClick={() => {
               if (profile.cover) {
                 setMediaLightbox({
-                  url: profile.cover,
+                  url: normalizeCoverSrc(profile.cover),
                   label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
                 });
               }
@@ -336,9 +336,10 @@ export default function UserProfilePage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (profile.avatar) {
+                  const avatarUrl = normalizeAvatarSrc(profile.avatar);
+                  if (avatarUrl) {
                     setMediaLightbox({
-                      url: profile.avatar,
+                      url: avatarUrl,
                       label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
                     });
                   }
@@ -623,7 +624,7 @@ export default function UserProfilePage() {
           onClick={() => {
             if (profile.cover) {
               setMediaLightbox({
-                url: profile.cover,
+                url: normalizeCoverSrc(profile.cover),
                 label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
               });
             }
@@ -651,9 +652,10 @@ export default function UserProfilePage() {
           <button
             type="button"
             onClick={() => {
-              if (profile.avatar) {
+              const avatarUrl = normalizeAvatarSrc(profile.avatar);
+              if (avatarUrl) {
                 setMediaLightbox({
-                  url: profile.avatar,
+                  url: avatarUrl,
                   label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
                 });
               }
