@@ -438,17 +438,17 @@ export function PostCard({
             <div className="min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <Link
                 href={`/@${isOwner ? user.username : post.author?.username}`}
-                className="text-par-n font-bold text-lab-pr hover:underline truncate"
+                className="text-par-m font-bold text-lab-pr hover:underline truncate"
               >
                 {isOwner ? `${user.firstName} ${user.lastName}` : `${post.author?.firstName} ${post.author?.lastName}`}
               </Link>
-              <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="text-cap-l text-lab-sc truncate">
+              <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="text-par-m text-lab-sc truncate">
                 @{isOwner ? user.username : post.author?.username}
               </Link>
               <span className="text-lab-tr">·</span>
               <Link
                 href={`/publication/${post.hashId}`}
-                className="text-cap-l text-lab-tr hover:underline"
+                className="text-par-m text-lab-tr hover:underline"
               >
                 {formatRelativeTime(post.createdAt, locale)}
               </Link>

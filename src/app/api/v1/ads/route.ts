@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
@@ -9,6 +10,8 @@ import { Media } from '@/models/Media';
 import { AdApproval, AdStatus, UserRole } from '@/types/enums';
 import { getSettingsGroup } from '@/services/settings.service';
 import { serializeMedia } from '@/services/media.service';
+import { getViewerSignalProfile, scoreAdFacebookAuction } from '@/services/feed-ranking.service';
+import { getBlockedUserIdsFor } from '@/services/relations.service';
 
 async function recordAdShowAndCharge(adId: Types.ObjectId) {
   const adsCfg = await getSettingsGroup('ads');
@@ -61,46 +64,67 @@ export async function GET(req: NextRequest) {
     if (!features.ads) return apiSuccess(null);
 
     const prevAdId = searchParams.get('prevAdId');
-    await getOptionalAuth(req);
-    const adsCfg = await getSettingsGroup('ads');
-    const refreshCutoff = new Date(Date.now() - (adsCfg.refreshIntervalMinutes || 5) * 60_000);
+    const excludeParam = searchParams.get('excludeIds') || '';
+    const excludedIdSet = new Set(
+      [prevAdId, ...excludeParam.split(',')]
+        .map((s) => (s || '').trim())
+        .filter((s) => Types.ObjectId.isValid(s))
+    );
 
-    // Exact PHP AdController algorithm:
-    // 1. Random eligible ad not matching prevAdId and past refresh interval cooldown
-    const primaryMatch: Record<string, unknown> = {
+    const authCtx = await getOptionalAuth(req);
+    const [adsCfg, blockedIds, viewerSignals] = await Promise.all([
+      getSettingsGroup('ads'),
+      authCtx ? getBlockedUserIdsFor(String(authCtx.user._id)) : Promise.resolve([]),
+      authCtx ? getViewerSignalProfile(authCtx.user._id) : Promise.resolve(null),
+    ]);
+
+    const now = new Date();
+    const nowMs = now.getTime();
+    const refreshIntervalMs = (adsCfg.refreshIntervalMinutes || 5) * 60_000;
+
+    // Facebook Ad Auction candidate selection:
+    // Active approved ads within schedule window and remaining budget, excluding blocked advertisers
+    const candidates = (await Ad.find({
       status: AdStatus.PUBLISHED,
       approval: AdApproval.APPROVED,
       $expr: { $lt: ['$spentBudget', '$totalBudget'] },
-      $or: [{ lastShowAt: null }, { lastShowAt: { $lt: refreshCutoff } }],
-      ...(prevAdId && Types.ObjectId.isValid(prevAdId)
-        ? { _id: { $ne: new Types.ObjectId(prevAdId) } }
-        : {}),
-    };
+      ...(blockedIds.length > 0 ? { userId: { $nin: blockedIds } } : {}),
+      $and: [
+        { $or: [{ startsAt: null }, { startsAt: { $lte: now } }] },
+        { $or: [{ endsAt: null }, { endsAt: { $gte: now } }] },
+      ],
+    })
+      .sort({ lastShowAt: 1, pricePerView: -1 })
+      .limit(25)
+      .lean()) as unknown as Array<
+      IAdDocument & { _id: Types.ObjectId; title?: string; content?: string }
+    >;
 
-    let sampled = await Ad.aggregate<{ _id: Types.ObjectId }>([
-      { $match: primaryMatch },
-      { $sample: { size: 1 } },
-      { $project: { _id: 1 } },
-    ]);
+    if (!candidates.length) return apiSuccess(null);
 
-    // 2. Fallback to any active published ad in random order (matches PHP lines 33-35)
-    if (!sampled.length) {
-      sampled = await Ad.aggregate<{ _id: Types.ObjectId }>([
-        {
-          $match: {
-            status: AdStatus.PUBLISHED,
-            approval: AdApproval.APPROVED,
-            $expr: { $lt: ['$spentBudget', '$totalBudget'] },
-          },
-        },
-        { $sample: { size: 1 } },
-        { $project: { _id: 1 } },
-      ]);
-    }
+    const scoredCandidates = candidates
+      .map((ad) => ({
+        ad,
+        score: scoreAdFacebookAuction({
+          ad,
+          nowMs,
+          refreshIntervalMs,
+          viewerSignals,
+          isExcluded: excludedIdSet.has(String(ad._id)),
+        }),
+      }))
+      .sort((a, b) => b.score - a.score);
 
-    if (!sampled.length) return apiSuccess(null);
+    // Top-2 weighted auction lottery prevents strict determinism while favoring highest-value ad
+    const topPool = scoredCandidates.slice(0, Math.min(2, scoredCandidates.length));
+    const chosenId =
+      topPool.length === 2 &&
+      topPool[0].score < topPool[1].score * 1.25 &&
+      crypto.randomInt(0, 100) < 35
+        ? topPool[1].ad._id
+        : topPool[0].ad._id;
 
-    const ad = (await Ad.findById(sampled[0]._id)
+    const ad = (await Ad.findById(chosenId)
       .populate('mediaId')
       .populate('userId', 'username firstName lastName avatar verified')
       .lean()) as (IAdDocument & { mediaId?: unknown; userId?: unknown }) | null;

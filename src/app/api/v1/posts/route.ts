@@ -18,6 +18,7 @@ import { getBlockedUserIdsFor } from '@/services/relations.service';
 import { serializeMedia } from '@/services/media.service';
 import { dispatchNotification } from '@/services/notification.service';
 import { publishFeedRealtimeEvent } from '@/lib/firebase/realtime';
+import { getViewerSignalProfile, rankPostsFacebookStyle } from '@/services/feed-ranking.service';
 
 export async function GET(req: NextRequest) {
   try {
@@ -117,35 +118,108 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Exact PHP FeedController / ExploreController tie-breaker ranking
-    const sortSpec: Record<string, 1 | -1> =
-      mode === 'trending'
-        ? { globalPinned: -1, commentsCount: -1, bookmarksCount: -1, viewsCount: -1, quotesCount: -1, createdAt: -1 }
-        : mode === 'user'
-          ? { profilePinned: -1, createdAt: -1 }
-          : {
+    type PostRow = Record<string, unknown> & {
+      _id: unknown;
+      userId?: unknown;
+      status?: string;
+      reactionSummary?: Array<{ count?: number }>;
+      poll?: { choices?: Array<{ votesCount?: number }>; [key: string]: unknown } | null;
+    };
+
+    const useFacebookFeedRanking =
+      !q && !hashtag && (mode === 'feed' || mode === 'explore' || mode === 'trending');
+
+    let slicedPosts: PostRow[] = [];
+    let hasMore = false;
+
+    if (useFacebookFeedRanking) {
+      const [viewerSignals, networkAndFeaturedPosts] = await Promise.all([
+        authCtx ? getViewerSignalProfile(authCtx.user._id) : Promise.resolve(null),
+        Post.find(filter)
+          .sort({ globalPinned: -1, createdAt: -1 })
+          .limit(Math.min(180, Math.max(60, (page + 2) * limit)))
+          .populate('userId', 'username firstName lastName avatar verified type')
+          .populate({
+            path: 'quotePostId',
+            populate: { path: 'userId', select: 'username firstName lastName avatar verified' },
+          })
+          .lean(),
+      ]);
+
+      let candidatePool = networkAndFeaturedPosts as unknown as PostRow[];
+
+      // Facebook Discovery Blend ("Suggested for you"):
+      // When followed/network pool is thin, blend unblocked/unmuted public high-engagement posts
+      if (mode === 'feed' && candidatePool.length < page * limit + 5) {
+        const existingIds = new Set(candidatePool.map((p) => String(p._id)));
+        const discoveryFilter: Record<string, unknown> = {
+          status: { $in: [PostStatus.ACTIVE, PostStatus.PUBLISHED] },
+          ...(hiddenAuthorIds.length > 0 ? { userId: { $nin: hiddenAuthorIds } } : {}),
+        };
+        const extraPublic = await Post.find(discoveryFilter)
+          .sort({ createdAt: -1 })
+          .limit(60)
+          .populate('userId', 'username firstName lastName avatar verified type')
+          .populate({
+            path: 'quotePostId',
+            populate: { path: 'userId', select: 'username firstName lastName avatar verified' },
+          })
+          .lean();
+
+        const novelPublic = extraPublic.filter((p) => !existingIds.has(String(p._id)));
+        candidatePool = [
+          ...candidatePool,
+          ...(novelPublic as unknown as PostRow[]),
+        ];
+      }
+
+      const ranked = rankPostsFacebookStyle({
+        posts: candidatePool,
+        viewerSignals,
+        mode,
+      });
+
+      const startIdx = (page - 1) * limit;
+      slicedPosts = ranked.slice(startIdx, startIdx + limit);
+      hasMore = ranked.length > startIdx + limit;
+    } else {
+      const sortSpec: Record<string, 1 | -1> =
+        mode === 'trending'
+          ? {
               globalPinned: -1,
-              createdAt: -1,
               commentsCount: -1,
               bookmarksCount: -1,
               viewsCount: -1,
               quotesCount: -1,
-            };
+              createdAt: -1,
+            }
+          : mode === 'user'
+            ? { profilePinned: -1, createdAt: -1 }
+            : {
+                globalPinned: -1,
+                createdAt: -1,
+                commentsCount: -1,
+                bookmarksCount: -1,
+                viewsCount: -1,
+                quotesCount: -1,
+              };
 
-    const rawPosts = await Post.find(filter)
-      .sort(sortSpec)
-      .skip(mode === 'bookmarks' ? 0 : (page - 1) * limit)
-      .limit(limit + 1)
-      .populate('userId', 'username firstName lastName avatar verified type')
-      .populate({
-        path: 'quotePostId',
-        populate: { path: 'userId', select: 'username firstName lastName avatar verified' },
-      })
-      .lean();
+      const rawPosts = await Post.find(filter)
+        .sort(sortSpec)
+        .skip(mode === 'bookmarks' ? 0 : (page - 1) * limit)
+        .limit(limit + 1)
+        .populate('userId', 'username firstName lastName avatar verified type')
+        .populate({
+          path: 'quotePostId',
+          populate: { path: 'userId', select: 'username firstName lastName avatar verified' },
+        })
+        .lean();
 
-    const hasMore = mode === 'bookmarks' ? false : rawPosts.length > limit;
-    const slicedPosts = hasMore ? rawPosts.slice(0, limit) : rawPosts;
-    // Match PHP FeedController: own PROCESSING_VIDEO posts merge at top of page 1
+      hasMore = mode === 'bookmarks' ? false : rawPosts.length > limit;
+      slicedPosts = (hasMore ? rawPosts.slice(0, limit) : rawPosts) as unknown as PostRow[];
+    }
+
+    // Keep own active processing uploads merged cleanly at top of page 1
     const posts =
       page === 1 && mode === 'feed'
         ? [

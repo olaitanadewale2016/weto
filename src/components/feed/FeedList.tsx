@@ -262,7 +262,9 @@ export function FeedList({
                 onQuote={(target) => setQuotePost(target)}
               />
               {(mode === 'feed' || mode === 'explore' || mode === 'trending') &&
-                (idx + 1) % 10 === 0 && <FeedAdCard />}
+                (idx === 4 || (idx > 4 && (idx - 4) % 7 === 0)) && (
+                  <FeedAdCard slotIndex={idx} />
+                )}
             </React.Fragment>
           ))}
 

@@ -282,7 +282,7 @@ export function AppShell({
                         className={cn('size-[22px]', isActive ? 'text-lab-pr stroke-[2.25]' : 'text-lab-pr2 stroke-[1.75]')}
                       />
                     </span>
-                    <span className="ml-3 text-[19px] leading-snug inline-flex items-center gap-2 truncate">
+                    <span className="ml-3 text-[20px] leading-6 inline-flex items-center gap-2 truncate">
                       {item.label}
                       {item.badge !== undefined && item.badge > 0 && (
                         <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-brand-900 text-white text-cap-s font-semibold px-1.5 leading-none">
@@ -313,7 +313,7 @@ export function AppShell({
                 <span className="size-[22px] shrink-0">
                   <MoreHorizontal className="size-[22px]" />
                 </span>
-                <span className="text-par-l ml-3">More</span>
+                <span className="text-[20px] leading-6 ml-3">More</span>
               </button>
 
               {moreMenuOpen && (
