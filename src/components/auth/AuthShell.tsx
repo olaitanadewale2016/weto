@@ -36,9 +36,9 @@ export function AuthShell({
     availableLocales.find((l) => l.code === locale)?.name || 'English';
 
   return (
-    <div className="min-h-screen bg-bg-pr pt-14 flex flex-col" style={{ minWidth: 320 }}>
+    <div className="min-h-screen bg-bg-pr pt-[calc(3.5rem+env(safe-area-inset-top))] pb-safe px-safe flex flex-col" style={{ minWidth: 320 }}>
       {/* Exact PHP MPA Auth Fixed Top Header */}
-      <header className="fixed top-0 left-0 right-0 z-30 bg-bg-pr/80 backdrop-blur-xs">
+      <header className="fixed top-0 left-0 right-0 z-30 pt-safe px-safe bg-bg-pr/80 backdrop-blur-xs">
         <div className="h-14 flex justify-between px-4 md:px-8 items-center relative">
           <div className="text-lab-pr text-par-m font-medium hidden md:block">
             {user ? `Hi, ${user.firstName}!` : 'Hi there! 👋'}

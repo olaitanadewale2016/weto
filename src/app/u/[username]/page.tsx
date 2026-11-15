@@ -1,20 +1,29 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  AtSign,
   Ban,
+  Briefcase,
   Calendar,
+  ChevronLeft,
   Flag,
   Globe,
   HeartHandshake,
+  Info,
   Link2,
+  Mail,
   MapPin,
   MessageCircle,
   MoreHorizontal,
+  Pencil,
+  Phone,
   Settings,
+  Smile,
+  Tag,
   UserCheck,
   UserPlus,
   VolumeX,
@@ -24,15 +33,19 @@ import { Avatar, VerifiedBadge } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/ui/tabs';
 import { Modal } from '@/components/ui/modal';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MediaLightbox } from '@/components/ui/media-lightbox';
+import { ActionSheet, ActionSheetGroup, ActionSheetItem } from '@/components/mobile/ActionSheet';
 import { FeedList } from '@/components/feed/FeedList';
 import { ReportModal } from '@/components/modals/ReportModal';
 import { ProfileEditModal } from '@/components/profile/ProfileEditModal';
 import { SupportCreatorModal } from '@/components/profile/SupportCreatorModal';
 import { apiFetch } from '@/lib/api-client';
+import { COUNTRIES } from '@/data/world';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
-import { formatLocalizedDate } from '@/lib/i18n';
+import { formatLocalizedDate, formatRelativeTime } from '@/lib/i18n';
+import { abbreviateNumber, cn } from '@/lib/utils';
 
 interface ProfileData {
   id: string;
@@ -51,8 +64,12 @@ interface ProfileData {
   followersCount: number;
   followingCount: number;
   socialLinks?: Array<{ platform: string; url: string }>;
+  email?: string | null;
+  phone?: string | null;
   country?: string | null;
   city?: string | null;
+  gender?: string | null;
+  lastActive?: string | null;
   createdAt: string;
   monetization?: {
     tipsEnabled: boolean;
@@ -88,16 +105,31 @@ export default function UserProfilePage() {
   const cleanUsername = decodeURIComponent(params.username || '').replace(/^@/, '');
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'about'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'media' | 'info'>('posts');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [mediaLightbox, setMediaLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const [listModal, setListModal] = useState<'followers' | 'followings' | null>(null);
   const [listUsers, setListUsers] = useState<RelationUser[]>([]);
   const [listLoading, setListLoading] = useState(false);
+
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', onOutside);
+    return () => document.removeEventListener('click', onOutside);
+  }, [menuOpen]);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -154,6 +186,7 @@ export default function UserProfilePage() {
         success(res.blocked ? 'User blocked' : 'User unblocked');
       }
       setMenuOpen(false);
+      setMobileMenuOpen(false);
       loadProfile();
     } catch (err) {
       error('Action failed', err instanceof Error ? err.message : undefined);
@@ -165,6 +198,7 @@ export default function UserProfilePage() {
       router.push('/auth/login');
       return;
     }
+    setSendingMessage(true);
     try {
       const chat = await apiFetch<{ id: string }>('/chats', {
         method: 'POST',
@@ -173,13 +207,49 @@ export default function UserProfilePage() {
       router.push(`/messenger/c/${chat.id}`);
     } catch (err) {
       error('Cannot message this user', err instanceof Error ? err.message : undefined);
+    } finally {
+      setSendingMessage(false);
     }
+  }
+
+  async function handleCopyProfileLink() {
+    if (!profile) return;
+    try {
+      const url = `${window.location.origin}/@${profile.username}`;
+      await navigator.clipboard.writeText(url);
+      success('Profile link copied');
+    } catch {
+      error('Could not copy link');
+    } finally {
+      setMenuOpen(false);
+      setMobileMenuOpen(false);
+    }
+  }
+
+  function handleMentionUser() {
+    if (!profile) return;
+    setMenuOpen(false);
+    setMobileMenuOpen(false);
+    router.push(`/new/post?mention=${encodeURIComponent(`@${profile.username}`)}`);
   }
 
   if (loading) {
     return (
       <AppShell>
-        <div className="p-8 text-center text-lab-sc">Loading profile...</div>
+        <div>
+          <Skeleton className="h-44 sm:h-52 w-full rounded-none" />
+          <div className="p-4 space-y-4">
+            <div className="flex items-end justify-between -mt-16">
+              <Skeleton className="size-24 sm:size-28 rounded-full border-4 border-bg-pr" />
+              <Skeleton className="h-9 w-28 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-48 rounded-full" />
+              <Skeleton className="h-4 w-32 rounded-full" />
+              <Skeleton className="h-4 w-3/4 rounded-full mt-3" />
+            </div>
+          </div>
+        </div>
       </AppShell>
     );
   }
@@ -195,278 +265,770 @@ export default function UserProfilePage() {
     );
   }
 
+  const fullName = `${profile.firstName} ${profile.lastName}`.trim() || profile.username;
+  const resolvedCountry = profile.country
+    ? COUNTRIES.find((c) => c.code.toLowerCase() === profile.country?.toLowerCase())?.name ||
+      profile.country
+    : null;
+  const locationText = [resolvedCountry, profile.city].filter(Boolean).join(', ');
+  const websiteHref = profile.website
+    ? profile.website.startsWith('http')
+      ? profile.website
+      : `https://${profile.website}`
+    : null;
+  const socialLinks = (profile.socialLinks || []).filter((s) => Boolean(s.url));
+  const hasMonetization = Boolean(
+    profile.monetization?.tipsEnabled || profile.monetization?.subscriptionsEnabled
+  );
+
   return (
     <AppShell>
-      {/* PageHeader matching Source/resources/js/spa/apps/desktop/components/layout/PageHeader.vue */}
-      <div className="sticky top-14 md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr flex items-center gap-3 p-4 leading-none">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="h-8 w-8 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer shrink-0"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="min-w-0">
-          <p className="text-par-l font-bold text-lab-pr truncate">
-            {profile.firstName} {profile.lastName}
-          </p>
-          <p className="text-cap-s text-lab-sc mt-0.5">{profile.publicationsCount} publications</p>
+      {/* =====================================================================
+       * PHP Desktop Profile Layout (md+) matching desktop/views/profile/ProfileIndex.vue
+       * ===================================================================== */}
+      <div className="hidden md:block">
+        {/* ProfileCover.vue: edge-to-edge banner with top-left floating back button */}
+        <div className="relative overflow-hidden min-h-[180px] h-52 bg-fill-fv">
+          <button
+            type="button"
+            onClick={() => {
+              if (profile.cover) {
+                setMediaLightbox({
+                  url: profile.cover,
+                  label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
+                });
+              }
+            }}
+            className="block w-full h-full cursor-pointer text-left"
+            aria-label="Preview cover image"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={profile.cover || '/assets/covers/default-cover.png'}
+              alt="Profile cover"
+              decoding="async"
+              fetchPriority="high"
+              className="h-full w-full object-cover"
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="cursor-pointer absolute top-4 left-4 backdrop-blur-xl bg-black/50 hover:bg-black/35 smoothing size-10 inline-flex items-center justify-center rounded-full text-white/95"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
+        </div>
+
+        {/* Profile Overview Section matching desktop/ProfileIndex.vue */}
+        <div className="p-4 pb-3">
+          <div className="flex justify-between items-start mb-2">
+            {/* ProfileAvatar.vue (-mt-[78px] overlap) */}
+            <div className="-mt-[78px] relative z-10">
+              <button
+                type="button"
+                onClick={() => {
+                  if (profile.avatar) {
+                    setMediaLightbox({
+                      url: profile.avatar,
+                      label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
+                    });
+                  }
+                }}
+                className="cursor-pointer relative z-10 border-4 border-bg-pr rounded-full bg-bg-pr block"
+                aria-label="Preview profile avatar"
+              >
+                <Avatar
+                  src={profile.avatar}
+                  alt={profile.username}
+                  size="xl"
+                  verified={profile.verified}
+                  className="size-28 sm:size-[120px]"
+                />
+              </button>
+            </div>
+
+            {/* ProfileControls.vue */}
+            <div className="shrink-0 flex items-center gap-2 leading-none" ref={menuRef}>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="size-9 rounded-full border border-bord-pr bg-bg-pr text-lab-sc hover:text-lab-pr hover:bg-fill-qt flex items-center justify-center transition-colors cursor-pointer"
+                  aria-label="Profile options"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-vertical-tr py-1.5 z-30 divide-y divide-bord-tr/60">
+                    <div className="py-1">
+                      {!profile.viewerContext.isSelf && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            void handleStartChat();
+                          }}
+                          disabled={sendingMessage}
+                          className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <MessageCircle className="size-4 text-lab-sc shrink-0" />
+                          <span>Send message</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleMentionUser}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <AtSign className="size-4 text-lab-sc shrink-0" />
+                        <span className="truncate">Mention @{profile.username}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyProfileLink}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <Link2 className="size-4 text-lab-sc shrink-0" />
+                        <span>Copy profile link</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setActiveTab('info');
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <Info className="size-4 text-lab-sc shrink-0" />
+                        <span>About this profile</span>
+                      </button>
+                      {profile.viewerContext.isSelf && (
+                        <Link
+                          href="/settings"
+                          onClick={() => setMenuOpen(false)}
+                          className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5"
+                        >
+                          <Settings className="size-4 text-lab-sc shrink-0" />
+                          <span>Account settings</span>
+                        </Link>
+                      )}
+                    </div>
+
+                    {!profile.viewerContext.isSelf && (
+                      <div className="py-1">
+                        <button
+                          type="button"
+                          onClick={() => handleRelation('mute')}
+                          className={cn(
+                            'w-full px-3.5 py-2 text-left text-par-s hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer',
+                            profile.viewerContext.isMuted ? 'text-lab-pr' : 'text-red-900'
+                          )}
+                        >
+                          <VolumeX className="size-4 shrink-0" />
+                          <span className="truncate">
+                            {profile.viewerContext.isMuted
+                              ? `Unmute @${profile.username}`
+                              : `Mute @${profile.username}`}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRelation('block')}
+                          className="w-full px-3.5 py-2 text-left text-par-s text-red-900 hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <Ban className="size-4 shrink-0" />
+                          <span className="truncate">Block @{profile.username}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setReportOpen(true);
+                          }}
+                          className="w-full px-3.5 py-2 text-left text-par-s text-red-900 hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <Flag className="size-4 shrink-0" />
+                          <span className="truncate">Report @{profile.username}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {profile.viewerContext.isSelf ? (
+                <Button variant="primary" size="md" onClick={() => setEditOpen(true)}>
+                  Edit profile
+                </Button>
+              ) : (
+                <>
+                  {hasMonetization && (
+                    <Button
+                      variant="outline"
+                      size="md"
+                      onClick={() => {
+                        if (!user) {
+                          router.push('/auth/login');
+                          return;
+                        }
+                        setSupportOpen(true);
+                      }}
+                    >
+                      <HeartHandshake className="size-4 text-brand-900" /> Support
+                    </Button>
+                  )}
+                  <Button
+                    variant={profile.viewerContext.isFollowing ? 'secondary' : 'primary'}
+                    size="md"
+                    onClick={() => handleRelation('follow')}
+                  >
+                    {profile.viewerContext.isFollowing ? (
+                      <>
+                        <UserCheck className="size-4" /> Following
+                      </>
+                    ) : profile.viewerContext.isRequested ? (
+                      'Requested'
+                    ) : (
+                      <>
+                        <UserPlus className="size-4" /> Follow
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ProfileName.vue */}
+          <div className="block">
+            <h1 className="text-title-2 font-bold leading-tight text-lab-pr flex items-center gap-1.5">
+              <span>{fullName}</span>
+              {profile.verified && <VerifiedBadge />}
+            </h1>
+            <p className="text-par-s text-lab-sc mt-0.5">@{profile.username}</p>
+
+            {profile.bio && (
+              <p className="mt-4 max-w-[78%] text-par-m text-lab-pr2 whitespace-pre-wrap leading-relaxed">
+                {profile.bio}
+              </p>
+            )}
+
+            {websiteHref && profile.website && (
+              <div className="mt-2">
+                <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-900 text-par-n font-medium hover:underline break-all"
+                >
+                  {profile.website}
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* ProfileOverview.vue */}
+          {(profile.caption || locationText || profile.createdAt) && (
+            <div className="my-3 flex gap-x-4 gap-y-1.5 flex-wrap text-par-s text-lab-sc">
+              {profile.caption && (
+                <div className="inline-flex items-center gap-1.5">
+                  <Briefcase className="size-4 text-lab-tr shrink-0" />
+                  <span>{profile.caption}</span>
+                </div>
+              )}
+              {locationText && (
+                <div className="inline-flex items-center gap-1.5">
+                  <MapPin className="size-4 text-lab-tr shrink-0" />
+                  <span>{locationText}</span>
+                </div>
+              )}
+              <div className="inline-flex items-center gap-1.5">
+                <Calendar className="size-4 text-lab-tr shrink-0" />
+                <span>Joined {formatLocalizedDate(profile.createdAt, locale)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* ProfileMetrics.vue: Followers -> Following -> Posts */}
+          <div className="flex flex-wrap gap-5 text-par-n text-lab-sc">
+            <button
+              type="button"
+              onClick={() => openRelationList('followers')}
+              className="hover:underline cursor-pointer"
+            >
+              <span className="text-lab-pr2 font-mono font-semibold">
+                {abbreviateNumber(profile.followersCount)}
+              </span>{' '}
+              <span>{profile.followersCount === 1 ? 'Follower' : 'Followers'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => openRelationList('followings')}
+              className="hover:underline cursor-pointer"
+            >
+              <span className="text-lab-pr2 font-mono font-semibold">
+                {abbreviateNumber(profile.followingCount)}
+              </span>{' '}
+              <span>Following</span>
+            </button>
+            <span>
+              <span className="text-lab-pr2 font-mono font-semibold">
+                {abbreviateNumber(profile.publicationsCount)}
+              </span>{' '}
+              <span>{profile.publicationsCount === 1 ? 'Post' : 'Posts'}</span>
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Cover Banner */}
-      <button
-        type="button"
-        onClick={() => {
-          if (profile.cover) {
-            setMediaLightbox({
-              url: profile.cover,
-              label: `${profile.firstName} ${profile.lastName} · Cover`,
-            });
-          }
-        }}
-        className="relative block w-full h-44 sm:h-52 bg-fill-sc overflow-hidden text-left cursor-pointer"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={profile.cover || '/assets/covers/default-cover.png'}
-          alt="Profile cover"
-          decoding="async"
-          fetchPriority="high"
-          className="h-full w-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
-        />
-      </button>
+      {/* =====================================================================
+       * PHP Mobile Profile Layout (< md) matching mobile/views/profile/ProfileIndex.vue
+       * ===================================================================== */}
+      <div className="md:hidden">
+        {/* mobile/ProfileControls.vue top bar */}
+        <div className="pt-3 mb-3 px-4 flex items-center justify-between gap-2 leading-none">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1 -ml-1.5 text-lab-pr2 cursor-pointer min-w-0"
+            aria-label="Go back"
+          >
+            <ChevronLeft className="size-6 shrink-0" />
+            <span className="font-medium text-par-l truncate">{profile.username}</span>
+          </button>
 
-      {/* Profile Header */}
-      <div className="px-4 pb-4 border-b border-bord-pr">
-        <div className="flex items-end justify-between -mt-12 mb-3">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer shrink-0"
+            aria-label="Profile options"
+          >
+            <MoreHorizontal className="size-5" />
+          </button>
+        </div>
+
+        {/* mobile/ProfileAvatar.vue: Cover image + side-by-side Avatar & Name/Caption */}
+        <button
+          type="button"
+          onClick={() => {
+            if (profile.cover) {
+              setMediaLightbox({
+                url: profile.cover,
+                label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
+              });
+            }
+          }}
+          className="block w-full relative overflow-hidden cursor-pointer h-32 sm:h-40 bg-fill-fv mb-4"
+          aria-label="Preview cover image"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={profile.cover || '/assets/covers/default-cover.png'}
+            alt="Profile cover"
+            decoding="async"
+            fetchPriority="high"
+            className="w-full h-full object-cover"
+          />
+        </button>
+
+        <div className="flex items-center gap-3.5 px-4 mb-3">
           <button
             type="button"
             onClick={() => {
               if (profile.avatar) {
                 setMediaLightbox({
                   url: profile.avatar,
-                  label: `@${profile.username}`,
+                  label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
                 });
               }
             }}
-            className="rounded-full cursor-pointer relative z-10"
-            aria-label="Preview profile picture"
+            className="cursor-pointer shrink-0 rounded-full"
+            aria-label="Preview profile avatar"
           >
             <Avatar
               src={profile.avatar}
               alt={profile.username}
               size="xl"
               verified={profile.verified}
-              className="ring-4 ring-bg-pr"
+              className="size-20"
             />
           </button>
 
-          <div className="flex items-center gap-2 pt-14">
+          <div className="min-w-0">
+            <h1 className="text-title-2 font-semibold leading-tight text-lab-pr2 flex items-center gap-1.5 flex-wrap">
+              <span className="truncate">{fullName}</span>
+              {profile.verified && <VerifiedBadge />}
+            </h1>
+            <p className="text-par-n text-lab-sc truncate mt-0.5">
+              {profile.caption || `@${profile.username}`}
+            </p>
+          </div>
+        </div>
+
+        {/* mobile/ProfileBio.vue */}
+        {(profile.bio || (websiteHref && profile.website)) && (
+          <div className="px-4 mb-3">
+            {profile.bio && (
+              <p className="text-par-m text-lab-pr2 mb-1.5 whitespace-pre-wrap leading-relaxed">
+                {profile.bio}
+              </p>
+            )}
+            {websiteHref && profile.website && (
+              <a
+                href={websiteHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-900 text-par-n underline break-all"
+              >
+                {profile.website}
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* mobile/ProfileOverview.vue (stacked vertical icon rows) */}
+        {(locationText || profile.createdAt) && (
+          <div className="px-4 mb-3 flex flex-col gap-2">
+            {locationText && (
+              <div className="inline-flex gap-2 text-lab-pr2 items-center text-par-n">
+                <MapPin className="size-4 text-lab-pr3 shrink-0" />
+                <span>{locationText}</span>
+              </div>
+            )}
+            <div className="inline-flex gap-2 text-lab-pr2 items-center text-par-n">
+              <Calendar className="size-4 text-lab-pr3 shrink-0" />
+              <span>Joined {formatLocalizedDate(profile.createdAt, locale)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* mobile/ProfileMetrics.vue */}
+        <div className="px-4 flex flex-wrap gap-4 text-par-m text-lab-pr2">
+          <button
+            type="button"
+            onClick={() => openRelationList('followers')}
+            className="cursor-pointer"
+          >
+            <span className="font-semibold">{abbreviateNumber(profile.followersCount)}</span>{' '}
+            <span>{profile.followersCount === 1 ? 'Follower' : 'Followers'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openRelationList('followings')}
+            className="cursor-pointer"
+          >
+            <span className="font-semibold">{abbreviateNumber(profile.followingCount)}</span>{' '}
+            <span>Following</span>
+          </button>
+          <span>
+            <span className="font-semibold">{abbreviateNumber(profile.publicationsCount)}</span>{' '}
+            <span>{profile.publicationsCount === 1 ? 'Post' : 'Posts'}</span>
+          </span>
+        </div>
+
+        {/* mobile/ProfileActions.vue */}
+        <div className="px-4 py-3 space-y-2">
+          {profile.viewerContext.isSelf ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="md"
+                className="w-full"
+                onClick={() => setEditOpen(true)}
+              >
+                Edit profile
+              </Button>
+              <Link href="/settings" className="block">
+                <Button variant="secondary" size="md" className="w-full">
+                  Account settings
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={profile.viewerContext.isFollowing ? 'secondary' : 'primary'}
+                  size="md"
+                  className="w-full"
+                  onClick={() => handleRelation('follow')}
+                >
+                  {profile.viewerContext.isFollowing
+                    ? 'Following'
+                    : profile.viewerContext.isRequested
+                      ? 'Requested'
+                      : 'Follow'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  className="w-full"
+                  loading={sendingMessage}
+                  onClick={handleStartChat}
+                >
+                  Send message
+                </Button>
+              </div>
+              {hasMonetization && (
+                <Button
+                  variant="outline"
+                  size="md"
+                  className="w-full"
+                  onClick={() => {
+                    if (!user) {
+                      router.push('/auth/login');
+                      return;
+                    }
+                    setSupportOpen(true);
+                  }}
+                >
+                  <HeartHandshake className="size-4 text-brand-900" /> Support creator
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* =====================================================================
+       * PHP Profile Tabs (Posts · Media · Info)
+       * ===================================================================== */}
+      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 bg-bg-pr z-20">
+        <Tabs
+          value={activeTab}
+          onChange={(k) => setActiveTab(k as 'posts' | 'media' | 'info')}
+          tabs={[
+            { key: 'posts', label: 'Posts', count: profile.publicationsCount },
+            { key: 'media', label: 'Media' },
+            { key: 'info', label: 'Info' },
+          ]}
+        />
+      </div>
+
+      <div className="border-t border-bord-pr">
+        {activeTab === 'posts' ? (
+          <FeedList mode="user" username={profile.username} />
+        ) : activeTab === 'media' ? (
+          <FeedList mode="user_media" username={profile.username} />
+        ) : (
+          /* PHP ProfileInfo.vue */
+          <div className="p-4 space-y-5">
+            {/* Information Group */}
+            <div className="pb-4 border-b border-bord-pr space-y-3">
+              <h3 className="text-par-m font-bold text-lab-pr">Information</h3>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Calendar className="size-5 text-lab-sc shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-cap-l text-lab-sc">Join date</p>
+                    <p className="text-par-n font-medium text-lab-pr">
+                      {formatLocalizedDate(profile.createdAt, locale)}
+                    </p>
+                  </div>
+                </div>
+
+                {locationText && (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="size-5 text-lab-sc shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-cap-l text-lab-sc">Location</p>
+                      <p className="text-par-n font-medium text-lab-pr">{locationText}</p>
+                    </div>
+                  </div>
+                )}
+
+                {profile.gender && profile.gender !== 'not-specified' && (
+                  <div className="flex items-start gap-3">
+                    <Smile className="size-5 text-lab-sc shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-cap-l text-lab-sc">Gender</p>
+                      <p className="text-par-n font-medium text-lab-pr capitalize">
+                        {profile.gender}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {profile.category && (
+                  <div className="flex items-start gap-3">
+                    <Tag className="size-5 text-lab-sc shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-cap-l text-lab-sc">Category</p>
+                      <p className="text-par-n font-medium text-lab-pr capitalize">
+                        {profile.category}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Contacts Group (respecting privacySettings from API) */}
+            {(profile.email || profile.phone) && (
+              <div className="pb-4 border-b border-bord-pr space-y-3">
+                <h3 className="text-par-m font-bold text-lab-pr">Contacts</h3>
+                <div className="space-y-3">
+                  {profile.email && (
+                    <div className="flex items-start gap-3">
+                      <Mail className="size-5 text-lab-sc shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-cap-l text-lab-sc">E-Mail</p>
+                        <a
+                          href={`mailto:${profile.email}`}
+                          className="text-par-n font-medium text-brand-900 hover:underline break-all"
+                        >
+                          {profile.email}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {profile.phone && (
+                    <div className="flex items-start gap-3">
+                      <Phone className="size-5 text-lab-sc shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-cap-l text-lab-sc">Phone</p>
+                        <a
+                          href={`tel:${profile.phone}`}
+                          className="text-par-n font-medium text-brand-900 hover:underline"
+                        >
+                          {profile.phone}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Social Media Links */}
+            {socialLinks.length > 0 && (
+              <div className="pb-2 space-y-2.5">
+                <div className="flex flex-wrap gap-2">
+                  {socialLinks.map((s) => (
+                    <a
+                      key={s.platform}
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full border border-bord-pr bg-fill-qt/50 hover:bg-fill-qt px-3.5 py-2 text-par-s font-medium text-lab-pr transition-colors"
+                    >
+                      <Globe className="size-4 text-lab-sc" />
+                      <span className="capitalize">{s.platform}</span>
+                      <Link2 className="size-3.5 text-lab-tr" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-cap-l text-lab-sc">
+              Some personal details may be hidden according to the user&apos;s privacy settings.
+            </p>
+
+            {profile.lastActive && (
+              <p className="text-par-s text-brand-900 font-medium">
+                Last seen {formatRelativeTime(profile.lastActive, locale)}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop bottom footer signature matching ProfileIndex.vue */}
+      <div className="hidden md:block px-4 py-4 border-t border-bord-pr leading-none">
+        <span className="text-cap-s text-lab-sc font-medium">
+          {fullName} @{profile.username}
+        </span>
+      </div>
+
+      {/* Mobile Profile Options ActionSheet matching mobile/ProfileControls.vue */}
+      <ActionSheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} muted>
+        <div className="space-y-4">
+          <ActionSheetGroup>
+            <ActionSheetItem
+              icon={AtSign}
+              label={`Mention @${profile.username}`}
+              onClick={handleMentionUser}
+            />
+            <ActionSheetItem
+              icon={Link2}
+              label="Copy profile link"
+              onClick={() => void handleCopyProfileLink()}
+            />
+          </ActionSheetGroup>
+
+          <ActionSheetGroup>
+            <ActionSheetItem
+              icon={Info}
+              label="About this profile"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setActiveTab('info');
+              }}
+            />
             {profile.viewerContext.isSelf ? (
               <>
-                <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                  Edit profile
-                </Button>
-                <Link href="/settings" aria-label="Account settings">
-                  <Button variant="outline" size="icon" title="Account settings">
-                    <Settings className="h-4 w-4" />
-                  </Button>
+                <ActionSheetItem
+                  icon={Pencil}
+                  label="Edit profile"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setEditOpen(true);
+                  }}
+                />
+                <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>
+                  <ActionSheetItem icon={Settings} label="Account settings" />
                 </Link>
               </>
             ) : (
               <>
-                {(profile.monetization?.tipsEnabled || profile.monetization?.subscriptionsEnabled) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (!user) {
-                        router.push('/auth/login');
-                        return;
-                      }
-                      setSupportOpen(true);
-                    }}
-                    title="Support creator"
-                  >
-                    <HeartHandshake className="h-4 w-4 text-brand-900" /> Support
-                  </Button>
-                )}
-                <Button variant="outline" size="icon" onClick={handleStartChat} title="Send message">
-                  <MessageCircle className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={profile.viewerContext.isFollowing ? 'secondary' : 'primary'}
-                  size="sm"
-                  onClick={() => handleRelation('follow')}
-                >
-                  {profile.viewerContext.isFollowing ? (
-                    <>
-                      <UserCheck className="h-4 w-4" /> Following
-                    </>
-                  ) : profile.viewerContext.isRequested ? (
-                    'Requested'
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4" /> Follow
-                    </>
-                  )}
-                </Button>
-                <div className="relative">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setMenuOpen((v) => !v)}
-                    aria-label="Profile options"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                  {menuOpen && (
-                    <div className="absolute right-0 mt-1 w-44 rounded-2xl border border-bord-pr bg-bg-pr shadow-vertical-tr py-1 z-20">
-                      <button
-                        type="button"
-                        onClick={() => handleRelation('mute')}
-                        className="w-full px-3.5 py-2 text-left text-cap-l text-lab-pr hover:bg-fill-pr flex items-center gap-2"
-                      >
-                        <VolumeX className="h-4 w-4" />
-                        {profile.viewerContext.isMuted ? 'Unmute user' : 'Mute user'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRelation('block')}
-                        className="w-full px-3.5 py-2 text-left text-cap-l text-red-900 hover:bg-fill-pr flex items-center gap-2"
-                      >
-                        <Ban className="h-4 w-4" /> Block user
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setReportOpen(true);
-                        }}
-                        className="w-full px-3.5 py-2 text-left text-cap-l text-red-900 hover:bg-fill-pr flex items-center gap-2"
-                      >
-                        <Flag className="h-4 w-4" /> Report account
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <ActionSheetItem
+                  icon={Flag}
+                  danger
+                  label={`Report @${profile.username}`}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setReportOpen(true);
+                  }}
+                />
+                <ActionSheetItem
+                  icon={Ban}
+                  danger
+                  label={`Block @${profile.username}`}
+                  onClick={() => void handleRelation('block')}
+                />
+                <ActionSheetItem
+                  icon={VolumeX}
+                  danger={!profile.viewerContext.isMuted}
+                  label={
+                    profile.viewerContext.isMuted
+                      ? `Unmute @${profile.username}`
+                      : `Mute @${profile.username}`
+                  }
+                  onClick={() => void handleRelation('mute')}
+                />
               </>
             )}
-          </div>
+          </ActionSheetGroup>
         </div>
+      </ActionSheet>
 
-        <div className="space-y-1.5">
-          <h1 className="text-title-2 font-bold text-lab-pr flex items-center gap-1.5">
-            {profile.firstName} {profile.lastName}
-            {profile.verified && <VerifiedBadge />}
-          </h1>
-          <p className="text-par-n text-lab-sc">@{profile.username}</p>
-          {profile.bio && <p className="text-par-m text-lab-pr pt-1 whitespace-pre-wrap">{profile.bio}</p>}
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-cap-l text-lab-sc">
-            {(profile.city || profile.country) && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {[profile.city, profile.country].filter(Boolean).join(', ')}
-              </span>
-            )}
-            {profile.website && (
-              <a
-                href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-brand-900 hover:underline"
-              >
-                <Globe className="h-3.5 w-3.5" /> {profile.website}
-              </a>
-            )}
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" /> Joined {formatLocalizedDate(profile.createdAt, locale)}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-5 pt-2 text-par-n">
-            <button
-              type="button"
-              onClick={() => openRelationList('followings')}
-              className="hover:underline cursor-pointer"
-            >
-              <span className="font-bold text-lab-pr">{profile.followingCount}</span>{' '}
-              <span className="text-lab-sc">Following</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => openRelationList('followers')}
-              className="hover:underline cursor-pointer"
-            >
-              <span className="font-bold text-lab-pr">{profile.followersCount}</span>{' '}
-              <span className="text-lab-sc">Followers</span>
-            </button>
-            <span>
-              <span className="font-bold text-lab-pr">{profile.publicationsCount}</span>{' '}
-              <span className="text-lab-sc">Posts</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <Tabs
-        value={activeTab}
-        onChange={(k) => setActiveTab(k as 'posts' | 'about')}
-        tabs={[
-          { key: 'posts', label: 'Publications', count: profile.publicationsCount },
-          { key: 'about', label: 'About' },
-        ]}
-      />
-
-      {activeTab === 'posts' ? (
-        <FeedList mode="user" username={profile.username} />
-      ) : (
-        <div className="p-5 space-y-4">
-          {profile.category && (
-            <div className="rounded-2xl border border-bord-pr p-4">
-              <p className="text-cap-l text-lab-sc">Category</p>
-              <p className="text-par-n font-semibold text-lab-pr capitalize">{profile.category}</p>
-            </div>
-          )}
-          {profile.socialLinks && profile.socialLinks.filter((s) => s.url).length > 0 && (
-            <div className="rounded-2xl border border-bord-pr p-4 space-y-2">
-              <p className="text-cap-l text-lab-sc">Social Profiles</p>
-              {profile.socialLinks
-                .filter((s) => s.url)
-                .map((s) => (
-                  <a
-                    key={s.platform}
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between rounded-xl bg-fill-pr px-3 py-2 text-par-n hover:bg-fill-sc"
-                  >
-                    <span className="capitalize font-medium text-lab-pr">{s.platform}</span>
-                    <Link2 className="h-4 w-4 text-lab-sc" />
-                  </a>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
-
+      {/* Followers / Following Modal */}
       <Modal
         open={listModal !== null}
         onClose={() => setListModal(null)}
         title={listModal === 'followers' ? 'Followers' : 'Following'}
       >
         {listLoading ? (
-          <p className="text-center text-lab-sc py-6">Loading...</p>
+          <p className="text-center text-lab-sc py-6 text-par-n">Loading...</p>
         ) : listUsers.length === 0 ? (
-          <p className="text-center text-lab-sc py-6">No users found.</p>
+          <p className="text-center text-lab-sc py-6 text-par-n">No users found.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {listUsers.map((u) => (
               <Link
                 key={u.id}
@@ -520,20 +1082,19 @@ export default function UserProfilePage() {
         albumName={mediaLightbox?.label}
       />
 
-      {!profile.viewerContext.isSelf &&
-        (profile.monetization?.tipsEnabled || profile.monetization?.subscriptionsEnabled) && (
-          <SupportCreatorModal
-            open={supportOpen}
-            onClose={() => setSupportOpen(false)}
-            creator={{
-              id: profile.id,
-              username: profile.username,
-              firstName: profile.firstName,
-              lastName: profile.lastName,
-              monetization: profile.monetization,
-            }}
-          />
-        )}
+      {!profile.viewerContext.isSelf && hasMonetization && (
+        <SupportCreatorModal
+          open={supportOpen}
+          onClose={() => setSupportOpen(false)}
+          creator={{
+            id: profile.id,
+            username: profile.username,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            monetization: profile.monetization,
+          }}
+        />
+      )}
     </AppShell>
   );
 }

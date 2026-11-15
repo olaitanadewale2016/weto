@@ -577,7 +577,7 @@ export function PostCard({
                 <button
                   type="button"
                   onClick={() => setLightboxIndex(0)}
-                  className="block w-full relative rounded-2xl overflow-hidden border border-bord-card bg-fill-qt cursor-pointer text-left"
+                  className="block w-full relative overflow-hidden bg-fill-qt cursor-pointer text-left"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -610,7 +610,7 @@ export function PostCard({
                           <button
                             type="button"
                             onClick={() => setLightboxIndex(postGifOffset)}
-                            className="block w-full rounded-2xl overflow-hidden border border-bord-card bg-fill-qt cursor-pointer"
+                            className="block w-full overflow-hidden bg-fill-qt cursor-pointer"
                             style={
                               m.lqipBase64
                                 ? { backgroundImage: `url(${m.lqipBase64})`, backgroundSize: 'cover' }
@@ -630,7 +630,7 @@ export function PostCard({
                       })()}
 
                       {images.length === 2 && (
-                        <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-bord-card bg-bord-card">
+                        <div className="grid grid-cols-2 gap-0.5 overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
                             const src = m.publicUrl || m.url || '';
                             return (
@@ -663,7 +663,7 @@ export function PostCard({
                       )}
 
                       {images.length === 3 && (
-                        <div className="grid grid-cols-3 grid-rows-2 gap-0.5 h-72 sm:h-80 rounded-2xl overflow-hidden border border-bord-card bg-bord-card">
+                        <div className="grid grid-cols-3 grid-rows-2 gap-0.5 h-72 sm:h-80 overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
                             const src = m.publicUrl || m.url || '';
                             return (
@@ -699,7 +699,7 @@ export function PostCard({
                       )}
 
                       {images.length === 4 && (
-                        <div className="grid grid-cols-3 gap-0.5 rounded-2xl overflow-hidden border border-bord-card bg-bord-card">
+                        <div className="grid grid-cols-3 gap-0.5 overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
                             const src = m.publicUrl || m.url || '';
                             return (
@@ -735,7 +735,7 @@ export function PostCard({
                       )}
 
                       {images.length >= 5 && (
-                        <div className="rounded-2xl overflow-hidden border border-bord-card bg-bord-card space-y-0.5">
+                        <div className="overflow-hidden bg-bg-pr space-y-0.5">
                           <div className="grid grid-cols-3 gap-0.5">
                             {images.slice(0, 3).map((m, idx) => {
                               const src = m.publicUrl || m.url || '';
@@ -807,7 +807,7 @@ export function PostCard({
                           <div
                             key={m.id || `vid-${idx}`}
                             className={cn(
-                              'rounded-2xl overflow-hidden border border-bord-card bg-black',
+                              'overflow-hidden bg-black',
                               isPortrait ? 'max-w-[320px]' : 'w-full'
                             )}
                           >
@@ -836,7 +836,7 @@ export function PostCard({
                         return (
                           <div
                             key={m.id || `aud-${idx}`}
-                            className="flex items-center gap-3.5 rounded-2xl border border-bord-card bg-fill-fv/40 px-3.5 py-3"
+                            className="flex items-center gap-3.5 bg-fill-fv/40 px-3.5 py-3"
                           >
                             <button
                               type="button"
@@ -911,10 +911,10 @@ export function PostCard({
                             target="_blank"
                             rel="noopener noreferrer"
                             download={m.filename || true}
-                            className="flex items-center justify-between gap-3 rounded-2xl border border-bord-card bg-fill-fv/30 p-3 hover:bg-fill-fv/70 transition-colors"
+                            className="flex items-center justify-between gap-3 bg-fill-fv/30 p-3 hover:bg-fill-fv/70 transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="size-10 rounded-xl bg-bg-pr border border-bord-card flex items-center justify-center shrink-0 overflow-hidden p-1.5">
+                              <div className="size-10 bg-bg-pr flex items-center justify-center shrink-0 overflow-hidden p-1.5">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={getFileFormatIconSrc(m.extension, m.filename)}
@@ -929,7 +929,7 @@ export function PostCard({
                                 <p className="text-cap-s text-lab-sc truncate">{subline}</p>
                               </div>
                             </div>
-                            <span className="size-8 rounded-full border border-bord-card bg-bg-pr flex items-center justify-center text-lab-sc shrink-0">
+                            <span className="size-8 rounded-full bg-bg-pr flex items-center justify-center text-lab-sc shrink-0">
                               <FileDown className="size-4" />
                             </span>
                           </a>

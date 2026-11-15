@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const authCtx = await getOptionalAuth(req);
     const { searchParams } = new URL(req.url);
-    const mode = searchParams.get('mode') || 'feed'; // feed | explore | trending | bookmarks | user
+    const mode = searchParams.get('mode') || 'feed'; // feed | explore | trending | bookmarks | user | user_media
     const username = searchParams.get('username');
     const hashtag = searchParams.get('hashtag');
     const q = (searchParams.get('q') || '').trim();
@@ -35,9 +35,9 @@ export async function GET(req: NextRequest) {
 
     const [blockedIds, mutedIds] = authCtx
       ? await Promise.all([
-          getBlockedUserIdsFor(String(authCtx.user._id)),
-          Mute.find({ muterId: authCtx.user._id }).distinct('mutedId'),
-        ])
+        getBlockedUserIdsFor(String(authCtx.user._id)),
+        Mute.find({ muterId: authCtx.user._id }).distinct('mutedId'),
+      ])
       : [[], []];
     const hiddenAuthorIds = [...blockedIds, ...mutedIds];
 
@@ -63,9 +63,9 @@ export async function GET(req: NextRequest) {
       const hasFollowedOrAuthoredPosts =
         authCtx.user.role !== 'root' && followingIds.length > 0
           ? await Post.exists({
-              userId: { $in: allowedAuthors },
-              status: { $in: [PostStatus.ACTIVE, PostStatus.PUBLISHED, PostStatus.PROCESSING_VIDEO] },
-            })
+            userId: { $in: allowedAuthors },
+            status: { $in: [PostStatus.ACTIVE, PostStatus.PUBLISHED, PostStatus.PROCESSING_VIDEO] },
+          })
           : false;
 
       if (hasFollowedOrAuthoredPosts) {
@@ -84,13 +84,24 @@ export async function GET(req: NextRequest) {
         ];
       }
       delete filter.status;
-    } else if (mode === 'user' && username) {
+    } else if ((mode === 'user' || mode === 'user_media') && username) {
       const profileUser = await User.findOne({
         username: username.replace(/^@/, '').toLowerCase(),
         deletedAt: null,
       }).select('_id');
       if (!profileUser) throw new NotFoundError('User not found.');
       filter.userId = profileUser._id;
+      if (mode === 'user_media') {
+        const mediaPostIds = await Media.distinct('targetId', {
+          userId: profileUser._id,
+          targetType: 'post',
+          type: { $in: [MediaType.IMAGE, MediaType.VIDEO, MediaType.GIF] },
+        });
+        filter.$or = [
+          { _id: { $in: mediaPostIds } },
+          { gifUrl: { $exists: true, $nin: [null, ''] } },
+        ];
+      }
     } else if (mode === 'bookmarks' && authCtx) {
       const bms = await Bookmark.find({ userId: authCtx.user._id, targetType: 'post' })
         .sort({ createdAt: -1 })
@@ -123,7 +134,7 @@ export async function GET(req: NextRequest) {
       userId?: unknown;
       status?: string;
       reactionSummary?: Array<{ count?: number }>;
-      poll?: { choices?: Array<{ votesCount?: number }>; [key: string]: unknown } | null;
+      poll?: { choices?: Array<{ votesCount?: number }>;[key: string]: unknown } | null;
     };
 
     const useFacebookFeedRanking =
@@ -186,23 +197,23 @@ export async function GET(req: NextRequest) {
       const sortSpec: Record<string, 1 | -1> =
         mode === 'trending'
           ? {
+            globalPinned: -1,
+            commentsCount: -1,
+            bookmarksCount: -1,
+            viewsCount: -1,
+            quotesCount: -1,
+            createdAt: -1,
+          }
+          : mode === 'user'
+            ? { profilePinned: -1, createdAt: -1 }
+            : {
               globalPinned: -1,
+              createdAt: -1,
               commentsCount: -1,
               bookmarksCount: -1,
               viewsCount: -1,
               quotesCount: -1,
-              createdAt: -1,
-            }
-          : mode === 'user'
-            ? { profilePinned: -1, createdAt: -1 }
-            : {
-                globalPinned: -1,
-                createdAt: -1,
-                commentsCount: -1,
-                bookmarksCount: -1,
-                viewsCount: -1,
-                quotesCount: -1,
-              };
+            };
 
       const rawPosts = await Post.find(filter)
         .sort(sortSpec)
@@ -223,9 +234,9 @@ export async function GET(req: NextRequest) {
     const posts =
       page === 1 && mode === 'feed'
         ? [
-            ...slicedPosts.filter((p) => p.status === PostStatus.PROCESSING_VIDEO),
-            ...slicedPosts.filter((p) => p.status !== PostStatus.PROCESSING_VIDEO),
-          ]
+          ...slicedPosts.filter((p) => p.status === PostStatus.PROCESSING_VIDEO),
+          ...slicedPosts.filter((p) => p.status !== PostStatus.PROCESSING_VIDEO),
+        ]
         : slicedPosts;
     const total = (page - 1) * limit + posts.length + (hasMore ? 1 : 0);
 
@@ -236,17 +247,17 @@ export async function GET(req: NextRequest) {
         .lean(),
       authCtx
         ? Reaction.find({
-            targetType: 'post',
-            targetId: { $in: postIds },
-            userId: authCtx.user._id,
-          }).lean()
+          targetType: 'post',
+          targetId: { $in: postIds },
+          userId: authCtx.user._id,
+        }).lean()
         : [],
       authCtx
         ? Bookmark.find({
-            userId: authCtx.user._id,
-            targetType: 'post',
-            targetId: { $in: postIds },
-          }).lean()
+          userId: authCtx.user._id,
+          targetType: 'post',
+          targetId: { $in: postIds },
+        }).lean()
         : [],
     ]);
 
@@ -372,19 +383,19 @@ export async function POST(req: NextRequest) {
       linkSnapshot,
       poll: body.poll
         ? {
-            choices: body.poll.choices.map((text, idx) => ({
-              id: `c_${idx}`,
-              text,
-              votesCount: 0,
-            })),
-            voterIds: [],
-            votesByUser: {},
-            isAnonymous: body.poll.isAnonymous,
-            isCancellable: body.poll.isCancellable,
-            expiresAt: body.poll.expiresHours
-              ? new Date(Date.now() + body.poll.expiresHours * 3600_000)
-              : null,
-          }
+          choices: body.poll.choices.map((text, idx) => ({
+            id: `c_${idx}`,
+            text,
+            votesCount: 0,
+          })),
+          voterIds: [],
+          votesByUser: {},
+          isAnonymous: body.poll.isAnonymous,
+          isCancellable: body.poll.isCancellable,
+          expiresAt: body.poll.expiresHours
+            ? new Date(Date.now() + body.poll.expiresHours * 3600_000)
+            : null,
+        }
         : null,
     });
 

@@ -11,6 +11,7 @@ interface ModalProps {
   description?: string;
   children: React.ReactNode;
   maxWidthClass?: string;
+  bodyClassName?: string;
 }
 
 export function Modal({
@@ -20,6 +21,7 @@ export function Modal({
   description,
   children,
   maxWidthClass = 'max-w-lg',
+  bodyClassName,
 }: ModalProps) {
   React.useEffect(() => {
     if (!open) return;
@@ -33,13 +35,13 @@ export function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/55 backdrop-blur-xs overflow-x-hidden">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.625rem,env(safe-area-inset-left))] pr-[max(0.625rem,env(safe-area-inset-right))] sm:p-4 bg-black/55 backdrop-blur-xs overflow-x-hidden">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-10 w-full rounded-3xl bg-bg-pr border border-bord-pr shadow-vertical-tr overflow-hidden max-h-[90dvh] flex flex-col min-w-0',
+          'relative z-10 w-full rounded-3xl bg-bg-pr border border-bord-pr shadow-vertical-tr overflow-hidden max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-[90dvh] flex flex-col min-w-0',
           maxWidthClass
         )}
       >
@@ -59,7 +61,9 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className="overflow-y-auto overflow-x-hidden p-4 sm:p-5">{children}</div>
+        <div className={cn('overflow-y-auto overflow-x-hidden', bodyClassName ?? 'p-4 sm:p-5')}>
+          {children}
+        </div>
       </div>
     </div>
   );

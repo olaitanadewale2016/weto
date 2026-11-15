@@ -9,7 +9,7 @@ export function Soundbar() {
   if (!soundbarTrack) return null;
 
   return (
-    <div className="fixed bottom-16 md:bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md rounded-full border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-vertical-tr px-4 py-2.5 flex items-center gap-3">
+    <div className="fixed bottom-[calc(4rem+max(1rem,env(safe-area-inset-bottom)))] md:bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem-env(safe-area-inset-left)-env(safe-area-inset-right))] max-w-md rounded-full border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-vertical-tr px-4 py-2.5 flex items-center gap-3">
       <button
         type="button"
         onClick={togglePlayAudio}

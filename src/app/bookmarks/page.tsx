@@ -14,7 +14,7 @@ export default function BookmarksPage() {
 
   return (
     <AppShell>
-      <div className="sticky top-14 md:top-0 z-20 border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3.5 flex items-center gap-3">
+      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3.5 flex items-center gap-3">
         <Link href="/" className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr">
           <ArrowLeft className="h-5 w-5" />
         </Link>

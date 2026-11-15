@@ -375,7 +375,7 @@ export default function StoryViewerPage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 h-[100dvh] bg-[#101214] text-white flex items-center justify-center">
+      <div className="fixed inset-0 z-[60] h-[100dvh] pt-safe pb-safe px-safe bg-[#101214] text-white flex items-center justify-center">
         Loading story...
       </div>
     );
@@ -383,7 +383,7 @@ export default function StoryViewerPage() {
 
   if (!activeGroup || !activeFrame) {
     return (
-      <div className="fixed inset-0 h-[100dvh] bg-[#101214] text-white flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="fixed inset-0 z-[60] h-[100dvh] bg-[#101214] text-white flex flex-col items-center justify-center gap-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] text-center">
         <p className="text-par-l">Story is no longer available.</p>
         <Link href="/">
           <Button variant="primary">Back to Feed</Button>
@@ -402,7 +402,7 @@ export default function StoryViewerPage() {
 
   return (
     <div
-      className="fixed inset-0 h-[100dvh] bg-black md:bg-[#101214] text-white flex items-center justify-center z-50 overflow-hidden"
+      className="fixed inset-0 h-[100dvh] bg-black md:bg-[#101214] text-white flex items-center justify-center z-[60] overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -432,7 +432,7 @@ export default function StoryViewerPage() {
         {/* Active Story Card */}
         <div className="relative w-full h-full md:w-[390px] xl:w-[420px] md:h-[690px] xl:h-[744px] md:max-h-[88vh] md:rounded-3xl overflow-hidden bg-neutral-900 shadow-2xl flex flex-col shrink-0">
           {/* Top Progress Bars & Author Header */}
-          <div className="absolute top-0 inset-x-0 z-20 p-3 pt-safe space-y-2.5 bg-gradient-to-b from-black/75 via-black/35 to-transparent">
+          <div className="absolute top-0 inset-x-0 z-20 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] space-y-2.5 bg-gradient-to-b from-black/75 via-black/35 to-transparent">
             <div className="flex gap-1">
               {activeGroup.frames.map((f, i) => {
                 const widthPct = i < frameIdx ? 100 : i === frameIdx ? progress : 0;
@@ -593,7 +593,7 @@ export default function StoryViewerPage() {
           </div>
 
           {/* Bottom Controls */}
-          <div className="p-3 pb-safe bg-gradient-to-t from-black/85 via-black/45 to-transparent space-y-2 z-20">
+          <div className="px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] bg-gradient-to-t from-black/85 via-black/45 to-transparent space-y-2 z-20">
             {isOwner ? (
               <div className="flex items-center justify-between">
                 <button

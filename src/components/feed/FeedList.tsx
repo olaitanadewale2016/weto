@@ -36,7 +36,7 @@ export function FeedList({
   query,
   composerEnabled = false,
 }: {
-  mode?: 'feed' | 'explore' | 'trending' | 'bookmarks' | 'user';
+  mode?: 'feed' | 'explore' | 'trending' | 'bookmarks' | 'user' | 'user_media';
   username?: string;
   hashtag?: string;
   query?: string;

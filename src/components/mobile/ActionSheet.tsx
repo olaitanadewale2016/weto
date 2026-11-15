@@ -28,7 +28,7 @@ export function ActionSheet({ open, onClose, muted = true, children }: ActionShe
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-100 flex flex-col bg-black/70 pt-14"
+      className="fixed inset-0 z-100 flex flex-col bg-black/70 pt-[max(3.5rem,calc(env(safe-area-inset-top)+1rem))] px-safe"
       role="dialog"
       aria-modal="true"
     >

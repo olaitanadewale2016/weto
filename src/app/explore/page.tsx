@@ -85,7 +85,7 @@ function ExploreContent() {
 
   return (
     <div>
-      <div className="sticky top-14 md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
         <div className="p-4">
           <form onSubmit={onSearchSubmit} className="relative rounded-full border border-bord-card/80 bg-bg-pr focus-within:border-bord-pr transition-colors">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-sc" />

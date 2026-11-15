@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, AlertCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -148,9 +149,9 @@ function MediaLightboxInner({
     }
   }
 
-  return (
+  const lightboxContent = (
     <div
-      className="fixed inset-0 z-50 bg-black flex flex-col select-none animate-fade-in"
+      className="fixed inset-0 z-[120] bg-black flex flex-col select-none animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-label="Media preview"
@@ -159,27 +160,29 @@ function MediaLightboxInner({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Top gradient bar: counter on left, close on right */}
+      {/* Top gradient bar: counter on left, close on right — clears iOS/Android notch & status bar */}
       <div
-        className="relative z-20 flex items-center justify-between px-4 sm:px-6 h-16 bg-gradient-to-b from-black/75 via-black/40 to-transparent text-white shrink-0"
+        className="relative z-20 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 pb-2 bg-gradient-to-b from-black/80 via-black/45 to-transparent text-white shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-par-s font-medium tracking-tight text-white/90">
-          {count > 1 ? `Images ${currentIndex + 1}/${count}` : albumName || 'Media preview'}
-        </div>
+        <div className="h-12 flex items-center justify-between gap-3">
+          <div className="text-par-s font-medium tracking-tight text-white/90 min-w-0 truncate">
+            {count > 1 ? `Images ${currentIndex + 1}/${count}` : albumName || 'Media preview'}
+          </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close media preview"
-          className="size-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
-        >
-          <X className="size-5" />
-        </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close media preview"
+            className="size-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
       </div>
 
       {/* Main viewport stage */}
-      <div className="relative flex-1 min-h-0 flex items-center justify-center px-3 sm:px-16 py-2">
+      <div className="relative flex-1 min-h-0 flex items-center justify-center pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-16 py-2">
         {count > 1 ? (
           <button
             type="button"
@@ -205,7 +208,7 @@ function MediaLightboxInner({
                 <img
                   src={active.lqipBase64}
                   alt=""
-                  className="max-h-[82vh] max-w-[92vw] rounded-lg object-contain blur-md opacity-70"
+                  className="max-h-[calc(100dvh-10rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] max-w-[92vw] rounded-lg object-contain blur-md opacity-70"
                 />
               ) : null}
               <div className="absolute inset-0 flex items-center justify-center">
@@ -237,8 +240,8 @@ function MediaLightboxInner({
                 setErrorMap((prev) => ({ ...prev, [currentIndex]: true }));
               }}
               className={cn(
-                'rounded-md object-contain shadow-2xl transition-opacity duration-200',
-                isPortrait ? 'max-h-[84vh] w-auto max-w-[94vw]' : 'max-w-[94vw] sm:max-w-[84vw] max-h-[84vh]',
+                'rounded-md object-contain shadow-2xl transition-opacity duration-200 max-h-[calc(100dvh-10rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]',
+                isPortrait ? 'w-auto max-w-[94vw]' : 'max-w-[94vw] sm:max-w-[84vw]',
                 isLoaded ? 'opacity-100' : 'opacity-0 absolute pointer-events-none'
               )}
             />
@@ -262,7 +265,7 @@ function MediaLightboxInner({
 
       {/* Bottom caption/date & dot pagination */}
       <div
-        className="relative z-20 px-4 sm:px-6 py-3 bg-gradient-to-t from-black/80 via-black/45 to-transparent text-white shrink-0"
+        className="relative z-20 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 bg-gradient-to-t from-black/80 via-black/45 to-transparent text-white shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -293,4 +296,6 @@ function MediaLightboxInner({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(lightboxContent, document.body) : null;
 }

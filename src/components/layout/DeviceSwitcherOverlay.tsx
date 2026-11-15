@@ -74,7 +74,7 @@ export function DeviceSwitcherOverlay() {
       aria-modal="true"
       aria-label={isSwitchingToMobile ? 'On mobile device?' : 'On desktop device?'}
     >
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full pt-safe pb-safe px-safe">
         <div className="flex items-center justify-center mb-6 h-14 border-b border-bord-pr shrink-0">
           <div className="w-7">
             {/* eslint-disable-next-line @next/next/no-img-element */}

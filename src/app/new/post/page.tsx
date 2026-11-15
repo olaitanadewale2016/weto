@@ -13,25 +13,27 @@ export default function NewPostPage() {
   const { user } = useApp();
 
   return (
-    <div className="fixed inset-0 z-50 bg-bg-pr text-lab-pr flex flex-col overflow-x-hidden max-w-full">
+    <div className="fixed inset-0 z-[60] bg-bg-pr text-lab-pr flex flex-col overflow-x-hidden max-w-full">
       {/* Top Toolbar matching Source/resources/js/spa/apps/mobile/views/editors/post/PostEditor.vue */}
-      <header className="shrink-0 h-14 px-4 flex items-center justify-between border-b border-bord-tr bg-bg-pr">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="h-9 w-9 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer"
-          aria-label="Close editor"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="text-par-l font-bold text-lab-pr">New publication</h1>
-        <div className="w-9" />
+      <header className="shrink-0 pt-safe px-safe border-b border-bord-tr bg-bg-pr">
+        <div className="h-14 px-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="h-9 w-9 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer"
+            aria-label="Close editor"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-par-l font-bold text-lab-pr">New publication</h1>
+          <div className="w-9" />
+        </div>
       </header>
 
       <div className="h-2 bg-bord-pr opacity-60 shrink-0" />
 
       {!user ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 pb-safe text-center space-y-4">
           <p className="text-par-m text-lab-sc">Sign in to publish updates, photos, videos, or polls.</p>
           <Link href="/auth/login">
             <Button variant="primary">Sign in</Button>

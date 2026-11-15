@@ -303,7 +303,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Mobile Header / Toolbar matching PHP mobile/views/settings */}
-      <div className="md:hidden border-b border-bord-pr sticky top-14 z-20 bg-bg-pr/95 backdrop-blur-md">
+      <div className="md:hidden border-b border-bord-pr sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 bg-bg-pr/95 backdrop-blur-md">
         <div className="p-4 flex items-center leading-none">
           <div className="shrink-0 w-10">
             {mobileInDetail ? (
@@ -436,6 +436,12 @@ export default function SettingsPage() {
                     label="Username"
                     value={accountForm.username}
                     onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
+                  />
+                  <Input
+                    label="Tagline / Caption"
+                    placeholder="Role, headline, or short status"
+                    value={accountForm.caption || ''}
+                    onChange={(e) => setAccountForm({ ...accountForm, caption: e.target.value })}
                   />
                   <Textarea
                     label="Bio"

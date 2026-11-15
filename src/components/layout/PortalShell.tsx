@@ -277,7 +277,7 @@ export function PortalShell({
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div className="fixed inset-0 popup-background-pr" onClick={() => setMobileMenuOpen(false)} />
-          <aside className="relative z-10 w-72 max-w-[85vw] h-full bg-bg-pr border-r border-bord-pr">
+          <aside className="relative z-10 w-72 max-w-[85vw] h-full bg-bg-pr border-r border-bord-pr pt-safe pb-safe">
             {renderNavContent(() => setMobileMenuOpen(false))}
           </aside>
         </div>
@@ -333,7 +333,14 @@ export function PortalShell({
       </header>
 
       {/* Main container matching Source/resources/views/components/container.blade.php */}
-      <main className={cn('pt-20 px-4 md:ml-72 md:pr-8 md:pl-8', portal === 'admin' ? 'pb-14' : 'pb-12')}>
+      <main
+        className={cn(
+          'pt-[calc(5rem+env(safe-area-inset-top))] px-4 px-safe md:ml-72 md:pr-8 md:pl-8',
+          portal === 'admin'
+            ? 'pb-[calc(3.5rem+env(safe-area-inset-bottom))]'
+            : 'pb-[calc(3rem+env(safe-area-inset-bottom))]'
+        )}
+      >
         {children}
       </main>
 
