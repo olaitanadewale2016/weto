@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { BusinessPortalHeader } from '@/components/business/BusinessPortalHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,10 +22,31 @@ export default function BusinessSettingsPage() {
   const [taxNumber, setTaxNumber] = useState('');
   const [logo, setLogo] = useState('');
   const [cover, setCover] = useState('');
+  const [businessState, setBusinessState] = useState<{
+    configured: boolean;
+    verified: boolean;
+    isReviewed: boolean;
+  }>({ configured: false, verified: false, isReviewed: false });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ business?: Record<string, string> }>('/business')
+    apiFetch<{
+      business?: {
+        name?: string;
+        description?: string;
+        businessEmail?: string;
+        businessPhone?: string;
+        website?: string;
+        addressLine1?: string;
+        city?: string;
+        country?: string;
+        taxNumber?: string;
+        logo?: string;
+        cover?: string;
+        verified?: boolean;
+        isReviewed?: boolean;
+      };
+    }>('/business')
       .then((res) => {
         if (!res.business) return;
         const b = res.business;
@@ -39,6 +61,11 @@ export default function BusinessSettingsPage() {
         setTaxNumber(b.taxNumber || '');
         setLogo(b.logo || '');
         setCover(b.cover || '');
+        setBusinessState({
+          configured: true,
+          verified: Boolean(b.verified),
+          isReviewed: Boolean(b.isReviewed),
+        });
       })
       .catch(() => undefined);
   }, []);
@@ -89,6 +116,23 @@ export default function BusinessSettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <BusinessPortalHeader title="Business Profile Settings" subtitle="Update public branding, legal contact, and billing details." />
+      {businessState.configured && (
+        <div className="rounded-2xl border border-bord-card bg-fill-qt/50 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-par-n font-bold text-lab-pr">Business Verification Status</p>
+            <p className="text-cap-l text-lab-sc">
+              {businessState.verified
+                ? 'Your business account is verified and trusted across Marketplace, Jobs, and Ads.'
+                : businessState.isReviewed
+                  ? 'Your business verification was declined or revoked by moderation. Update your details and contact support.'
+                  : 'Your business profile is awaiting administrator verification.'}
+            </p>
+          </div>
+          <Badge variant={businessState.verified ? 'success' : businessState.isReviewed ? 'danger' : 'warning'}>
+            {businessState.verified ? 'Verified' : businessState.isReviewed ? 'Declined' : 'Pending Review'}
+          </Badge>
+        </div>
+      )}
       <form onSubmit={handleSave} className="space-y-4">
         <Input label="Business / Organization Name" value={name} onChange={(e) => setName(e.target.value)} required />
         <Textarea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} />

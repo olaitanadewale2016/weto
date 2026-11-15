@@ -56,16 +56,20 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const resource = searchParams.get('resource') || 'users';
     const q = (searchParams.get('q') || '').trim();
+    const filterParam = (searchParams.get('filter') || searchParams.get('type') || 'all')
+      .trim()
+      .toLowerCase();
     const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') || 40)));
 
     const re = q ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
 
     if (resource === 'users') {
-      const typeFilter = (searchParams.get('type') || 'all').trim();
+      const typeFilter = filterParam;
       const filter: Record<string, unknown> = { deletedAt: null };
       if (typeFilter === 'author') filter.type = UserType.AUTHOR;
       else if (typeFilter === 'reader') filter.type = UserType.READER;
       else if (typeFilter === 'blocked') filter.status = UserStatus.BLOCKED;
+      else if (typeFilter === 'verified') filter.verified = true;
       if (re) {
         filter.$or = [{ username: re }, { email: re }, { firstName: re }, { lastName: re }, { city: re }];
       }
@@ -80,7 +84,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'posts') {
-      const filter: Record<string, unknown> = re ? { $or: [{ title: re }, { content: re }, { hashtags: re }, { location: re }] } : {};
+      const filter: Record<string, unknown> = re
+        ? { $or: [{ title: re }, { content: re }, { hashtags: re }, { location: re }] }
+        : {};
+      if (filterParam === 'active') filter.status = PostStatus.ACTIVE;
+      else if (filterParam === 'draft') filter.status = PostStatus.DRAFT;
+      else if (filterParam === 'pinned') filter.globalPinned = true;
       const posts = await Post.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
@@ -94,7 +103,11 @@ export async function GET(req: NextRequest) {
         const key = String(m.targetId);
         mediaMap.set(key, [...(mediaMap.get(key) || []), serializeMedia(m as never)]);
       }
-      return apiSuccess(posts.map((p) => ({ ...p, media: mediaMap.get(String(p._id)) || [] })));
+      let enriched = posts.map((p) => ({ ...p, media: mediaMap.get(String(p._id)) || [] }));
+      if (filterParam === 'media') {
+        enriched = enriched.filter((p) => p.media.length > 0);
+      }
+      return apiSuccess(enriched);
     }
 
     if (resource === 'comments') {
@@ -102,14 +115,18 @@ export async function GET(req: NextRequest) {
       const comments = await Comment.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
-        .populate('userId', 'username avatar')
-        .populate('postId', 'hashId')
+        .populate('userId', 'username firstName lastName avatar')
+        .populate('postId', 'hashId title content')
         .lean();
       return apiSuccess(comments);
     }
 
     if (resource === 'stories') {
-      const stories = await StoryFrame.find(re ? { content: re } : {})
+      const filter: Record<string, unknown> = re ? { content: re } : {};
+      const now = new Date();
+      if (filterParam === 'active') filter.expiresAt = { $gt: now };
+      else if (filterParam === 'expired') filter.expiresAt = { $lte: now };
+      const stories = await StoryFrame.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
         .populate('userId', 'username firstName lastName avatar')
@@ -118,17 +135,26 @@ export async function GET(req: NextRequest) {
       return apiSuccess(
         stories.map((s) => ({
           ...s,
+          isExpired: s.expiresAt ? new Date(s.expiresAt).getTime() <= now.getTime() : false,
           media: s.mediaId ? serializeMedia(s.mediaId as never) : null,
         }))
       );
     }
 
     if (resource === 'marketplace') {
-      const filter: Record<string, unknown> = re ? { $or: [{ title: re }, { description: re }, { address: re }] } : {};
+      const filter: Record<string, unknown> = re
+        ? { $or: [{ title: re }, { description: re }, { address: re }] }
+        : {};
+      if (['pending', 'approved', 'rejected'].includes(filterParam)) {
+        filter.approval = filterParam;
+      } else if (['active', 'inactive'].includes(filterParam)) {
+        filter.status = filterParam;
+      }
       const products = await Product.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
-        .populate('userId', 'username avatar')
+        .populate('userId', 'username firstName lastName avatar')
+        .populate('categoryId', 'localization')
         .lean();
       const prodMedia = await Media.find({ targetType: 'product', targetId: { $in: products.map((p) => p._id) } })
         .sort({ order: 1 })
@@ -142,21 +168,33 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'jobs') {
-      const filter: Record<string, unknown> = re ? { $or: [{ title: re }, { overview: re }, { location: re }] } : {};
+      const filter: Record<string, unknown> = re
+        ? { $or: [{ title: re }, { overview: re }, { location: re }] }
+        : {};
+      if (['pending', 'approved', 'rejected'].includes(filterParam)) {
+        filter.approval = filterParam;
+      } else if (['active', 'closed'].includes(filterParam)) {
+        filter.status = filterParam;
+      }
       const jobs = await JobListing.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
-        .populate('userId', 'username avatar')
+        .populate('userId', 'username firstName lastName avatar')
+        .populate('categoryId', 'localization')
         .lean();
       return apiSuccess(jobs);
     }
 
     if (resource === 'businesses') {
-      const filter: Record<string, unknown> = re ? { $or: [{ name: re }, { city: re }, { country: re }, { businessEmail: re }] } : {};
+      const filter: Record<string, unknown> = re
+        ? { $or: [{ name: re }, { city: re }, { country: re }, { businessEmail: re }] }
+        : {};
+      if (filterParam === 'verified') filter.verified = true;
+      else if (filterParam === 'pending' || filterParam === 'unverified') filter.verified = false;
       const businesses = await BusinessAccount.find(filter)
         .sort({ updatedAt: -1 })
         .limit(limit)
-        .populate('userId', 'username email')
+        .populate('userId', 'username email avatar')
         .lean();
       return apiSuccess(businesses);
     }
@@ -165,6 +203,9 @@ export async function GET(req: NextRequest) {
       const chatFilter: Record<string, unknown> = re
         ? { $or: [{ 'group.name': re }, { 'group.description': re }, { chatUuid: re }] }
         : {};
+      if (filterParam === 'group' || filterParam === 'direct') {
+        chatFilter.type = filterParam;
+      }
       const chats = await Chat.find(chatFilter)
         .sort({ lastActivity: -1 })
         .limit(limit)
@@ -188,10 +229,18 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'ads') {
-      const ads = await Ad.find(re ? { $or: [{ title: re }, { content: re }] } : {})
+      const filter: Record<string, unknown> = re
+        ? { $or: [{ title: re }, { content: re }] }
+        : {};
+      if (['pending', 'approved', 'rejected'].includes(filterParam)) {
+        filter.approval = filterParam;
+      } else if (['published', 'paused', 'draft'].includes(filterParam)) {
+        filter.status = filterParam;
+      }
+      const ads = await Ad.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
-        .populate('userId', 'username')
+        .populate('userId', 'username firstName lastName avatar')
         .populate('mediaId')
         .lean();
       return apiSuccess(
@@ -203,19 +252,80 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'reports') {
-      const reports = await Report.find(
-        re ? { $or: [{ reporterComment: re }, { reportableType: re }, { status: re }] } : {}
-      )
+      const filter: Record<string, unknown> = re
+        ? { $or: [{ reporterComment: re }, { reportableType: re }, { status: re }] }
+        : {};
+      if (['pending', 'processed', 'ignored'].includes(filterParam)) {
+        filter.status = filterParam;
+      }
+      const reports = await Report.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
         .populate('reporterId', 'username firstName lastName avatar')
         .populate('reviewerId', 'username')
         .lean();
-      return apiSuccess(reports);
+
+      const byType = new Map<string, string[]>();
+      for (const r of reports) {
+        const listIds = byType.get(r.reportableType) || [];
+        listIds.push(String(r.reportableId));
+        byType.set(r.reportableType, listIds);
+      }
+
+      const [rPosts, rComments, rProducts, rJobs, rUsers] = await Promise.all([
+        byType.get('post')?.length
+          ? Post.find({ _id: { $in: byType.get('post') } }).select('content title hashId').lean()
+          : [],
+        byType.get('comment')?.length
+          ? Comment.find({ _id: { $in: byType.get('comment') } }).select('content').lean()
+          : [],
+        byType.get('product')?.length
+          ? Product.find({ _id: { $in: byType.get('product') } }).select('title hashId').lean()
+          : [],
+        byType.get('job')?.length
+          ? JobListing.find({ _id: { $in: byType.get('job') } }).select('title hashId').lean()
+          : [],
+        byType.get('user')?.length
+          ? User.find({ _id: { $in: byType.get('user') } }).select('username firstName lastName').lean()
+          : [],
+      ]);
+
+      const previewMap = new Map<string, string>();
+      for (const p of rPosts) {
+        previewMap.set(`post:${String(p._id)}`, p.title || p.content || `Post #${p.hashId}`);
+      }
+      for (const c of rComments) {
+        previewMap.set(`comment:${String(c._id)}`, c.content || 'Comment');
+      }
+      for (const pr of rProducts) {
+        previewMap.set(`product:${String(pr._id)}`, pr.title || 'Product');
+      }
+      for (const jb of rJobs) {
+        previewMap.set(`job:${String(jb._id)}`, jb.title || 'Job Listing');
+      }
+      for (const u of rUsers) {
+        previewMap.set(
+          `user:${String(u._id)}`,
+          `@${u.username} (${`${u.firstName || ''} ${u.lastName || ''}`.trim()})`
+        );
+      }
+
+      return apiSuccess(
+        reports.map((r) => ({
+          ...r,
+          targetPreview: previewMap.get(`${r.reportableType}:${String(r.reportableId)}`) || null,
+        }))
+      );
     }
 
     if (resource === 'moderation_history') {
-      const history = await ModerationAction.find({})
+      const filter: Record<string, unknown> = re
+        ? { $or: [{ action: re }, { reason: re }, { targetType: re }] }
+        : {};
+      if (filterParam !== 'all') {
+        filter.action = new RegExp(filterParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      }
+      const history = await ModerationAction.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
         .populate('moderatorId', 'username')
@@ -225,29 +335,54 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'banning') {
+      const blFilter: Record<string, unknown> = re
+        ? { $or: [{ blacklistable: re }, { reason: re }, { type: re }] }
+        : {};
+      const cFilter: Record<string, unknown> = re ? { word: re } : {};
       const [blacklists, censors] = await Promise.all([
-        Blacklist.find({}).sort({ addedAt: -1 }).limit(limit).populate('adminId', 'username').lean(),
-        Censor.find({}).sort({ word: 1 }).lean(),
+        Blacklist.find(blFilter).sort({ addedAt: -1 }).limit(limit).populate('adminId', 'username').lean(),
+        Censor.find(cFilter).sort({ word: 1 }).lean(),
       ]);
       return apiSuccess({ blacklists, censors });
     }
 
     if (resource === 'authorship') {
-      const list = await AuthorshipRequest.find({})
+      const filter: Record<string, unknown> = {};
+      if (['pending', 'approved', 'rejected'].includes(filterParam)) {
+        filter.status = filterParam;
+      }
+      const list = await AuthorshipRequest.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
-        .populate('userId', 'username firstName lastName email avatar type')
+        .populate('userId', 'username firstName lastName email avatar type verified')
         .lean();
-      return apiSuccess(list);
+      const filtered = re
+        ? list.filter((item) => {
+            const u = item.userId as { username?: string; email?: string; firstName?: string; lastName?: string } | null;
+            const hay = `${u?.username || ''} ${u?.email || ''} ${u?.firstName || ''} ${u?.lastName || ''} ${item.status || ''}`;
+            return re.test(hay);
+          })
+        : list;
+      return apiSuccess(filtered);
     }
 
     if (resource === 'cashouts') {
-      const cashouts = await Cashout.find({})
+      const filter: Record<string, unknown> = {};
+      if (['pending', 'paid', 'rejected', 'cancelled'].includes(filterParam)) {
+        filter.status = filterParam;
+      }
+      const cashouts = await Cashout.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit)
-        .populate('userId', 'username email avatar')
+        .populate('userId', 'username firstName lastName email avatar')
         .lean();
-      return apiSuccess(cashouts);
+      const filtered = re
+        ? cashouts.filter((c) => {
+            const u = c.userId as { username?: string; email?: string } | null;
+            return re.test(`${u?.username || ''} ${u?.email || ''} ${c.paymentMethod || ''} ${c.status || ''}`);
+          })
+        : cashouts;
+      return apiSuccess(filtered);
     }
 
     if (resource === 'acquiring') {
@@ -259,12 +394,25 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'verification') {
-      const [verification, pendingAuthorshipCount, verifiedUsersCount] = await Promise.all([
+      const userFilter: Record<string, unknown> = { deletedAt: null };
+      if (re) {
+        userFilter.$or = [{ username: re }, { email: re }, { firstName: re }, { lastName: re }];
+      } else if (filterParam === 'verified') {
+        userFilter.verified = true;
+      } else if (filterParam === 'unverified') {
+        userFilter.verified = false;
+      }
+      const [verification, pendingAuthorshipCount, verifiedUsersCount, users] = await Promise.all([
         getSettingsGroup('verification'),
         AuthorshipRequest.countDocuments({ status: ASRStatus.PENDING }),
         User.countDocuments({ deletedAt: null, verified: true }),
+        User.find(userFilter)
+          .sort({ verified: -1, createdAt: -1 })
+          .limit(30)
+          .select('username firstName lastName email avatar verified verifiedAt type status createdAt')
+          .lean(),
       ]);
-      return apiSuccess({ verification, pendingAuthorshipCount, verifiedUsersCount });
+      return apiSuccess({ verification, pendingAuthorshipCount, verifiedUsersCount, users });
     }
 
     if (resource === 'lab') {
@@ -296,16 +444,58 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'payments') {
+      const pFilter: Record<string, unknown> = {};
+      if (['completed', 'pending', 'failed', 'cancelled'].includes(filterParam)) {
+        pFilter.status = filterParam;
+      }
       const [payments, cashouts, wallets] = await Promise.all([
-        Payment.find({}).sort({ createdAt: -1 }).limit(limit).populate('userId', 'username email').lean(),
+        Payment.find(pFilter).sort({ createdAt: -1 }).limit(limit).populate('userId', 'username email').lean(),
         Cashout.find({}).sort({ createdAt: -1 }).limit(limit).populate('userId', 'username email').lean(),
         Wallet.find({}).sort({ balance: -1 }).limit(limit).populate('userId', 'username email').lean(),
       ]);
-      return apiSuccess({ payments, cashouts, wallets });
+      if (!re) {
+        return apiSuccess({ payments, cashouts, wallets });
+      }
+      return apiSuccess({
+        payments: payments.filter((p) => {
+          const u = p.userId as { username?: string; email?: string } | null;
+          return re.test(`${u?.username || ''} ${u?.email || ''} ${p.referenceId || ''} ${p.paymentMethod || ''} ${p.status || ''}`);
+        }),
+        cashouts: cashouts.filter((c) => {
+          const u = c.userId as { username?: string; email?: string } | null;
+          return re.test(`${u?.username || ''} ${u?.email || ''} ${c.paymentMethod || ''} ${c.status || ''}`);
+        }),
+        wallets: wallets.filter((w) => {
+          const u = w.userId as { username?: string; email?: string } | null;
+          return re.test(`${u?.username || ''} ${u?.email || ''} ${w.walletNumber || ''} ${w.currency || ''}`);
+        }),
+      });
     }
 
     if (resource === 'categories') {
-      return apiSuccess(await Category.find({}).lean());
+      const catFilter: Record<string, unknown> = {};
+      if (filterParam === 'product' || filterParam === 'job') {
+        catFilter.categorizableType = filterParam;
+      }
+      const [cats, productCounts, jobCounts] = await Promise.all([
+        Category.find(catFilter).sort({ categorizableType: 1, createdAt: 1 }).lean(),
+        Product.aggregate([{ $match: { categoryId: { $ne: null } } }, { $group: { _id: '$categoryId', count: { $sum: 1 } } }]),
+        JobListing.aggregate([{ $match: { categoryId: { $ne: null } } }, { $group: { _id: '$categoryId', count: { $sum: 1 } } }]),
+      ]);
+      const usageMap = new Map<string, number>();
+      for (const row of [...productCounts, ...jobCounts]) {
+        const key = String(row._id);
+        usageMap.set(key, (usageMap.get(key) || 0) + Number(row.count || 0));
+      }
+      const enriched = cats.map((c) => ({
+        ...c,
+        usageCount: usageMap.get(String(c._id)) ?? 0,
+      }));
+      return apiSuccess(
+        re
+          ? enriched.filter((c) => re.test(`${Object.values(c.localization || {}).join(' ')} ${c.categorizableType}`))
+          : enriched
+      );
     }
 
     if (resource === 'currencies') {
@@ -348,9 +538,21 @@ export async function GET(req: NextRequest) {
     }
 
     if (resource === 'storage') {
-      const [stats, rawMedia] = await Promise.all([
+      const mFilter: Record<string, unknown> = {};
+      if (['image', 'video', 'document', 'audio'].includes(filterParam)) {
+        mFilter.type = filterParam;
+      }
+      if (re) {
+        mFilter.$or = [{ key: re }, { targetType: re }, { storageProvider: re }];
+      }
+      const [stats, rawMedia, totalFiles, sizeAgg, providerAgg] = await Promise.all([
         DataStat.find({}).lean(),
-        Media.find({}).sort({ createdAt: -1 }).limit(50).populate('ownerId', 'username').lean(),
+        Media.find(mFilter).sort({ createdAt: -1 }).limit(50).populate('ownerId', 'username').lean(),
+        Media.countDocuments({}),
+        Media.aggregate([{ $group: { _id: null, bytes: { $sum: '$size' } } }]),
+        Media.aggregate([
+          { $group: { _id: '$storageProvider', count: { $sum: 1 }, bytes: { $sum: '$size' } } },
+        ]),
       ]);
       const recentMedia = rawMedia.map((m) => ({
         ...serializeMedia(m as never),
@@ -360,7 +562,19 @@ export async function GET(req: NextRequest) {
         owner: m.ownerId,
         createdAt: m.createdAt,
       }));
-      return apiSuccess({ stats, recentMedia });
+      return apiSuccess({
+        stats,
+        recentMedia,
+        summary: {
+          totalFiles,
+          totalBytes: Number(sizeAgg[0]?.bytes || 0),
+          providers: providerAgg.map((p: { _id?: string; count?: number; bytes?: number }) => ({
+            provider: p._id || 'local',
+            count: Number(p.count || 0),
+            bytes: Number(p.bytes || 0),
+          })),
+        },
+      });
     }
 
     if (resource === 'settings') {
@@ -513,11 +727,39 @@ export async function POST(req: NextRequest) {
       u.verified = !u.verified;
       u.verifiedAt = u.verified ? new Date() : null;
       await u.save();
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetUserId: u._id,
+        targetType: 'user',
+        targetId: String(u._id),
+        action: u.verified ? 'verify_user' : 'unverify_user',
+        reason: String(payload.reason || (u.verified ? 'Identity verified by admin' : 'Verification removed by admin')),
+      });
+      await dispatchNotification({
+        recipientId: u._id,
+        actorId: admin._id,
+        type: 'VERIFICATION_UPDATED',
+        category: 'important',
+        title: u.verified ? 'Account Verified' : 'Verification Updated',
+        message: u.verified
+          ? 'Your account now carries an official verified badge.'
+          : 'Your account verification badge has been removed by an administrator.',
+        actionUrl: '/settings',
+        forceChannels: true,
+      });
     } else if (action === 'user.toggle_author' && targetId) {
       const u = await User.findById(targetId);
       if (!u) throw new NotFoundError('User not found');
       u.type = u.type === UserType.AUTHOR ? UserType.READER : UserType.AUTHOR;
       await u.save();
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetUserId: u._id,
+        targetType: 'user',
+        targetId: String(u._id),
+        action: u.type === UserType.AUTHOR ? 'grant_author' : 'revoke_author',
+        reason: String(payload.reason || 'Admin account type update'),
+      });
     } else if (action === 'user.adjust_wallet' && targetId) {
       const amount = Number(payload.amount || 0);
       if (amount > 0) {
@@ -531,6 +773,32 @@ export async function POST(req: NextRequest) {
           metadata: { adminId: String(admin._id), note: payload.note || 'Admin adjustment' },
         });
       }
+    } else if (action === 'user.set_wallet_balance' && targetId) {
+      const balance = Number(payload.balance);
+      if (!Number.isFinite(balance) || balance < 0) {
+        throw new ValidationError('Wallet balance must be a valid non-negative number.');
+      }
+      const appCfg = await getSettingsGroup('app');
+      const existingWallet = await Wallet.findOne({ userId: targetId });
+      if (existingWallet) {
+        existingWallet.balance = balance;
+        await existingWallet.save();
+      } else {
+        await Wallet.create({
+          userId: targetId,
+          walletNumber: `CP${Date.now().toString().slice(-8)}`,
+          balance,
+          currency: String(payload.currency || appCfg.defaultCurrency || 'NGN'),
+        });
+      }
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetUserId: targetId,
+        targetType: 'wallet',
+        targetId,
+        action: 'set_wallet_balance',
+        reason: `Set wallet balance to ${balance}${payload.note ? ` · ${String(payload.note)}` : ''}`,
+      });
     } else if (action === 'post.toggle_global_pin' && targetId) {
       const p = await Post.findById(targetId);
       if (p) {
@@ -545,19 +813,62 @@ export async function POST(req: NextRequest) {
       if (payload.globalPinned !== undefined) upd.globalPinned = Boolean(payload.globalPinned);
       await Post.updateOne({ _id: targetId }, { $set: upd });
     } else if (action === 'post.delete' && targetId) {
+      const postDoc = await Post.findById(targetId).select('userId').lean();
       await Post.deleteOne({ _id: targetId });
       await Comment.deleteMany({ postId: targetId });
       await Bookmark.deleteMany({ targetType: 'post', targetId });
+      if (postDoc?.userId) {
+        await User.updateOne(
+          { _id: postDoc.userId, publicationsCount: { $gt: 0 } },
+          { $inc: { publicationsCount: -1 } }
+        );
+      }
       const medias = await Media.find({ targetType: 'post', targetId }).select('_id').lean();
       await Promise.all(medias.map((m) => deleteMediaRecord(String(m._id))));
     } else if (action === 'comment.delete' && targetId) {
+      const commentDoc = await Comment.findById(targetId).select('postId').lean();
       await Comment.deleteOne({ _id: targetId });
+      if (commentDoc?.postId) {
+        await Post.updateOne(
+          { _id: commentDoc.postId, commentsCount: { $gt: 0 } },
+          { $inc: { commentsCount: -1 } }
+        );
+      }
     } else if (action === 'story.delete' && targetId) {
       const sf = await StoryFrame.findById(targetId).lean();
       await StoryFrame.deleteOne({ _id: targetId });
       if (sf?.mediaId) await deleteMediaRecord(String(sf.mediaId));
     } else if (action === 'product.set_approval' && targetId) {
-      await Product.updateOne({ _id: targetId }, { $set: { approval: payload.approval as ProductApproval } });
+      const approval = payload.approval as ProductApproval;
+      const doc = await Product.findByIdAndUpdate(targetId, { $set: { approval } }, { new: true });
+      if (doc) {
+        await ModerationAction.create({
+          moderatorId: admin._id,
+          targetUserId: doc.userId,
+          targetType: 'product',
+          targetId: String(doc._id),
+          action: approval === ProductApproval.APPROVED ? 'approve_product' : 'reject_product',
+          reason: String(payload.notes || ''),
+        });
+        await dispatchNotification({
+          recipientId: doc.userId,
+          actorId: admin._id,
+          type: 'PRODUCT_REVIEWED',
+          category: 'important',
+          title:
+            approval === ProductApproval.APPROVED
+              ? 'Product Approved'
+              : approval === ProductApproval.REJECTED
+                ? 'Product Rejected'
+                : 'Product Pending Review',
+          message:
+            approval === ProductApproval.APPROVED
+              ? `Your product "${doc.title}" has been approved and is visible in the marketplace.`
+              : `Your product "${doc.title}" was rejected by moderation.${payload.notes ? ` Note: ${String(payload.notes)}` : ''}`,
+          actionUrl: '/business/market',
+          forceChannels: true,
+        });
+      }
     } else if (action === 'product.update' && targetId) {
       const upd: Record<string, unknown> = {};
       if (payload.title !== undefined) upd.title = String(payload.title);
@@ -574,7 +885,36 @@ export async function POST(req: NextRequest) {
       const medias = await Media.find({ targetType: 'product', targetId }).select('_id').lean();
       await Promise.all(medias.map((m) => deleteMediaRecord(String(m._id))));
     } else if (action === 'job.set_approval' && targetId) {
-      await JobListing.updateOne({ _id: targetId }, { $set: { approval: payload.approval as JobApproval } });
+      const approval = payload.approval as JobApproval;
+      const doc = await JobListing.findByIdAndUpdate(targetId, { $set: { approval } }, { new: true });
+      if (doc) {
+        await ModerationAction.create({
+          moderatorId: admin._id,
+          targetUserId: doc.userId,
+          targetType: 'job',
+          targetId: String(doc._id),
+          action: approval === JobApproval.APPROVED ? 'approve_job' : 'reject_job',
+          reason: String(payload.notes || ''),
+        });
+        await dispatchNotification({
+          recipientId: doc.userId,
+          actorId: admin._id,
+          type: 'JOB_REVIEWED',
+          category: 'important',
+          title:
+            approval === JobApproval.APPROVED
+              ? 'Job Listing Approved'
+              : approval === JobApproval.REJECTED
+                ? 'Job Listing Rejected'
+                : 'Job Pending Review',
+          message:
+            approval === JobApproval.APPROVED
+              ? `Your job listing "${doc.title}" has been approved.`
+              : `Your job listing "${doc.title}" was rejected by moderation.${payload.notes ? ` Note: ${String(payload.notes)}` : ''}`,
+          actionUrl: '/business/jobs',
+          forceChannels: true,
+        });
+      }
     } else if (action === 'job.update' && targetId) {
       const upd: Record<string, unknown> = {};
       if (payload.title !== undefined) upd.title = String(payload.title);
@@ -591,12 +931,36 @@ export async function POST(req: NextRequest) {
       await JobListing.deleteOne({ _id: targetId });
       await JobApplication.deleteMany({ jobId: targetId });
       await Bookmark.deleteMany({ targetType: 'job', targetId });
-    } else if (action === 'business.toggle_verify' && targetId) {
+    } else if ((action === 'business.toggle_verify' || action === 'business.review') && targetId) {
       const b = await BusinessAccount.findById(targetId);
       if (b) {
-        b.verified = !b.verified;
+        if (action === 'business.review' && payload.decision !== undefined) {
+          b.verified = payload.decision === 'approved' || payload.decision === 'verified';
+        } else {
+          b.verified = !b.verified;
+        }
         b.isReviewed = true;
         await b.save();
+        await ModerationAction.create({
+          moderatorId: admin._id,
+          targetUserId: b.userId,
+          targetType: 'business',
+          targetId: String(b._id),
+          action: b.verified ? 'verify_business' : 'reject_business',
+          reason: String(payload.notes || ''),
+        });
+        await dispatchNotification({
+          recipientId: b.userId,
+          actorId: admin._id,
+          type: 'BUSINESS_REVIEWED',
+          category: 'important',
+          title: b.verified ? 'Business Verified' : 'Business Verification Declined',
+          message: b.verified
+            ? `Your business account "${b.name}" has been verified.`
+            : `Your business account "${b.name}" verification was declined or revoked.${payload.notes ? ` Note: ${String(payload.notes)}` : ''}`,
+          actionUrl: '/business/settings',
+          forceChannels: true,
+        });
       }
     } else if (action === 'business.delete' && targetId) {
       await BusinessAccount.deleteOne({ _id: targetId });
@@ -604,9 +968,49 @@ export async function POST(req: NextRequest) {
       await Message.deleteMany({ chatId: targetId });
       await Chat.deleteOne({ _id: targetId });
     } else if (action === 'ad.set_approval' && targetId) {
-      await Ad.updateOne({ _id: targetId }, { $set: { approval: payload.approval as AdApproval } });
+      const approval = payload.approval as AdApproval;
+      const adDoc = await Ad.findByIdAndUpdate(targetId, { $set: { approval } }, { new: true });
+      if (adDoc) {
+        await ModerationAction.create({
+          moderatorId: admin._id,
+          targetUserId: adDoc.userId,
+          targetType: 'ad',
+          targetId: String(adDoc._id),
+          action: approval === AdApproval.APPROVED ? 'approve_ad' : 'reject_ad',
+          reason: String(payload.notes || ''),
+        });
+        await dispatchNotification({
+          recipientId: adDoc.userId,
+          actorId: admin._id,
+          type: 'AD_REVIEWED',
+          category: 'important',
+          title:
+            approval === AdApproval.APPROVED
+              ? 'Ad Campaign Approved'
+              : approval === AdApproval.REJECTED
+                ? 'Ad Campaign Rejected'
+                : 'Ad Pending Review',
+          message:
+            approval === AdApproval.APPROVED
+              ? `Your ad "${adDoc.title}" has been approved.`
+              : `Your ad "${adDoc.title}" was rejected.${payload.notes ? ` Note: ${String(payload.notes)}` : ''}`,
+          actionUrl: '/business/ads',
+          forceChannels: true,
+        });
+      }
     } else if (action === 'ad.set_status' && targetId) {
-      await Ad.updateOne({ _id: targetId }, { $set: { status: payload.status as AdStatus } });
+      const status = payload.status as AdStatus;
+      const adDoc = await Ad.findByIdAndUpdate(targetId, { $set: { status } }, { new: true });
+      if (adDoc) {
+        await ModerationAction.create({
+          moderatorId: admin._id,
+          targetUserId: adDoc.userId,
+          targetType: 'ad',
+          targetId: String(adDoc._id),
+          action: status === AdStatus.PAUSED ? 'pause_ad' : 'publish_ad',
+          reason: String(payload.notes || ''),
+        });
+      }
     } else if (action === 'ad.delete' && targetId) {
       await Ad.deleteOne({ _id: targetId });
     } else if (action === 'media.delete' && targetId) {
@@ -665,6 +1069,11 @@ export async function POST(req: NextRequest) {
       if (!allowedTypes.includes(normalizedType)) {
         throw new ValidationError(`Invalid blacklist type: ${rawType}`);
       }
+      const expiresInDays = Number(payload.expiresInDays || 0);
+      const expiresAt =
+        Number.isFinite(expiresInDays) && expiresInDays > 0
+          ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+          : null;
       await Blacklist.updateOne(
         { blacklistable: value },
         {
@@ -673,14 +1082,23 @@ export async function POST(req: NextRequest) {
             type: normalizedType,
             blacklistable: value,
             reason: String(payload.reason || ''),
+            expiresAt,
             addedAt: new Date(),
           },
         },
         { upsert: true }
       );
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetType: `blacklist:${normalizedType}`,
+        targetId: value,
+        action: 'blacklist_add',
+        reason: String(payload.reason || value),
+        expiresAt,
+      });
     } else if (action === 'blacklist.delete' && targetId) {
       await Blacklist.deleteOne({ _id: targetId });
-    } else if (action === 'censor.add') {
+    } else if (action === 'censor.add' || action === 'censor.update') {
       const word = String(payload.word || '').toLowerCase().trim();
       if (!word) {
         throw new ValidationError('Censored word is required.');
@@ -699,11 +1117,15 @@ export async function POST(req: NextRequest) {
       if (!allowedLevels.includes(normalizedLevel)) {
         throw new ValidationError(`Invalid censor level: ${rawLevel}`);
       }
-      await Censor.updateOne(
-        { word },
-        { $set: { word, level: normalizedLevel } },
-        { upsert: true }
-      );
+      if (action === 'censor.update' && targetId) {
+        await Censor.updateOne({ _id: targetId }, { $set: { word, level: normalizedLevel } });
+      } else {
+        await Censor.updateOne(
+          { word },
+          { $set: { word, level: normalizedLevel } },
+          { upsert: true }
+        );
+      }
     } else if (action === 'censor.delete' && targetId) {
       await Censor.deleteOne({ _id: targetId });
     } else if (action === 'authorship.review' && targetId) {
@@ -711,50 +1133,89 @@ export async function POST(req: NextRequest) {
       if (reqDoc) {
         const approve = payload.decision === 'approved';
         reqDoc.status = approve ? ASRStatus.APPROVED : ASRStatus.REJECTED;
+        if (payload.notes !== undefined) {
+          reqDoc.reviewerNotes = String(payload.notes || '');
+        }
         await reqDoc.save();
         if (approve) {
           await User.updateOne({ _id: reqDoc.userId }, { $set: { type: UserType.AUTHOR } });
         }
+        await ModerationAction.create({
+          moderatorId: admin._id,
+          targetUserId: reqDoc.userId,
+          targetType: 'authorship',
+          targetId: String(reqDoc._id),
+          action: approve ? 'approve_authorship' : 'reject_authorship',
+          reason: String(payload.notes || ''),
+        });
         await dispatchNotification({
           recipientId: reqDoc.userId,
+          actorId: admin._id,
           type: 'AUTHORSHIP_REVIEWED',
           category: 'important',
           title: approve ? 'Author Status Approved' : 'Author Request Declined',
           message: approve
             ? 'Your account has been upgraded to Author status.'
-            : 'Your authorship request was declined.',
+            : `Your authorship request was declined.${payload.notes ? ` Note: ${String(payload.notes)}` : ''}`,
           actionUrl: '/settings',
           forceChannels: true,
         });
       }
     } else if (action === 'cashout.review' && targetId) {
+      const decision =
+        payload.decision === 'paid' || payload.decision === 'approved' ? 'paid' : 'rejected';
       await reviewCashout({
         adminId: String(admin._id),
         cashoutId: targetId,
-        decision: payload.decision === 'paid' || payload.decision === 'approved' ? 'paid' : 'rejected',
+        decision,
         reviewerNotes: payload.notes ? String(payload.notes) : undefined,
       });
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetType: 'cashout',
+        targetId,
+        action: decision === 'paid' ? 'approve_cashout' : 'reject_cashout',
+        reason: String(payload.notes || ''),
+      });
     } else if (action === 'category.upsert') {
+      const locPayload =
+        payload.localization && typeof payload.localization === 'object'
+          ? (payload.localization as Record<string, string>)
+          : { en: String(payload.name || 'Category').trim() };
+      const cleanedLocalization = Object.fromEntries(
+        Object.entries(locPayload)
+          .map(([k, v]) => [k.trim().toLowerCase(), String(v || '').trim()])
+          .filter(([k, v]) => Boolean(k) && Boolean(v))
+      );
+      if (!cleanedLocalization.en) {
+        cleanedLocalization.en = String(payload.name || Object.values(cleanedLocalization)[0] || 'Category').trim();
+      }
+      const nextType = (payload.type as CategoryType) || CategoryType.PRODUCT;
+      const nextStatus = (payload.status as CategoryStatus) || CategoryStatus.ACTIVE;
       if (targetId) {
         await Category.updateOne(
           { _id: targetId },
           {
             $set: {
-              localization: { en: String(payload.name || 'Category') },
-              categorizableType: payload.type as CategoryType,
-              status: (payload.status as CategoryStatus) || CategoryStatus.ACTIVE,
+              localization: cleanedLocalization,
+              categorizableType: nextType,
+              status: nextStatus,
             },
           }
         );
       } else {
         await Category.create({
-          localization: { en: String(payload.name || 'Category') },
-          categorizableType: (payload.type as CategoryType) || CategoryType.PRODUCT,
-          status: CategoryStatus.ACTIVE,
+          localization: cleanedLocalization,
+          categorizableType: nextType,
+          status: nextStatus,
         });
       }
     } else if (action === 'category.delete' && targetId) {
-      await Category.deleteOne({ _id: targetId });
+      await Promise.all([
+        Category.deleteOne({ _id: targetId }),
+        Product.updateMany({ categoryId: targetId }, { $set: { categoryId: null } }),
+        JobListing.updateMany({ categoryId: targetId }, { $set: { categoryId: null } }),
+      ]);
     } else if (action === 'currency.upsert') {
       const code = String(payload.alpha3Code || '').trim().toUpperCase();
       if (code.length !== 3) {

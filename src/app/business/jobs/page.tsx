@@ -14,6 +14,7 @@ interface MyJob {
   hashId: string;
   title: string;
   status: string;
+  approval?: string;
   income?: number | null;
   currency: string;
 }
@@ -30,25 +31,40 @@ export default function BusinessJobsPage() {
 
   return (
     <div className="space-y-6">
-        <BusinessPortalHeader title="My Job Openings" subtitle="Review your posted jobs and inspect incoming applicants." />
-        <div className="flex justify-end">
-          <Link href="/jobs">
-            <Button variant="primary">Browse / Post Jobs</Button>
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {jobs.map((j) => (
-            <Link key={j.id} href={`/jobs/${j.hashId || j.id}`} className="rounded-3xl border border-bord-card bg-bg-pr p-5 flex items-center justify-between">
-              <div>
-                <p className="font-bold text-lab-pr">{j.title}</p>
-                <p className="text-cap-l text-lab-sc">
-                  {j.income ? formatCurrency(j.income, j.currency, bootstrap?.currencies, locale) : 'Negotiable'}
-                </p>
-              </div>
-              <Badge variant="brand">{j.status}</Badge>
-            </Link>
-          ))}
-        </div>
+      <BusinessPortalHeader title="My Job Openings" subtitle="Review your posted jobs and inspect incoming applicants." />
+      <div className="flex justify-end">
+        <Link href="/jobs">
+          <Button variant="primary">Browse / Post Jobs</Button>
+        </Link>
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {jobs.map((j) => (
+          <Link key={j.id} href={`/jobs/${j.hashId || j.id}`} className="rounded-3xl border border-bord-card bg-bg-pr p-5 flex items-center justify-between">
+            <div>
+              <p className="font-bold text-lab-pr">{j.title}</p>
+              <p className="text-cap-l text-lab-sc">
+                {j.income ? formatCurrency(j.income, j.currency, bootstrap?.currencies, locale) : 'Negotiable'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {j.approval && (
+                <Badge
+                  variant={
+                    j.approval === 'approved'
+                      ? 'success'
+                      : j.approval === 'rejected'
+                        ? 'danger'
+                        : 'warning'
+                  }
+                >
+                  {j.approval}
+                </Badge>
+              )}
+              <Badge variant={j.status === 'active' ? 'success' : 'outline'}>{j.status}</Badge>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }

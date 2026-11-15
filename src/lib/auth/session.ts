@@ -150,14 +150,18 @@ export async function requireAuth(
     throw new UnauthorizedError('User profile not provisioned.');
   }
 
-  // Multi-account linked switching: verify switched target is owned by this master account
+  // Multi-account linked switching: verify switched target is owned by the same master account
   const cookieStore = req ? req.cookies : await cookies();
   const activeAccountId = cookieStore.get(ACTIVE_ACCOUNT_COOKIE_NAME)?.value;
   if (activeAccountId && activeAccountId !== String(user._id)) {
+    const accountScopeFilter = user.ownerAccountId
+      ? { $or: [{ _id: user.ownerAccountId }, { ownerAccountId: user.ownerAccountId }] }
+      : { ownerAccountId: user._id };
     const linked = await User.findOne({
       _id: activeAccountId,
       deletedAt: null,
-      $or: [{ ownerAccountId: user._id }, { _id: user.ownerAccountId }],
+      status: { $nin: [UserStatus.BLOCKED, UserStatus.SUSPENDED] },
+      ...accountScopeFilter,
     });
     if (linked) {
       user = linked;

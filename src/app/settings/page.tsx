@@ -25,7 +25,9 @@ import {
   Users,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { AccountSwitcherModal } from '@/components/modals/AccountSwitcherModal';
 import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -97,6 +99,7 @@ export default function SettingsPage() {
   const currentUserId = user?.id;
 
   const [tab, setTab] = useState('account');
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileInDetail, setMobileInDetail] = useState(false);
   const [data, setData] = useState<SettingsPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -523,34 +526,56 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Authorship Verification & Community Monetization */}
-                <div className="rounded-2xl border border-bord-pr p-4 flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <Award className="h-6 w-6 text-lab-pr2 shrink-0" />
-                    <div>
-                      <p className="font-bold text-par-n text-lab-pr">
-                        Creator Authorship &amp; Community Monetization
-                      </p>
-                      <p className="text-cap-l text-lab-sc">
-                        Current type: <span className="capitalize font-semibold">{accountForm.type}</span>
-                        {data?.authorshipRequest && ` · Request: ${data.authorshipRequest.status}`}
-                      </p>
+                <div className="rounded-2xl border border-bord-pr p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <Award className="h-6 w-6 text-lab-pr2 shrink-0" />
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-par-n text-lab-pr">
+                            Creator Authorship &amp; Community Monetization
+                          </p>
+                          {accountForm.type === 'author' ? (
+                            <Badge variant="success">Author Approved</Badge>
+                          ) : data?.authorshipRequest?.status === 'pending' ? (
+                            <Badge variant="warning">Pending Review</Badge>
+                          ) : data?.authorshipRequest?.status === 'rejected' ? (
+                            <Badge variant="danger">Rejected</Badge>
+                          ) : (
+                            <Badge variant="default" className="capitalize">
+                              {accountForm.type || 'reader'}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-cap-l text-lab-sc">
+                          {accountForm.type === 'author'
+                            ? 'Your creator authorship is approved. Monetization Studio is unlocked.'
+                            : data?.authorshipRequest?.status === 'pending'
+                              ? 'Your authorship application is currently waiting for moderator review.'
+                              : data?.authorshipRequest?.status === 'rejected'
+                                ? 'Your previous authorship request was declined. Update your profile and reapply.'
+                                : 'Apply for creator authorship to unlock paid creator monetization features.'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link href="/business/monetization">
-                      <Button size="sm" variant="primary">
-                        Monetization Studio
-                      </Button>
-                    </Link>
-                    {accountForm.type !== 'author' && data?.authorshipRequest?.status !== 'pending' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => patchSection('request_authorship', {}, 'Authorship request submitted!')}
-                      >
-                        Request Authorship
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Link href="/business/monetization">
+                        <Button size="sm" variant="primary">
+                          Monetization Studio
+                        </Button>
+                      </Link>
+                      {accountForm.type !== 'author' && data?.authorshipRequest?.status !== 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => patchSection('request_authorship', {}, 'Authorship request submitted!')}
+                        >
+                          {data?.authorshipRequest?.status === 'rejected'
+                            ? 'Reapply Authorship'
+                            : 'Request Authorship'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -563,9 +588,14 @@ export default function SettingsPage() {
                           }`}
                       />
                       <div>
-                        <p className="font-bold text-par-n text-lab-pr">
-                          {user.verified ? 'Identity Verified' : 'Account Verification'}
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-par-n text-lab-pr">
+                            {user.verified ? 'Identity Verified' : 'Account Verification'}
+                          </p>
+                          <Badge variant={user.verified ? 'success' : 'outline'}>
+                            {user.verified ? 'Verified' : 'Unverified'}
+                          </Badge>
+                        </div>
                         <p className="text-cap-l text-lab-sc">
                           {user.verified
                             ? 'Your account carries an official verified badge.'
@@ -597,6 +627,26 @@ export default function SettingsPage() {
                       .
                     </p>
                   )}
+                </div>
+
+                {/* Switch or Link Accounts */}
+                <div className="rounded-2xl border border-bord-pr p-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-6 w-6 text-lab-pr2 shrink-0" />
+                    <div>
+                      <p className="font-bold text-par-n text-lab-pr">
+                        Linked Accounts &amp; Quick Switch
+                      </p>
+                      <p className="text-cap-l text-lab-sc">
+                        Link existing Weto accounts or create a sub-profile to switch identities in one click.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setSwitcherOpen(true)}>
+                      Switch / Link Account
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -871,6 +921,7 @@ export default function SettingsPage() {
           </div>
         </>
       )}
+      <AccountSwitcherModal open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
     </AppShell>
   );
 }

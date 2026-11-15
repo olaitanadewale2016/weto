@@ -13,6 +13,7 @@ import {
   Film,
   LayoutDashboard,
   Music,
+  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -36,10 +37,11 @@ import {
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 import {
+  AdminApprovalControl,
   AdminConfigSection,
-  AdminDecisionButtons,
   AdminOverviewSection,
   AdminSecurityModSection,
+  AdminStatusBadge,
   AdminUsersSection,
   type AdminUserRow,
 } from '@/components/admin/AdminModules';
@@ -75,6 +77,197 @@ const ADMIN_TABS = [
   { key: 'api_keys', label: 'API Keys' },
 ];
 
+const ADMIN_TAB_META: Record<
+  string,
+  { title: string; subtitle: string; filters?: Array<{ key: string; label: string }> }
+> = {
+  overview: {
+    title: 'Admin Overview',
+    subtitle: 'Platform health metrics, recent registrations, pending queues, and revenue snapshot.',
+  },
+  users: {
+    title: 'Users Directory',
+    subtitle: 'Manage accounts, roles, creator authorship, verified badges, wallets, and restrictions.',
+  },
+  posts: {
+    title: 'Publications',
+    subtitle: 'Review, edit, globally pin, or remove published posts and attached media.',
+    filters: [
+      { key: 'all', label: 'All Posts' },
+      { key: 'active', label: 'Active' },
+      { key: 'draft', label: 'Draft' },
+      { key: 'pinned', label: 'Global Pinned' },
+      { key: 'media', label: 'With Media' },
+    ],
+  },
+  comments: {
+    title: 'Comments Moderation',
+    subtitle: 'Inspect post comments and delete abusive or off-topic replies cleanly.',
+  },
+  stories: {
+    title: 'Stories Frames',
+    subtitle: 'Preview active or expired story frames and remove policy-violating uploads.',
+    filters: [
+      { key: 'all', label: 'All Stories' },
+      { key: 'active', label: 'Active' },
+      { key: 'expired', label: 'Expired' },
+    ],
+  },
+  marketplace: {
+    title: 'Marketplace Products',
+    subtitle: 'Approve or reject merchant listings, edit pricing/promotion, and moderate inventory.',
+    filters: [
+      { key: 'all', label: 'All Products' },
+      { key: 'pending', label: 'Pending Review' },
+      { key: 'approved', label: 'Approved' },
+      { key: 'rejected', label: 'Rejected' },
+      { key: 'active', label: 'Active' },
+      { key: 'inactive', label: 'Inactive' },
+    ],
+  },
+  jobs: {
+    title: 'Job Listings',
+    subtitle: 'Moderate employer job openings, review approvals, and adjust urgent or remote flags.',
+    filters: [
+      { key: 'all', label: 'All Jobs' },
+      { key: 'pending', label: 'Pending Review' },
+      { key: 'approved', label: 'Approved' },
+      { key: 'rejected', label: 'Rejected' },
+      { key: 'active', label: 'Active' },
+    ],
+  },
+  businesses: {
+    title: 'Business Accounts',
+    subtitle: 'Review registered business profiles and grant or revoke official business verification.',
+    filters: [
+      { key: 'all', label: 'All Businesses' },
+      { key: 'pending', label: 'Pending / Unverified' },
+      { key: 'verified', label: 'Verified' },
+    ],
+  },
+  chats: {
+    title: 'Chats & Groups',
+    subtitle: 'Inspect direct conversations and group channels with participant counts and cleanup.',
+    filters: [
+      { key: 'all', label: 'All Chats' },
+      { key: 'group', label: 'Groups' },
+      { key: 'direct', label: 'Direct Messages' },
+    ],
+  },
+  ads: {
+    title: 'Advertising Campaigns',
+    subtitle: 'Approve or reject advertiser creatives, pause running campaigns, and track performance.',
+    filters: [
+      { key: 'all', label: 'All Ads' },
+      { key: 'pending', label: 'Pending Approval' },
+      { key: 'approved', label: 'Approved' },
+      { key: 'rejected', label: 'Rejected' },
+      { key: 'published', label: 'Published' },
+      { key: 'paused', label: 'Paused' },
+    ],
+  },
+  reports: {
+    title: 'Abuse & Content Reports',
+    subtitle: 'Investigate flagged posts, comments, profiles, and products with one-click moderation.',
+    filters: [
+      { key: 'all', label: 'All Reports' },
+      { key: 'pending', label: 'Pending' },
+      { key: 'processed', label: 'Processed' },
+      { key: 'ignored', label: 'Ignored' },
+    ],
+  },
+  moderation_history: {
+    title: 'Moderation History',
+    subtitle: 'Chronological ledger of bans, verifications, content removals, and review decisions.',
+    filters: [
+      { key: 'all', label: 'All Actions' },
+      { key: 'ban', label: 'Bans' },
+      { key: 'verify', label: 'Verifications' },
+      { key: 'approve', label: 'Approvals' },
+      { key: 'reject', label: 'Rejections' },
+      { key: 'remove_content', label: 'Removals' },
+    ],
+  },
+  banning: {
+    title: 'Banning & Censor Rules',
+    subtitle: 'Manage IP/email/phone/username blacklists, expiration rules, and word censor filters.',
+  },
+  authorship: {
+    title: 'Authorship Requests',
+    subtitle: 'Approve or decline creator authorship applications and attach reviewer notes.',
+    filters: [
+      { key: 'all', label: 'All Requests' },
+      { key: 'pending', label: 'Pending' },
+      { key: 'approved', label: 'Approved' },
+      { key: 'rejected', label: 'Rejected' },
+    ],
+  },
+  verification: {
+    title: 'Identity Verification',
+    subtitle: 'Configure verification service rules and manage verified user badges across Weto.',
+  },
+  payments: {
+    title: 'Payments & Wallets',
+    subtitle: 'Audit incoming gateway transactions, withdrawal queues, and user wallet balances.',
+    filters: [
+      { key: 'all', label: 'All Payments' },
+      { key: 'completed', label: 'Completed' },
+      { key: 'pending', label: 'Pending' },
+      { key: 'failed', label: 'Failed' },
+    ],
+  },
+  cashouts: {
+    title: 'Withdrawal Requests',
+    subtitle: 'Process creator payout requests or reject with atomic wallet refund and notes.',
+  },
+  acquiring: {
+    title: 'Payment Acquiring & Fees',
+    subtitle: 'Configure Paystack, Stripe, PayPal, YooKassa, RoboKassa, commissions, and limits.',
+  },
+  categories: {
+    title: 'Categories Management',
+    subtitle: 'Organize product and job categories with active states and live listing counts.',
+  },
+  currencies: {
+    title: 'Currencies',
+    subtitle: 'Enable currencies, configure formatting, and assign the platform default currency.',
+  },
+  locales: {
+    title: 'Languages & Locales',
+    subtitle: 'Manage active interface languages, RTL direction, and default platform locale.',
+  },
+  static_pages: {
+    title: 'Static Pages & Legal Documents',
+    subtitle: 'Edit Terms of Use, Privacy Policy, and platform guidelines per locale.',
+  },
+  storage: {
+    title: 'R2 Storage & Media Assets',
+    subtitle: 'Monitor media storage quotas across Cloudflare R2 and local fallback assets.',
+    filters: [
+      { key: 'all', label: 'All Media' },
+      { key: 'image', label: 'Images' },
+      { key: 'video', label: 'Videos' },
+      { key: 'document', label: 'Documents' },
+    ],
+  },
+  settings: {
+    title: 'Platform Configuration',
+    subtitle: 'Manage site metadata, feature toggles, branding assets, mail, custom code, and cache.',
+  },
+  lab: {
+    title: 'Lab & System Diagnostics',
+    subtitle: 'Inspect runtime integrations, send test emails, and broadcast platform announcements.',
+  },
+  audit_logs: {
+    title: 'Administrator Audit Logs',
+    subtitle: 'Immutable trace of administrative mutations performed in the control panel.',
+  },
+  api_keys: {
+    title: 'Developer API Keys',
+    subtitle: 'Review active developer API keys and revoke compromised credentials.',
+  },
+};
+
 const VALID_ADMIN_TAB_KEYS = new Set(ADMIN_TABS.map((t) => t.key));
 
 const SEARCHABLE_TABS = new Set([
@@ -88,6 +281,14 @@ const SEARCHABLE_TABS = new Set([
   'chats',
   'ads',
   'reports',
+  'moderation_history',
+  'banning',
+  'authorship',
+  'verification',
+  'payments',
+  'cashouts',
+  'categories',
+  'storage',
 ]);
 
 type EditState =
@@ -118,9 +319,30 @@ function AdminDashboardContent() {
   const urlTab = searchParams.get('tab');
   const activeTab = urlTab && VALID_ADMIN_TAB_KEYS.has(urlTab) ? urlTab : 'overview';
   const [userFilter, setUserFilter] = useState<'all' | 'author' | 'reader' | 'blocked'>('all');
+  const [tabFilter, setTabFilter] = useState<string>('all');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [detailModal, setDetailModal] = useState<{ kind: 'ad' | 'story'; row: Record<string, unknown> } | null>(null);
+  const [detailModal, setDetailModal] = useState<{
+    kind: 'ad' | 'story' | 'post' | 'report' | 'chat' | 'payment';
+    row: Record<string, unknown>;
+  } | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    variant?: 'danger' | 'primary';
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
+  const [reviewModal, setReviewModal] = useState<{
+    title: string;
+    subtitle: string;
+    action: string;
+    targetId: string;
+    payload: Record<string, unknown>;
+    variant: 'primary' | 'danger';
+    confirmLabel: string;
+  } | null>(null);
+  const [reviewNoteInput, setReviewNoteInput] = useState('');
   const [uploadingAsset, setUploadingAsset] = useState(false);
   const [overview, setOverview] = useState<{
     defaultCurrency?: string;
@@ -139,6 +361,16 @@ function AdminDashboardContent() {
 
   const isAdmin = user?.role === 'root' || user?.role === 'admin' || user?.role === 'moderator';
   const defaultCurrency = overview?.defaultCurrency || bootstrap?.config?.defaultCurrency || 'NGN';
+  const activeMeta = ADMIN_TAB_META[activeTab] || {
+    title: 'Weto Admin Control Panel',
+    subtitle: 'Complete moderation, CRUD management, financial ledger, media storage, and platform config.',
+  };
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = `${activeMeta.title} · Weto Admin`;
+    }
+  }, [activeMeta.title]);
 
   async function handleAdminCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -218,6 +450,7 @@ function AdminDashboardContent() {
       if (!VALID_ADMIN_TAB_KEYS.has(tabKey)) return;
       setLoading(true);
       setResourceData(null);
+      setTabFilter('all');
       setSearchInput('');
       setSearchQuery('');
       router.replace(`/admin?tab=${encodeURIComponent(tabKey)}`, { scroll: false });
@@ -241,6 +474,9 @@ function AdminDashboardContent() {
         if (activeTab === 'users' && userFilter !== 'all') {
           qs.set('type', userFilter);
         }
+        if (activeTab !== 'users' && tabFilter !== 'all') {
+          qs.set('filter', tabFilter);
+        }
         if (searchQuery.trim() && SEARCHABLE_TABS.has(activeTab)) {
           qs.set('q', searchQuery.trim());
         }
@@ -252,7 +488,7 @@ function AdminDashboardContent() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, isAdmin, searchQuery, userFilter, error]);
+  }, [activeTab, isAdmin, searchQuery, tabFilter, userFilter, error]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -428,15 +664,29 @@ function AdminDashboardContent() {
 
   const list = Array.isArray(resourceData) ? (resourceData as Array<Record<string, unknown>>) : [];
 
+  const portalHeaderControls = (
+    <div className="flex items-center gap-2">
+      <Button size="sm" variant="outline" onClick={() => void loadTab()}>
+        <RefreshCw className="h-3.5 w-3.5" /> Refresh
+      </Button>
+      {activeTab === 'settings' && (
+        <Button size="sm" variant="secondary" onClick={() => handleAction('cache.reset')}>
+          Reset Cache
+        </Button>
+      )}
+    </div>
+  );
+
   return (
-    <PortalShell portal="admin" navItems={navItems}>
+    <PortalShell portal="admin" navItems={navItems} headerControls={portalHeaderControls}>
       <div className="space-y-6">
         <div className="pb-4 border-b border-bord-pr flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-title-2 font-bold text-lab-pr">Weto Admin Control Panel</h1>
-            <p className="text-par-n text-lab-sc mt-1">
-              Complete moderation, CRUD management, financial ledger, media storage, and platform config.
+            <p className="text-cap-s font-semibold uppercase tracking-wide text-lab-tr">
+              Weto Admin Panel · {ADMIN_TABS.find((t) => t.key === activeTab)?.label || activeTab}
             </p>
+            <h1 className="text-title-2 font-bold text-lab-pr mt-0.5">{activeMeta.title}</h1>
+            <p className="text-par-n text-lab-sc mt-1">{activeMeta.subtitle}</p>
           </div>
           {SEARCHABLE_TABS.has(activeTab) && (
             <form
@@ -452,7 +702,7 @@ function AdminDashboardContent() {
                   type="search"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder={`Search ${activeTab}...`}
+                  placeholder={`Search ${activeMeta.title.toLowerCase()}...`}
                   className="h-9 rounded-full bg-transparent pl-8 pr-3 text-cap-l text-lab-pr2 placeholder:text-lab-tr outline-hidden w-full sm:w-64"
                 />
               </div>
@@ -479,8 +729,42 @@ function AdminDashboardContent() {
           ))}
         </nav>
 
+        {activeMeta.filters && activeMeta.filters.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {activeMeta.filters.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setTabFilter(f.key)}
+                  className={cn(
+                    'rounded-full px-3.5 py-1 text-cap-s font-semibold transition-colors cursor-pointer',
+                    tabFilter === f.key
+                      ? 'bg-lab-pr text-bg-pr'
+                      : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchQuery('');
+                }}
+                className="text-cap-s font-semibold text-brand-900 hover:underline cursor-pointer"
+              >
+                Clear search &ldquo;{searchQuery}&rdquo;
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ? (
-          <p className="py-12 text-center text-lab-sc">Loading {activeTab}...</p>
+          <p className="py-12 text-center text-lab-sc">Loading {activeMeta.title.toLowerCase()}...</p>
         ) : activeTab === 'overview' ? (
           <AdminOverviewSection overview={overview} onAction={handleAction} onNavigateTab={switchTab} />
         ) : activeTab === 'users' ? (
@@ -498,29 +782,56 @@ function AdminDashboardContent() {
         ) : activeTab === 'payments' ? (
           <div className="space-y-6">
             <div className="space-y-2">
-              <h3 className="font-bold text-par-m text-lab-pr">Cashout Requests</h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold text-par-m text-lab-pr">Cashout Requests</h3>
+                <Button size="sm" variant="outline" onClick={() => switchTab('cashouts')}>
+                  Open Withdrawals Queue
+                </Button>
+              </div>
               {((resourceData as { cashouts?: Array<Record<string, unknown>> })?.cashouts || []).length === 0 ? (
                 <p className="text-cap-l text-lab-sc py-2">No cashout requests.</p>
               ) : (
                 ((resourceData as { cashouts?: Array<Record<string, unknown>> })?.cashouts || []).map((c) => (
                   <div key={String(c._id)} className="rounded-2xl border border-bord-card p-4 flex flex-wrap items-center justify-between gap-3">
-                    <div>
+                    <div className="space-y-1">
                       <p className="font-bold text-lab-pr">
-                        @{String((c.userId as { username?: string })?.username || 'user')} · {String(c.currency)} {Number(c.amount || 0).toLocaleString()}
+                        @{String((c.userId as { username?: string })?.username || 'user')} ·{' '}
+                        {formatCurrency(Number(c.amount || 0), String(c.currency || defaultCurrency), bootstrap?.currencies, locale)}
                       </p>
                       <p className="text-cap-l text-lab-sc">{String(c.paymentMethod)} — {String(c.credentials)}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="brand">{String(c.status)}</Badge>
-                      {c.status === 'pending' && (
-                        <AdminDecisionButtons
-                          approveLabel="Mark Paid"
-                          rejectLabel="Reject"
-                          onApprove={() => handleAction('cashout.review', String(c._id), { decision: 'paid' })}
-                          onReject={() => handleAction('cashout.review', String(c._id), { decision: 'rejected' })}
-                        />
-                      )}
-                      <Button size="sm" variant="ghost" onClick={() => handleAction('cashout.delete', String(c._id))}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <AdminApprovalControl
+                        status={String(c.status || 'pending')}
+                        approveLabel="Mark Paid"
+                        rejectLabel="Reject"
+                        allowOverride={false}
+                        onApprove={() => handleAction('cashout.review', String(c._id), { decision: 'paid' })}
+                        onReject={() =>
+                          setReviewModal({
+                            title: `Reject Withdrawal`,
+                            subtitle: `Decline payout and refund wallet for @${String((c.userId as { username?: string })?.username || 'user')}`,
+                            action: 'cashout.review',
+                            targetId: String(c._id),
+                            payload: { decision: 'rejected' },
+                            variant: 'danger',
+                            confirmLabel: 'Reject & Refund',
+                          })
+                        }
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setConfirmState({
+                            title: 'Delete cashout record?',
+                            description: 'This permanently deletes this withdrawal request record from the ledger.',
+                            confirmLabel: 'Delete Record',
+                            variant: 'danger',
+                            onConfirm: () => handleAction('cashout.delete', String(c._id)),
+                          })
+                        }
+                      >
                         <Trash2 className="h-3.5 w-3.5 text-red-900" />
                       </Button>
                     </div>
@@ -535,11 +846,23 @@ function AdminDashboardContent() {
                 <p className="text-cap-l text-lab-sc py-2">No payment transactions recorded.</p>
               ) : (
                 ((resourceData as { payments?: Array<Record<string, unknown>> })?.payments || []).map((p) => (
-                  <div key={String(p._id)} className="rounded-2xl border border-bord-pr p-3 flex items-center justify-between gap-2 text-cap-l">
-                    <span>@{String((p.userId as { username?: string })?.username || 'user')} · {String(p.paymentMethod || p.provider || 'payment')}</span>
+                  <div key={String(p._id)} className="rounded-2xl border border-bord-pr p-3 flex flex-wrap items-center justify-between gap-2 text-cap-l">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-lab-pr truncate">
+                        @{String((p.userId as { username?: string })?.username || 'user')} · {String(p.paymentMethod || p.provider || 'payment')}
+                      </p>
+                      {Boolean(p.referenceId) && (
+                        <p className="text-cap-s text-lab-sc font-mono truncate">Ref: {String(p.referenceId)}</p>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold">{String(p.currency)} {Number(p.amount || 0).toLocaleString()}</span>
-                      <Badge variant="outline">{String(p.status)}</Badge>
+                      <span className="font-bold text-lab-pr">
+                        {formatCurrency(Number(p.amount || 0), String(p.currency || defaultCurrency), bootstrap?.currencies, locale)}
+                      </span>
+                      <AdminStatusBadge status={String(p.status || 'pending')} />
+                      <Button size="sm" variant="ghost" onClick={() => setDetailModal({ kind: 'payment', row: p })}>
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 ))
@@ -565,6 +888,33 @@ function AdminDashboardContent() {
           </div>
         ) : activeTab === 'storage' ? (
           <div className="space-y-6">
+            {((resourceData as { summary?: { totalFiles?: number; totalBytes?: number; providers?: Array<{ provider: string; count: number; bytes: number }> } })?.summary) && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-bord-card p-4 bg-bg-pr">
+                  <p className="text-cap-s text-lab-sc">Total Media Files</p>
+                  <p className="font-outfit text-title-2 font-bold text-lab-pr mt-1">
+                    {Number((resourceData as { summary: { totalFiles?: number } }).summary.totalFiles || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-bord-card p-4 bg-bg-pr">
+                  <p className="text-cap-s text-lab-sc">Total Footprint</p>
+                  <p className="font-outfit text-title-2 font-bold text-lab-pr mt-1">
+                    {(Number((resourceData as { summary: { totalBytes?: number } }).summary.totalBytes || 0) / (1024 * 1024)).toFixed(2)} MB
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-bord-card p-4 bg-bg-pr space-y-1">
+                  <p className="text-cap-s text-lab-sc">Providers</p>
+                  {((resourceData as { summary: { providers?: Array<{ provider: string; count: number; bytes: number }> } }).summary.providers || []).map((pr) => (
+                    <div key={pr.provider} className="flex items-center justify-between text-cap-l">
+                      <Badge variant={pr.provider === 'r2' ? 'brand' : 'outline'}>{pr.provider.toUpperCase()}</Badge>
+                      <span className="font-semibold text-lab-pr">
+                        {pr.count} ({(pr.bytes / (1024 * 1024)).toFixed(2)} MB)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-3">
               <h3 className="font-bold text-par-m text-lab-pr">Media Storage Breakdown</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -634,7 +984,19 @@ function AdminDashboardContent() {
                         </p>
                       </div>
                     </div>
-                    <Button size="sm" variant="danger" onClick={() => handleAction('media.delete', m._id)}>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() =>
+                        setConfirmState({
+                          title: 'Delete media asset?',
+                          description: `Remove this ${m.type} file permanently from ${m.storageProvider} storage.`,
+                          confirmLabel: 'Delete Asset',
+                          variant: 'danger',
+                          onConfirm: () => handleAction('media.delete', m._id),
+                        })
+                      }
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -645,7 +1007,7 @@ function AdminDashboardContent() {
         ) : (
           <div className="space-y-2">
             {list.length === 0 ? (
-              <p className="text-center text-lab-sc py-8">No records found in {activeTab}.</p>
+              <p className="text-center text-lab-sc py-8">No records found in {activeMeta.title}.</p>
             ) : (
               list.map((row) => {
                 const id = String(row._id);
@@ -672,8 +1034,7 @@ function AdminDashboardContent() {
                   row.income !== undefined && row.income !== null
                     ? formatCurrency(Number(row.income), String(row.currency || defaultCurrency), bootstrap?.currencies, locale)
                     : '',
-                  row.approval ? `Approval: ${String(row.approval)}` : '',
-                  row.status ? `Status: ${String(row.status)}` : '',
+                  row.location ? String(row.location) : '',
                   row.reportableType ? `Target: ${String(row.reportableType)}` : '',
                 ]
                   .filter(Boolean)
@@ -723,8 +1084,6 @@ function AdminDashboardContent() {
                       : '',
                     row.viewsCount !== undefined ? `${Number(row.viewsCount)} views` : '',
                     row.clicksCount !== undefined ? `${Number(row.clicksCount)} clicks` : '',
-                    row.approval ? `Approval: ${String(row.approval)}` : '',
-                    row.status ? `Status: ${String(row.status)}` : '',
                   ]
                     .filter(Boolean)
                     .join(' · ');
@@ -734,8 +1093,29 @@ function AdminDashboardContent() {
                   secondaryLine = [
                     authorUsername ? `Reporter: @${authorUsername}` : '',
                     row.reportableType ? `Type: ${String(row.reportableType)}` : '',
-                    row.status ? `Status: ${String(row.status)}` : '',
+                    row.targetPreview ? `Preview: "${String(row.targetPreview).slice(0, 60)}"` : '',
                     reviewer ? `Reviewed by @${reviewer}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                } else if (activeTab === 'businesses') {
+                  primaryLine = String(row.name || `Business ${id}`);
+                  secondaryLine = [
+                    authorUsername ? `Owner: @${authorUsername}` : '',
+                    [row.city, row.country].filter(Boolean).join(', '),
+                    row.businessEmail ? String(row.businessEmail) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                } else if (activeTab === 'authorship') {
+                  const reqUser = row.userId as { firstName?: string; lastName?: string; email?: string; type?: string } | undefined;
+                  const full = `${reqUser?.firstName || ''} ${reqUser?.lastName || ''}`.trim();
+                  primaryLine = full ? `${full} (@${authorUsername || 'user'})` : `@${authorUsername || id}`;
+                  secondaryLine = [
+                    reqUser?.email || '',
+                    reqUser?.type ? `Current Type: ${reqUser.type}` : '',
+                    row.reviewerNotes ? `Note: ${String(row.reviewerNotes)}` : '',
+                    row.createdAt ? new Date(String(row.createdAt)).toLocaleString() : '',
                   ]
                     .filter(Boolean)
                     .join(' · ');
@@ -750,7 +1130,7 @@ function AdminDashboardContent() {
                     .join(' · ');
                 } else if (activeTab === 'moderation_history') {
                   const targetUser = (row.targetUserId as { username?: string })?.username;
-                  primaryLine = `${String(row.action || 'action')}${row.reason ? ` — ${String(row.reason)}` : ''}`;
+                  primaryLine = `${String(row.action || 'action').replace(/_/g, ' ')}${row.reason ? ` — ${String(row.reason)}` : ''}`;
                   secondaryLine = [
                     authorUsername ? `Mod: @${authorUsername}` : '',
                     targetUser ? `Target: @${targetUser}` : '',
@@ -760,6 +1140,8 @@ function AdminDashboardContent() {
                     .filter(Boolean)
                     .join(' · ');
                 }
+
+                const storyExpired = activeTab === 'stories' && Boolean(row.isExpired);
 
                 return (
                   <div key={id} className="rounded-2xl border border-bord-card bg-bg-pr p-4 flex flex-wrap items-center justify-between gap-3">
@@ -775,7 +1157,42 @@ function AdminDashboardContent() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-par-n font-bold text-lab-pr truncate">{primaryLine}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-par-n font-bold text-lab-pr truncate">{primaryLine}</p>
+                          {['posts', 'marketplace', 'jobs', 'ads', 'reports', 'authorship'].includes(activeTab) && Boolean(row.status) && (
+                            <AdminStatusBadge status={String(row.status)} />
+                          )}
+                          {['marketplace', 'jobs', 'ads'].includes(activeTab) && Boolean(row.approval) && (
+                            <AdminStatusBadge status={String(row.approval)} />
+                          )}
+                          {activeTab === 'posts' && Boolean(row.globalPinned) && (
+                            <Badge variant="brand">Global Pin</Badge>
+                          )}
+                          {activeTab === 'stories' && (
+                            <AdminStatusBadge status={storyExpired ? 'expired' : 'active'} />
+                          )}
+                          {activeTab === 'businesses' && (
+                            <AdminStatusBadge
+                              status={row.verified ? 'verified' : 'pending'}
+                              label={row.verified ? 'Verified' : 'Pending Review'}
+                            />
+                          )}
+                          {activeTab === 'moderation_history' && Boolean(row.action) && (
+                            <AdminStatusBadge
+                              status={
+                                String(row.action).includes('approve') || String(row.action).includes('verify')
+                                  ? 'approved'
+                                  : String(row.action).includes('ban') || String(row.action).includes('reject') || String(row.action).includes('remove') || String(row.action).includes('delete')
+                                    ? 'rejected'
+                                    : 'processed'
+                              }
+                              label={String(row.action).replace(/_/g, ' ')}
+                            />
+                          )}
+                          {activeTab === 'api_keys' && (
+                            <AdminStatusBadge status={row.isActive ? 'active' : 'inactive'} />
+                          )}
+                        </div>
                         <p className="text-cap-s text-lab-sc truncate">{secondaryLine || id}</p>
                       </div>
                     </div>
@@ -783,6 +1200,9 @@ function AdminDashboardContent() {
                     <div className="flex flex-wrap items-center gap-1.5">
                       {activeTab === 'posts' && (
                         <>
+                          <Button size="sm" variant="ghost" onClick={() => setDetailModal({ kind: 'post', row })}>
+                            <Eye className="h-3.5 w-3.5" /> Inspect
+                          </Button>
                           {Boolean(row.hashId) && (
                             <Link href={`/publication/${String(row.hashId)}`} target="_blank">
                               <Button size="sm" variant="ghost">
@@ -809,7 +1229,19 @@ function AdminDashboardContent() {
                           <Button size="sm" variant="outline" onClick={() => handleAction('post.toggle_global_pin', id)}>
                             {row.globalPinned ? 'Unpin' : 'Pin Global'}
                           </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleAction('post.delete', id)}>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete publication?',
+                                description: 'This removes the post, comments, bookmarks, and attached media permanently.',
+                                confirmLabel: 'Delete Post',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('post.delete', id),
+                              })
+                            }
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
@@ -823,7 +1255,19 @@ function AdminDashboardContent() {
                               </Button>
                             </Link>
                           )}
-                          <Button size="sm" variant="danger" onClick={() => handleAction('comment.delete', id)}>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete comment?',
+                                description: 'Removes this comment and decrements the parent publication count.',
+                                confirmLabel: 'Delete Comment',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('comment.delete', id),
+                              })
+                            }
+                          >
                             Delete
                           </Button>
                         </>
@@ -833,15 +1277,44 @@ function AdminDashboardContent() {
                           <Button size="sm" variant="outline" onClick={() => setDetailModal({ kind: 'story', row })}>
                             <Eye className="h-3.5 w-3.5" /> Preview
                           </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleAction('story.delete', id)}>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete story frame?',
+                                description: 'Removes this story frame and any attached R2 media.',
+                                confirmLabel: 'Delete Story',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('story.delete', id),
+                              })
+                            }
+                          >
                             Delete
                           </Button>
                         </>
                       )}
                       {activeTab === 'chats' && (
-                        <Button size="sm" variant="danger" onClick={() => handleAction('chat.delete', id)}>
-                          Delete Chat
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setDetailModal({ kind: 'chat', row })}>
+                            <Eye className="h-3.5 w-3.5" /> Inspect
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete conversation?',
+                                description: 'Deletes the entire chat thread and all stored messages permanently.',
+                                confirmLabel: 'Delete Chat',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('chat.delete', id),
+                              })
+                            }
+                          >
+                            Delete Chat
+                          </Button>
+                        </>
                       )}
                       {activeTab === 'marketplace' && (
                         <>
@@ -871,11 +1344,35 @@ function AdminDashboardContent() {
                           >
                             <Edit3 className="h-3.5 w-3.5" /> Edit
                           </Button>
-                          <AdminDecisionButtons
+                          <AdminApprovalControl
+                            status={String(row.approval || 'pending')}
                             onApprove={() => handleAction('product.set_approval', id, { approval: 'approved' })}
-                            onReject={() => handleAction('product.set_approval', id, { approval: 'rejected' })}
+                            onReject={() => {
+                              setReviewNoteInput('');
+                              setReviewModal({
+                                title: `Reject Product: ${String(row.title || 'Listing')}`,
+                                subtitle: 'Seller will receive a notification with your optional reason.',
+                                action: 'product.set_approval',
+                                targetId: id,
+                                payload: { approval: 'rejected' },
+                                variant: 'danger',
+                                confirmLabel: 'Reject Product',
+                              });
+                            }}
                           />
-                          <Button size="sm" variant="danger" onClick={() => handleAction('product.delete', id)}>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete product listing?',
+                                description: `Delete "${String(row.title || 'Product')}" and its associated media permanently.`,
+                                confirmLabel: 'Delete Product',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('product.delete', id),
+                              })
+                            }
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
@@ -909,11 +1406,35 @@ function AdminDashboardContent() {
                           >
                             <Edit3 className="h-3.5 w-3.5" /> Edit
                           </Button>
-                          <AdminDecisionButtons
+                          <AdminApprovalControl
+                            status={String(row.approval || 'pending')}
                             onApprove={() => handleAction('job.set_approval', id, { approval: 'approved' })}
-                            onReject={() => handleAction('job.set_approval', id, { approval: 'rejected' })}
+                            onReject={() => {
+                              setReviewNoteInput('');
+                              setReviewModal({
+                                title: `Reject Job Listing: ${String(row.title || 'Job')}`,
+                                subtitle: 'Employer will be notified of your moderation decision.',
+                                action: 'job.set_approval',
+                                targetId: id,
+                                payload: { approval: 'rejected' },
+                                variant: 'danger',
+                                confirmLabel: 'Reject Job',
+                              });
+                            }}
                           />
-                          <Button size="sm" variant="danger" onClick={() => handleAction('job.delete', id)}>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete job listing?',
+                                description: 'Deletes this job post and all submitted applications.',
+                                confirmLabel: 'Delete Job',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('job.delete', id),
+                              })
+                            }
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
@@ -923,9 +1444,21 @@ function AdminDashboardContent() {
                           <Button size="sm" variant="ghost" onClick={() => setDetailModal({ kind: 'ad', row })}>
                             <Eye className="h-3.5 w-3.5" /> Inspect
                           </Button>
-                          <AdminDecisionButtons
+                          <AdminApprovalControl
+                            status={String(row.approval || 'pending')}
                             onApprove={() => handleAction('ad.set_approval', id, { approval: 'approved' })}
-                            onReject={() => handleAction('ad.set_approval', id, { approval: 'rejected' })}
+                            onReject={() => {
+                              setReviewNoteInput('');
+                              setReviewModal({
+                                title: `Reject Ad Campaign`,
+                                subtitle: `Decline "${String(row.title || 'Ad')}" and notify the advertiser.`,
+                                action: 'ad.set_approval',
+                                targetId: id,
+                                payload: { approval: 'rejected' },
+                                variant: 'danger',
+                                confirmLabel: 'Reject Campaign',
+                              });
+                            }}
                           />
                           <Button
                             size="sm"
@@ -938,49 +1471,142 @@ function AdminDashboardContent() {
                           >
                             {row.status === 'published' ? 'Pause' : 'Publish'}
                           </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleAction('ad.delete', id)}>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete ad campaign?',
+                                description: 'Permanently delete this advertising campaign record.',
+                                confirmLabel: 'Delete Ad',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('ad.delete', id),
+                              })
+                            }
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       )}
                       {activeTab === 'businesses' && (
                         <>
-                          <Button size="sm" variant="primary" onClick={() => handleAction('business.toggle_verify', id)}>
-                            {row.verified ? 'Unverify' : 'Verify Business'}
-                          </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleAction('business.delete', id)}>
+                          <AdminApprovalControl
+                            status={row.verified ? 'verified' : 'pending'}
+                            approvedLabel="Verified"
+                            pendingLabel="Unverified"
+                            approveLabel="Verify Business"
+                            rejectLabel="Revoke"
+                            onApprove={() => handleAction('business.review', id, { decision: 'approved' })}
+                            onReject={() => {
+                              setReviewNoteInput('');
+                              setReviewModal({
+                                title: `Revoke / Reject Business Verification`,
+                                subtitle: `Update verification state for "${String(row.name || 'Business')}" and notify owner.`,
+                                action: 'business.review',
+                                targetId: id,
+                                payload: { decision: 'rejected' },
+                                variant: 'danger',
+                                confirmLabel: 'Revoke Verification',
+                              });
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete business account?',
+                                description: `Remove "${String(row.name || 'Business')}" from the business directory.`,
+                                confirmLabel: 'Delete Business',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('business.delete', id),
+                              })
+                            }
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       )}
                       {activeTab === 'reports' && (
                         <>
-                          {row.status === 'pending' ? (
-                            <AdminDecisionButtons
-                              approveLabel="Remove Content"
-                              rejectLabel="Ignore"
-                              onApprove={() => handleAction('report.resolve', id, { status: 'processed', removeContent: true })}
-                              onReject={() => handleAction('report.resolve', id, { status: 'ignored', removeContent: false })}
-                            />
-                          ) : (
-                            <Badge variant={row.status === 'processed' ? 'success' : 'outline'}>
-                              {String(row.status)}
-                            </Badge>
-                          )}
-                          <Button size="sm" variant="ghost" onClick={() => handleAction('report.delete', id)}>
+                          <Button size="sm" variant="ghost" onClick={() => setDetailModal({ kind: 'report', row })}>
+                            <Eye className="h-3.5 w-3.5" /> Inspect
+                          </Button>
+                          <AdminApprovalControl
+                            status={String(row.status || 'pending')}
+                            approvedLabel="Processed"
+                            rejectedLabel="Ignored"
+                            pendingLabel="Pending"
+                            approveLabel="Remove Content"
+                            rejectLabel="Ignore Report"
+                            allowOverride={false}
+                            onApprove={() =>
+                              setConfirmState({
+                                title: 'Remove reported content?',
+                                description: `This marks the report processed and deletes or blocks the reported ${String(row.reportableType || 'item')}.`,
+                                confirmLabel: 'Remove Content',
+                                variant: 'danger',
+                                onConfirm: () =>
+                                  handleAction('report.resolve', id, { status: 'processed', removeContent: true }),
+                              })
+                            }
+                            onReject={() =>
+                              handleAction('report.resolve', id, { status: 'ignored', removeContent: false })
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete report record?',
+                                description: 'Delete this report entry without modifying reported content.',
+                                confirmLabel: 'Delete',
+                                variant: 'danger',
+                                onConfirm: () => handleAction('report.delete', id),
+                              })
+                            }
+                          >
                             <Trash2 className="h-3.5 w-3.5 text-red-900" />
                           </Button>
                         </>
                       )}
                       {activeTab === 'authorship' && (
-                        <AdminDecisionButtons
+                        <AdminApprovalControl
+                          status={String(row.status || 'pending')}
+                          approveLabel="Approve Author"
+                          rejectLabel="Decline"
                           onApprove={() => handleAction('authorship.review', id, { decision: 'approved' })}
-                          onReject={() => handleAction('authorship.review', id, { decision: 'rejected' })}
+                          onReject={() => {
+                            setReviewNoteInput('');
+                            setReviewModal({
+                              title: `Decline Authorship Request`,
+                              subtitle: `Send optional feedback to @${authorUsername || 'user'}.`,
+                              action: 'authorship.review',
+                              targetId: id,
+                              payload: { decision: 'rejected' },
+                              variant: 'danger',
+                              confirmLabel: 'Decline Request',
+                            });
+                          }}
                         />
                       )}
                       {activeTab === 'api_keys' && (
-                        <Button size="sm" variant="danger" onClick={() => handleAction('api_key.revoke', id)}>
-                          Revoke
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          disabled={!row.isActive}
+                          onClick={() =>
+                            setConfirmState({
+                              title: 'Revoke API key?',
+                              description: 'Clients using this API key will immediately lose access.',
+                              confirmLabel: 'Revoke Key',
+                              variant: 'danger',
+                              onConfirm: () => handleAction('api_key.revoke', id),
+                            })
+                          }
+                        >
+                          {row.isActive ? 'Revoke' : 'Revoked'}
                         </Button>
                       )}
                     </div>
@@ -1122,7 +1748,19 @@ function AdminDashboardContent() {
       <Modal
         open={detailModal !== null}
         onClose={() => setDetailModal(null)}
-        title={detailModal?.kind === 'ad' ? 'Campaign Details' : 'Story Frame Preview'}
+        title={
+          detailModal?.kind === 'ad'
+            ? 'Campaign Details'
+            : detailModal?.kind === 'story'
+              ? 'Story Frame Preview'
+              : detailModal?.kind === 'post'
+                ? 'Publication Details'
+                : detailModal?.kind === 'report'
+                  ? 'Abuse Report Inspector'
+                  : detailModal?.kind === 'chat'
+                    ? 'Conversation Details'
+                    : 'Payment Details'
+        }
       >
         {detailModal && (
           <div className="space-y-4">
@@ -1144,7 +1782,7 @@ function AdminDashboardContent() {
                 )}
               </div>
             )}
-            <div className="space-y-1.5 text-cap-l">
+            <div className="space-y-2 text-cap-l">
               {Boolean(detailModal.row.title) && (
                 <p className="font-bold text-par-n text-lab-pr">{String(detailModal.row.title)}</p>
               )}
@@ -1175,6 +1813,145 @@ function AdminDashboardContent() {
                   {detailModal.row.expiresAt ? ` · Expires ${new Date(String(detailModal.row.expiresAt)).toLocaleString()}` : ''}
                 </p>
               )}
+              {detailModal.kind === 'post' && (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <AdminStatusBadge status={String(detailModal.row.status || 'active')} />
+                    {Boolean(detailModal.row.globalPinned) && <Badge variant="brand">Global Pin</Badge>}
+                  </div>
+                  <p className="text-lab-sc">
+                    Comments: {Number(detailModal.row.commentsCount || 0)} · Shares: {Number(detailModal.row.sharesCount || 0)}
+                  </p>
+                  {Boolean(detailModal.row.location) && (
+                    <p className="text-lab-sc">Location: {String(detailModal.row.location)}</p>
+                  )}
+                </>
+              )}
+              {detailModal.kind === 'report' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline">{String(detailModal.row.reportableType || 'item')}</Badge>
+                    <AdminStatusBadge status={String(detailModal.row.status || 'pending')} />
+                  </div>
+                  {Boolean(detailModal.row.reporterComment) && (
+                    <div className="rounded-xl border border-bord-pr bg-fill-qt p-3">
+                      <p className="text-cap-s font-semibold text-lab-sc mb-1">Reporter Comment</p>
+                      <p className="text-lab-pr">{String(detailModal.row.reporterComment)}</p>
+                    </div>
+                  )}
+                  {Boolean(detailModal.row.targetPreview) && (
+                    <div className="rounded-xl border border-bord-pr bg-fill-qt p-3">
+                      <p className="text-cap-s font-semibold text-lab-sc mb-1">Reported Content Preview</p>
+                      <p className="text-lab-pr">{String(detailModal.row.targetPreview)}</p>
+                    </div>
+                  )}
+                  {Boolean(detailModal.row.reviewerNotes) && (
+                    <p className="text-lab-sc">Reviewer Note: {String(detailModal.row.reviewerNotes)}</p>
+                  )}
+                </div>
+              )}
+              {detailModal.kind === 'chat' && (
+                <div className="space-y-2">
+                  <p className="text-lab-sc">
+                    Type: <span className="font-semibold text-lab-pr capitalize">{String(detailModal.row.type || 'direct')}</span> ·{' '}
+                    {Number(detailModal.row.messagesCount || 0)} message(s)
+                  </p>
+                  {Array.isArray(detailModal.row.participants) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(detailModal.row.participants as Array<{ userId?: { username?: string } }>).map((p, idx) => (
+                        <Badge key={idx} variant="outline">
+                          @{p.userId?.username || 'user'}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {detailModal.kind === 'payment' && (
+                <div className="space-y-1.5 rounded-xl border border-bord-pr bg-fill-qt p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-lab-pr">
+                      {formatCurrency(Number(detailModal.row.amount || 0), String(detailModal.row.currency || defaultCurrency), bootstrap?.currencies, locale)}
+                    </span>
+                    <AdminStatusBadge status={String(detailModal.row.status || 'pending')} />
+                  </div>
+                  <p className="text-lab-sc">Method: {String(detailModal.row.paymentMethod || detailModal.row.provider || 'gateway')}</p>
+                  {Boolean(detailModal.row.referenceId) && (
+                    <p className="text-lab-sc font-mono break-all">Reference: {String(detailModal.row.referenceId)}</p>
+                  )}
+                  {Boolean(detailModal.row.createdAt) && (
+                    <p className="text-lab-sc">Date: {new Date(String(detailModal.row.createdAt)).toLocaleString()}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Review Decision With Optional Reviewer Note Modal */}
+      <Modal
+        open={reviewModal !== null}
+        onClose={() => setReviewModal(null)}
+        title={reviewModal?.title || 'Moderation Review'}
+      >
+        {reviewModal && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await handleAction(reviewModal.action, reviewModal.targetId, {
+                ...reviewModal.payload,
+                notes: reviewNoteInput.trim(),
+              });
+              setReviewModal(null);
+              setReviewNoteInput('');
+            }}
+            className="space-y-4"
+          >
+            <p className="text-cap-l text-lab-sc">{reviewModal.subtitle}</p>
+            <Textarea
+              label="Moderator Note (optional)"
+              placeholder="Explain why this decision was made..."
+              value={reviewNoteInput}
+              onChange={(e) => setReviewNoteInput(e.target.value)}
+              rows={3}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setReviewModal(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant={reviewModal.variant}>
+                {reviewModal.confirmLabel}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Structured Confirmation Modal matching PHP $store.confirmModal */}
+      <Modal
+        open={confirmState !== null}
+        onClose={() => setConfirmState(null)}
+        title={confirmState?.title || 'Confirm Action'}
+      >
+        {confirmState && (
+          <div className="space-y-4">
+            <p className="text-par-s text-lab-sc">{confirmState.description}</p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setConfirmState(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant={confirmState.variant || 'danger'}
+                onClick={async () => {
+                  const fn = confirmState.onConfirm;
+                  setConfirmState(null);
+                  await fn();
+                }}
+              >
+                {confirmState.confirmLabel}
+              </Button>
             </div>
           </div>
         )}

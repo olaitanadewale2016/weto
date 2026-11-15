@@ -38,6 +38,7 @@ export interface BootstrapUser {
   cover?: string;
   bio?: string;
   verified: boolean;
+  isMasterAccount?: boolean;
   role: string;
   status: string;
   type: string;

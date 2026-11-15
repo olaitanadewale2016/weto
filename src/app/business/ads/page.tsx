@@ -149,12 +149,42 @@ export default function BusinessAdsPage() {
                 <div className="p-5 space-y-3 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="text-par-l font-bold text-lab-pr">{ad.title}</h3>
-                    <div className="flex gap-1.5">
-                      <Badge variant={ad.status === 'published' ? 'success' : 'default'}>{ad.status}</Badge>
-                      <Badge variant="brand">{ad.approval}</Badge>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <Badge
+                        variant={
+                          ad.status === 'published'
+                            ? 'success'
+                            : ad.status === 'paused'
+                              ? 'warning'
+                              : 'outline'
+                        }
+                      >
+                        {ad.status}
+                      </Badge>
+                      <Badge
+                        variant={
+                          ad.approval === 'approved'
+                            ? 'success'
+                            : ad.approval === 'rejected'
+                              ? 'danger'
+                              : 'warning'
+                        }
+                      >
+                        {ad.approval}
+                      </Badge>
                     </div>
                   </div>
                   <p className="text-par-n text-lab-sc line-clamp-2">{ad.content}</p>
+                  {ad.approval === 'pending' && (
+                    <p className="text-cap-s text-amber-700 dark:text-amber-400">
+                      Pending moderation review before impressions begin delivering.
+                    </p>
+                  )}
+                  {ad.approval === 'rejected' && (
+                    <p className="text-cap-s text-red-900">
+                      This campaign creative was rejected by moderation.
+                    </p>
+                  )}
                   <div className="grid grid-cols-3 gap-2 rounded-2xl bg-fill-pr p-3 text-center">
                     <div>
                       <p className="text-cap-s text-lab-sc">Views</p>

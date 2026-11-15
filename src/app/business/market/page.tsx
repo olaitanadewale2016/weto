@@ -159,13 +159,36 @@ export default function BusinessMarketPage() {
                     >
                       {p.title}
                     </Link>
-                    <Badge variant={p.status === 'active' ? 'success' : 'default'}>
-                      {p.status}
-                    </Badge>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge
+                        variant={
+                          p.approval === 'approved'
+                            ? 'success'
+                            : p.approval === 'rejected'
+                              ? 'danger'
+                              : 'warning'
+                        }
+                      >
+                        {p.approval}
+                      </Badge>
+                      <Badge variant={p.status === 'active' ? 'success' : 'outline'}>
+                        {p.status}
+                      </Badge>
+                    </div>
                   </div>
                   <p className="font-bold text-brand-900">
                     {formatCurrency(p.salePrice, p.currency, bootstrap?.currencies, locale)}
                   </p>
+                  {p.approval === 'pending' && (
+                    <p className="text-cap-s text-amber-700 dark:text-amber-400">
+                      Awaiting moderator approval before appearing in public marketplace search.
+                    </p>
+                  )}
+                  {p.approval === 'rejected' && (
+                    <p className="text-cap-s text-red-900">
+                      Rejected by moderation. Edit product details or contact support.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 pt-2 border-t border-bord-tr">

@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
         publicationsCount: u.publicationsCount,
         followersCount: u.followersCount,
         followingCount: u.followingCount,
+        isMasterAccount: !u.ownerAccountId,
         tips: u.tips,
       };
     }

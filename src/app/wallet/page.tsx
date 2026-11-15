@@ -77,6 +77,7 @@ interface WalletPayload {
     currency: string;
     paymentMethod: string;
     status: string;
+    reviewerNotes?: string | null;
     createdAt: string;
   }>;
 }
@@ -368,7 +369,7 @@ export default function WalletPage() {
                       ? 'success'
                       : st === 'rejected' || st === 'declined' || st === 'cancelled'
                         ? 'danger'
-                        : 'brand';
+                        : 'warning';
                   return (
                     <div
                       key={c.id}
@@ -380,6 +381,7 @@ export default function WalletPage() {
                         </p>
                         <p className="text-cap-s text-lab-sc truncate">
                           {formatLocalizedDate(c.createdAt, locale)}
+                          {c.reviewerNotes ? ` · Note: ${c.reviewerNotes}` : ''}
                         </p>
                       </div>
                       <Badge variant={badgeVariant} className="capitalize shrink-0">

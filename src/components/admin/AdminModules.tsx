@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   Check,
   CheckCircle2,
+  Clock,
   Edit3,
   ExternalLink,
   Eye,
@@ -116,9 +117,8 @@ export function AdminOverviewSection({
               type="button"
               disabled={!clickable}
               onClick={() => c.tab && onNavigateTab?.(c.tab)}
-              className={`text-left rounded-2xl border border-bord-card bg-bg-pr p-4 transition-colors ${
-                clickable ? 'hover:border-lab-pr2/50 hover:bg-fill-pr/30 cursor-pointer' : 'cursor-default'
-              }`}
+              className={`text-left rounded-2xl border border-bord-card bg-bg-pr p-4 transition-colors ${clickable ? 'hover:border-lab-pr2/50 hover:bg-fill-pr/30 cursor-pointer' : 'cursor-default'
+                }`}
             >
               <p className="text-cap-s text-lab-sc">{c.label}</p>
               <p className="font-outfit text-title-2 font-bold text-lab-pr mt-1">{c.value}</p>
@@ -223,6 +223,7 @@ export function AdminUsersSection({
   const [inspectUser, setInspectUser] = useState<AdminUserRow | null>(null);
   const [banningUser, setBanningUser] = useState<AdminUserRow | null>(null);
   const [banReasonText, setBanReasonText] = useState('');
+  const [setBalanceValue, setSetBalanceValue] = useState('');
 
   const [newUser, setNewUser] = useState({
     username: '',
@@ -270,11 +271,11 @@ export function AdminUsersSection({
   const visibleRows = onUserFilterChange
     ? rows
     : rows.filter((u) => {
-        if (userFilter === 'author') return u.type === 'author';
-        if (userFilter === 'reader') return u.type === 'reader';
-        if (userFilter === 'blocked') return u.status === 'blocked' || u.status === 'suspended';
-        return true;
-      });
+      if (userFilter === 'author') return u.type === 'author';
+      if (userFilter === 'reader') return u.type === 'reader';
+      if (userFilter === 'blocked') return u.status === 'blocked' || u.status === 'suspended';
+      return true;
+    });
 
   return (
     <div className="space-y-4">
@@ -285,11 +286,10 @@ export function AdminUsersSection({
               key={ft.key}
               type="button"
               onClick={() => onUserFilterChange?.(ft.key)}
-              className={`rounded-full px-3 py-1 text-cap-s font-medium transition-colors cursor-pointer ${
-                userFilter === ft.key
+              className={`rounded-full px-3 py-1 text-cap-s font-medium transition-colors cursor-pointer ${userFilter === ft.key
                   ? 'bg-lab-pr text-bg-pr'
                   : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
-              }`}
+                }`}
             >
               {ft.label}
             </button>
@@ -308,100 +308,100 @@ export function AdminUsersSection({
           </div>
         ) : (
           visibleRows.map((u) => (
-          <div key={u._id} className="rounded-2xl border border-bord-card bg-bg-pr p-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <Avatar src={u.avatar} alt={u.username} verified={u.verified} size="md" />
-              <div className="min-w-0">
-                <p className="font-bold text-par-n text-lab-pr truncate">
-                  {u.firstName} {u.lastName} <span className="font-normal text-lab-sc">(@{u.username})</span>
-                </p>
-                <p className="text-cap-s text-lab-sc truncate">
-                  {u.email}{u.city || u.country ? ` · ${[u.city, u.country].filter(Boolean).join(', ')}` : ''}
-                </p>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  <Badge variant="brand">{u.role}</Badge>
-                  <Badge variant="outline">{u.type}</Badge>
-                  <Badge variant={u.status === 'active' ? 'success' : 'danger'}>{u.status}</Badge>
-                  {u.verified && <Badge variant="brand">Verified</Badge>}
+            <div key={u._id} className="rounded-2xl border border-bord-card bg-bg-pr p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar src={u.avatar} alt={u.username} verified={u.verified} size="md" />
+                <div className="min-w-0">
+                  <p className="font-bold text-par-n text-lab-pr truncate">
+                    {u.firstName} {u.lastName} <span className="font-normal text-lab-sc">(@{u.username})</span>
+                  </p>
+                  <p className="text-cap-s text-lab-sc truncate">
+                    {u.email}{u.city || u.country ? ` · ${[u.city, u.country].filter(Boolean).join(', ')}` : ''}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    <Badge variant="brand">{u.role}</Badge>
+                    <Badge variant="outline">{u.type}</Badge>
+                    <Badge variant={u.status === 'active' ? 'success' : 'danger'}>{u.status}</Badge>
+                    {u.verified && <Badge variant="brand">Verified</Badge>}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button size="sm" variant="ghost" title="Inspect user details" onClick={() => setInspectUser(u)}>
-                <Eye className="h-3.5 w-3.5" />
-              </Button>
-              <Link href={`/@${u.username}`} target="_blank">
-                <Button size="sm" variant="ghost" title="View public profile">
-                  <ExternalLink className="h-3.5 w-3.5" />
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button size="sm" variant="ghost" title="Inspect user details" onClick={() => setInspectUser(u)}>
+                  <Eye className="h-3.5 w-3.5" />
                 </Button>
-              </Link>
-              <Button size="sm" variant="outline" onClick={() => startEdit(u)}>
-                <Edit3 className="h-3.5 w-3.5" /> Edit
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onAction('user.toggle_verify', u._id)}>
-                <ShieldCheck className="h-3.5 w-3.5" /> {u.verified ? 'Unverify' : 'Verify'}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onAction('user.toggle_author', u._id)}>
-                {u.type === 'author' ? 'Set Reader' : 'Make Author'}
-              </Button>
-              {u.status !== 'blocked' ? (
+                <Link href={`/@${u.username}`} target="_blank">
+                  <Button size="sm" variant="ghost" title="View public profile">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+                <Button size="sm" variant="outline" onClick={() => startEdit(u)}>
+                  <Edit3 className="h-3.5 w-3.5" /> Edit
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onAction('user.toggle_verify', u._id)}>
+                  <ShieldCheck className="h-3.5 w-3.5" /> {u.verified ? 'Unverify' : 'Verify'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onAction('user.toggle_author', u._id)}>
+                  {u.type === 'author' ? 'Set Reader' : 'Make Author'}
+                </Button>
+                {u.status !== 'blocked' ? (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => {
+                      setBanningUser(u);
+                      setBanReasonText('');
+                    }}
+                  >
+                    Ban
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="primary" onClick={() => onAction('user.set_status', u._id, { status: 'active' })}>
+                    Activate
+                  </Button>
+                )}
+                <Select
+                  value={u.role}
+                  onChange={(e) => onAction('user.set_role', u._id, { role: e.target.value })}
+                  className="h-8 w-28 text-cap-s"
+                >
+                  <option value="user">user</option>
+                  <option value="moderator">moderator</option>
+                  <option value="admin">admin</option>
+                  <option value="root">root</option>
+                </Select>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    placeholder={`+${defaultCurrency}`}
+                    value={creditAmounts[u._id] || ''}
+                    onChange={(e) => setCreditAmounts({ ...creditAmounts, [u._id]: e.target.value })}
+                    className="h-8 w-24 rounded-xl border border-bord-pr bg-input-pr px-2 text-cap-s"
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => onAction('user.adjust_wallet', u._id, { amount: Number(creditAmounts[u._id] || 0), currency: defaultCurrency })}
+                  >
+                    Credit
+                  </Button>
+                </div>
                 <Button
                   size="sm"
                   variant="danger"
                   onClick={() => {
-                    setBanningUser(u);
-                    setBanReasonText('');
+                    if (confirm(`Delete @${u.username}?`)) {
+                      onAction('user.delete', u._id);
+                    }
                   }}
+                  title="Delete user"
                 >
-                  Ban
-                </Button>
-              ) : (
-                <Button size="sm" variant="primary" onClick={() => onAction('user.set_status', u._id, { status: 'active' })}>
-                  Activate
-                </Button>
-              )}
-              <Select
-                value={u.role}
-                onChange={(e) => onAction('user.set_role', u._id, { role: e.target.value })}
-                className="h-8 w-28 text-cap-s"
-              >
-                <option value="user">user</option>
-                <option value="moderator">moderator</option>
-                <option value="admin">admin</option>
-                <option value="root">root</option>
-              </Select>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  placeholder={`+${defaultCurrency}`}
-                  value={creditAmounts[u._id] || ''}
-                  onChange={(e) => setCreditAmounts({ ...creditAmounts, [u._id]: e.target.value })}
-                  className="h-8 w-24 rounded-xl border border-bord-pr bg-input-pr px-2 text-cap-s"
-                />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onAction('user.adjust_wallet', u._id, { amount: Number(creditAmounts[u._id] || 0), currency: defaultCurrency })}
-                >
-                  Credit
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => {
-                  if (confirm(`Delete @${u.username}?`)) {
-                    onAction('user.delete', u._id);
-                  }
-                }}
-                title="Delete user"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
             </div>
-          </div>
-        )))}
+          )))}
       </div>
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create User Account">
@@ -564,6 +564,36 @@ export function AdminUsersSection({
                 {inspectUser.verified ? 'Remove Verification' : 'Verify Account'}
               </Button>
             </div>
+
+            <div className="rounded-2xl border border-bord-pr bg-fill-qt/40 p-3 space-y-2">
+              <p className="text-cap-l font-bold text-lab-pr">Set User Wallet Balance</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder={`New balance (${defaultCurrency})`}
+                  value={setBalanceValue}
+                  onChange={(e) => setSetBalanceValue(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={setBalanceValue.trim() === '' || Number(setBalanceValue) < 0}
+                  onClick={async () => {
+                    await onAction('user.set_wallet_balance', inspectUser._id, {
+                      balance: Number(setBalanceValue),
+                      currency: defaultCurrency,
+                    });
+                    setSetBalanceValue('');
+                    setInspectUser(null);
+                  }}
+                >
+                  Apply Balance
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </Modal>
@@ -615,8 +645,10 @@ export function AdminSecurityModSection({
   const [banValue, setBanValue] = useState('');
   const [banType, setBanType] = useState('ip_address');
   const [banReason, setBanReason] = useState('');
+  const [banExpiryDays, setBanExpiryDays] = useState('0');
   const [censorWord, setCensorWord] = useState('');
   const [censorLevel, setCensorLevel] = useState('replaced');
+  const [editingCensorId, setEditingCensorId] = useState<string | null>(null);
 
   if (resource === 'banning') {
     const d = (data || { blacklists: [], censors: [] }) as {
@@ -625,121 +657,180 @@ export function AdminSecurityModSection({
         type: string;
         blacklistable: string;
         reason?: string;
+        expiresAt?: string | null;
         addedAt?: string;
         adminId?: { username?: string };
       }>;
       censors: Array<{ _id: string; word: string; level: string }>;
     };
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-3xl border border-bord-card p-5 space-y-4">
-          <h3 className="font-bold text-par-m text-lab-pr flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-lab-pr2" /> Blacklist (IP / Email / Phone / Username)
-          </h3>
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-2">
-              <Select value={banType} onChange={(e) => setBanType(e.target.value)} className="w-36">
-                <option value="ip_address">IP Address</option>
-                <option value="email">Email</option>
-                <option value="phone">Phone</option>
-                <option value="username">Username</option>
-              </Select>
-              <Input
-                placeholder="Value to block (e.g. 192.168.1.1)"
-                value={banValue}
-                onChange={(e) => setBanValue(e.target.value)}
-                className="flex-1 min-w-[160px]"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Reason (optional)"
-                value={banReason}
-                onChange={(e) => setBanReason(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                variant="danger"
-                disabled={!banValue.trim()}
-                onClick={async () => {
-                  await onAction('blacklist.add', undefined, {
-                    type: banType,
-                    value: banValue.trim(),
-                    reason: banReason.trim(),
-                  });
-                  setBanValue('');
-                  setBanReason('');
-                }}
-              >
-                Block
-              </Button>
-            </div>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-cap-l text-amber-800 dark:text-amber-300">
+            <span className="font-bold">Security Cache &amp; Enforcement:</span> Blacklisted IPs, emails, phones, and censored words are enforced immediately on registration, auth, and publishing. Reset cache after batch updates.
           </div>
-          <div className="space-y-2">
-            {(d.blacklists || []).length === 0 ? (
-              <p className="text-cap-l text-lab-sc">No blacklisted entries.</p>
-            ) : (
-              (d.blacklists || []).map((b) => (
-                <div key={b._id} className="flex items-center justify-between gap-2 rounded-xl border border-bord-pr px-3 py-2 text-cap-l">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge>{b.type}</Badge>
-                      <span className="font-medium text-lab-pr break-all">{b.blacklistable}</span>
-                    </div>
-                    {(b.reason || b.adminId?.username) && (
-                      <p className="text-cap-s text-lab-sc mt-0.5">
-                        {b.reason ? b.reason : ''}{b.reason && b.adminId?.username ? ' · ' : ''}
-                        {b.adminId?.username ? `by @${b.adminId.username}` : ''}
-                      </p>
-                    )}
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={() => onAction('blacklist.delete', b._id)}>
-                    <Trash2 className="h-4 w-4 text-red-900" />
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
+          <Button size="sm" variant="secondary" onClick={() => onAction('cache.reset')}>
+            <RefreshCw className="h-3.5 w-3.5" /> Reset Security Cache
+          </Button>
         </div>
 
-        <div className="rounded-3xl border border-bord-card p-5 space-y-4">
-          <h3 className="font-bold text-par-m text-lab-pr">Censor Word Filter</h3>
-          <div className="flex flex-wrap gap-2">
-            <Input
-              placeholder="Word or phrase to filter"
-              value={censorWord}
-              onChange={(e) => setCensorWord(e.target.value)}
-              className="flex-1 min-w-[160px]"
-            />
-            <Select value={censorLevel} onChange={(e) => setCensorLevel(e.target.value)} className="w-36">
-              <option value="replaced">Mask (***)</option>
-              <option value="warning">Warning / Flag</option>
-              <option value="banned">Banned Word</option>
-            </Select>
-            <Button
-              variant="primary"
-              disabled={!censorWord.trim()}
-              onClick={async () => {
-                await onAction('censor.add', undefined, { word: censorWord.trim(), level: censorLevel });
-                setCensorWord('');
-              }}
-            >
-              Add
-            </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="rounded-3xl border border-bord-card p-5 space-y-4">
+            <h3 className="font-bold text-par-m text-lab-pr flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-lab-pr2" /> Blacklist (IP / Email / Phone / Username)
+            </h3>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <Select value={banType} onChange={(e) => setBanType(e.target.value)} className="w-36">
+                  <option value="ip_address">IP Address</option>
+                  <option value="email">Email</option>
+                  <option value="phone">Phone</option>
+                  <option value="username">Username</option>
+                </Select>
+                <Input
+                  placeholder="Value to block (e.g. 192.168.1.1)"
+                  value={banValue}
+                  onChange={(e) => setBanValue(e.target.value)}
+                  className="flex-1 min-w-[160px]"
+                />
+                <Select value={banExpiryDays} onChange={(e) => setBanExpiryDays(e.target.value)} className="w-36">
+                  <option value="0">Permanent</option>
+                  <option value="7">7 days</option>
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Reason (optional)"
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  variant="danger"
+                  disabled={!banValue.trim()}
+                  onClick={async () => {
+                    await onAction('blacklist.add', undefined, {
+                      type: banType,
+                      value: banValue.trim(),
+                      reason: banReason.trim(),
+                      expiresInDays: Number(banExpiryDays || 0),
+                    });
+                    setBanValue('');
+                    setBanReason('');
+                    setBanExpiryDays('0');
+                  }}
+                >
+                  Block
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(d.blacklists || []).length === 0 ? (
+                <p className="text-cap-l text-lab-sc">No blacklisted entries.</p>
+              ) : (
+                (d.blacklists || []).map((b) => (
+                  <div key={b._id} className="flex items-center justify-between gap-2 rounded-xl border border-bord-pr px-3 py-2 text-cap-l">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge>{b.type}</Badge>
+                        <span className="font-medium text-lab-pr break-all">{b.blacklistable}</span>
+                        {b.expiresAt ? (
+                          <Badge variant="warning">Expires {new Date(b.expiresAt).toLocaleDateString()}</Badge>
+                        ) : (
+                          <Badge variant="danger">Permanent</Badge>
+                        )}
+                      </div>
+                      {(b.reason || b.adminId?.username) && (
+                        <p className="text-cap-s text-lab-sc mt-0.5">
+                          {b.reason ? b.reason : ''}{b.reason && b.adminId?.username ? ' · ' : ''}
+                          {b.adminId?.username ? `by @${b.adminId.username}` : ''}
+                        </p>
+                      )}
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => onAction('blacklist.delete', b._id)}>
+                      <Trash2 className="h-4 w-4 text-red-900" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          <div className="space-y-2">
-            {(d.censors || []).length === 0 ? (
-              <p className="text-cap-l text-lab-sc">No censored words configured.</p>
-            ) : (
-              (d.censors || []).map((c) => (
-                <div key={c._id} className="flex items-center justify-between rounded-xl border border-bord-pr px-3 py-2 text-cap-l">
-                  <span>{c.word} <Badge variant={c.level === 'banned' ? 'danger' : 'brand'}>{c.level}</Badge></span>
-                  <Button size="sm" variant="ghost" onClick={() => onAction('censor.delete', c._id)}>
-                    <Trash2 className="h-4 w-4 text-red-900" />
-                  </Button>
-                </div>
-              ))
-            )}
+
+          <div className="rounded-3xl border border-bord-card p-5 space-y-4">
+            <h3 className="font-bold text-par-m text-lab-pr">Censor Word Filter</h3>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                placeholder="Word or phrase to filter"
+                value={censorWord}
+                onChange={(e) => setCensorWord(e.target.value)}
+                className="flex-1 min-w-[160px]"
+              />
+              <Select value={censorLevel} onChange={(e) => setCensorLevel(e.target.value)} className="w-36">
+                <option value="replaced">Mask (***)</option>
+                <option value="warning">Warning / Flag</option>
+                <option value="banned">Banned Word</option>
+              </Select>
+              <Button
+                variant="primary"
+                disabled={!censorWord.trim()}
+                onClick={async () => {
+                  await onAction(
+                    editingCensorId ? 'censor.update' : 'censor.add',
+                    editingCensorId || undefined,
+                    { word: censorWord.trim(), level: censorLevel }
+                  );
+                  setCensorWord('');
+                  setEditingCensorId(null);
+                }}
+              >
+                {editingCensorId ? 'Update' : 'Add'}
+              </Button>
+              {editingCensorId && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setEditingCensorId(null);
+                    setCensorWord('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {(d.censors || []).length === 0 ? (
+                <p className="text-cap-l text-lab-sc">No censored words configured.</p>
+              ) : (
+                (d.censors || []).map((c) => (
+                  <div key={c._id} className="flex items-center justify-between rounded-xl border border-bord-pr px-3 py-2 text-cap-l">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-lab-pr">{c.word}</span>
+                      <Badge variant={c.level === 'banned' ? 'danger' : c.level === 'warning' ? 'warning' : 'brand'}>
+                        {c.level}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingCensorId(c._id);
+                          setCensorWord(c.word);
+                          setCensorLevel(c.level);
+                        }}
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => onAction('censor.delete', c._id)}>
+                        <Trash2 className="h-4 w-4 text-red-900" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -764,7 +855,17 @@ export function AdminConfigSection({
   const { success, error } = useToast();
   const [catName, setCatName] = useState('');
   const [catType, setCatType] = useState('product');
+  const [catStatus, setCatStatus] = useState('active');
+  const [catFilter, setCatFilter] = useState<'all' | 'product' | 'job'>('all');
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [cashoutDecisionModal, setCashoutDecisionModal] = useState<{
+    id: string;
+    decision: 'paid' | 'rejected';
+    username: string;
+    amountLabel: string;
+  } | null>(null);
+  const [cashoutNote, setCashoutNote] = useState('');
   const [curCode, setCurCode] = useState('NGN');
   const [curName, setCurName] = useState('Nigerian Naira');
   const [curSymbol, setCurSymbol] = useState('₦');
@@ -788,20 +889,59 @@ export function AdminConfigSection({
   const [uploadingBrandKey, setUploadingBrandKey] = useState<string | null>(null);
 
   if (resource === 'categories') {
-    const list = (Array.isArray(data) ? data : []) as Array<{ _id: string; categorizableType: string; localization?: { en?: string } }>;
+    const list = (Array.isArray(data) ? data : []) as Array<{
+      _id: string;
+      categorizableType: string;
+      status?: string;
+      usageCount?: number;
+      localization?: Record<string, string>;
+    }>;
+    const filteredCats = list.filter((c) => catFilter === 'all' || c.categorizableType === catFilter);
     return (
       <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-1.5">
+            {(['all', 'product', 'job'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setCatFilter(t)}
+                className={`rounded-full px-3 py-1 text-cap-s font-medium capitalize transition-colors cursor-pointer ${catFilter === t ? 'bg-lab-pr text-bg-pr' : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                  }`}
+              >
+                {t === 'all' ? 'All Categories' : `${t}s`}
+              </button>
+            ))}
+          </div>
+          <span className="text-cap-s text-lab-sc">{filteredCats.length} category item(s)</span>
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <Select value={catType} onChange={(e) => setCatType(e.target.value)} className="w-36">
             <option value="product">Product</option>
             <option value="job">Job</option>
           </Select>
-          <Input placeholder="Category name" value={catName} onChange={(e) => setCatName(e.target.value)} className="flex-1 min-w-[200px]" />
+          <Select value={catStatus} onChange={(e) => setCatStatus(e.target.value)} className="w-32">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </Select>
+          <Input
+            placeholder="Category name (EN)"
+            value={catName}
+            onChange={(e) => setCatName(e.target.value)}
+            className="flex-1 min-w-[200px]"
+          />
           <Button
             variant="primary"
+            disabled={!catName.trim()}
             onClick={async () => {
-              await onAction('category.upsert', editingCatId || undefined, { name: catName, type: catType });
+              await onAction('category.upsert', editingCatId || undefined, {
+                name: catName.trim(),
+                type: catType,
+                status: catStatus,
+              });
               setCatName('');
+              setCatStatus('active');
               setEditingCatId(null);
             }}
           >
@@ -813,33 +953,49 @@ export function AdminConfigSection({
               onClick={() => {
                 setEditingCatId(null);
                 setCatName('');
+                setCatStatus('active');
               }}
             >
               Cancel
             </Button>
           )}
         </div>
-        {list.map((c) => (
-          <div key={c._id} className="flex items-center justify-between rounded-2xl border border-bord-pr p-3">
-            <span>{c.localization?.en} <Badge>{c.categorizableType}</Badge></span>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setEditingCatId(c._id);
-                  setCatName(c.localization?.en || '');
-                  setCatType(c.categorizableType);
-                }}
+        <div className="space-y-2">
+          {filteredCats.map((c) => {
+            const nameEn = c.localization?.en || Object.values(c.localization || {})[0] || 'Category';
+            const status = c.status || 'active';
+            return (
+              <div
+                key={c._id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-bord-pr p-3"
               >
-                <Edit3 className="h-3.5 w-3.5" /> Edit
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => onAction('category.delete', c._id)}>
-                <Trash2 className="h-4 w-4 text-red-900" />
-              </Button>
-            </div>
-          </div>
-        ))}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-par-s text-lab-pr">{nameEn}</span>
+                  <Badge variant="brand">{c.categorizableType}</Badge>
+                  <AdminStatusBadge status={status} />
+                  <Badge variant="outline">{c.usageCount ?? 0} listing(s)</Badge>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingCatId(c._id);
+                      setCatName(nameEn);
+                      setCatType(c.categorizableType);
+                      setCatStatus(status);
+                    }}
+                  >
+                    <Edit3 className="h-3.5 w-3.5" /> Edit
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => onAction('category.delete', c._id)}>
+                    <Trash2 className="h-4 w-4 text-red-900" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -1148,9 +1304,9 @@ export function AdminConfigSection({
     const localeOptions =
       bootstrap?.locales && bootstrap.locales.length > 0
         ? bootstrap.locales.map((l) => ({
-            code: (l.code || l.alpha2Code || 'en').toLowerCase(),
-            label: `${l.nativeName || l.name} (${(l.code || l.alpha2Code || 'en').toUpperCase()})`,
-          }))
+          code: (l.code || l.alpha2Code || 'en').toLowerCase(),
+          label: `${l.nativeName || l.name} (${(l.code || l.alpha2Code || 'en').toUpperCase()})`,
+        }))
         : [{ code: 'en', label: 'English (EN)' }];
 
     return (
@@ -1228,48 +1384,48 @@ export function AdminConfigSection({
         {list
           .filter((p) => Boolean(p && p.slug))
           .map((p) => {
-          const translatedLocales = Object.keys(p.contentByLocale || {}).filter((k) =>
-            Boolean(p.contentByLocale?.[k]?.trim())
-          );
-          return (
-            <div key={p._id} className="rounded-2xl border border-bord-pr p-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-bold text-lab-pr">{p.title}</p>
-                  {translatedLocales.map((code) => (
-                    <Badge key={code} variant="outline">
-                      {code.toUpperCase()}
-                    </Badge>
-                  ))}
+            const translatedLocales = Object.keys(p.contentByLocale || {}).filter((k) =>
+              Boolean(p.contentByLocale?.[k]?.trim())
+            );
+            return (
+              <div key={p._id} className="rounded-2xl border border-bord-pr p-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-bold text-lab-pr">{p.title}</p>
+                    {translatedLocales.map((code) => (
+                      <Badge key={code} variant="outline">
+                        {code.toUpperCase()}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-cap-s text-lab-sc">/document/{p.slug}</p>
                 </div>
-                <p className="text-cap-s text-lab-sc">/document/{p.slug}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Link href={`/document/${p.slug}`} target="_blank">
-                  <Button size="sm" variant="ghost">
-                    <ExternalLink className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-2">
+                  <Link href={`/document/${p.slug}`} target="_blank">
+                    <Button size="sm" variant="ghost">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const map = p.contentByLocale || {};
+                      setPageSlug(p.slug);
+                      setPageTitle(p.title);
+                      setPageContentMap(map);
+                      setPageContent(map[pageLocale] ?? map.en ?? Object.values(map)[0] ?? '');
+                    }}
+                  >
+                    <Edit3 className="h-3.5 w-3.5" /> Edit
                   </Button>
-                </Link>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const map = p.contentByLocale || {};
-                    setPageSlug(p.slug);
-                    setPageTitle(p.title);
-                    setPageContentMap(map);
-                    setPageContent(map[pageLocale] ?? map.en ?? Object.values(map)[0] ?? '');
-                  }}
-                >
-                  <Edit3 className="h-3.5 w-3.5" /> Edit
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => onAction('static_page.delete', p._id)}>
-                  <Trash2 className="h-4 w-4 text-red-900" />
-                </Button>
+                  <Button size="sm" variant="ghost" onClick={() => onAction('static_page.delete', p._id)}>
+                    <Trash2 className="h-4 w-4 text-red-900" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
     );
   }
@@ -1299,65 +1455,65 @@ export function AdminConfigSection({
         statusKey: string;
         fields: Array<{ key: string; label: string }>;
       }> = [
-        {
-          title: 'Paystack',
-          subtitle: 'Cards, Bank Transfer, USSD & Mobile Money (Webhook: /api/v1/payments/webhook/paystack)',
-          statusKey: 'paystackStatus',
-          fields: [
-            { key: 'paystackName', label: 'Display Name' },
-            { key: 'paystackPublicKey', label: 'Public Key (pk_...)' },
-            { key: 'paystackSecretKey', label: 'Secret Key (sk_...)' },
-            { key: 'paystackCurrency', label: 'Currency (e.g. NGN, GHS, ZAR, USD)' },
-          ],
-        },
-        {
-          title: 'Stripe',
-          subtitle: 'Global Cards & Apple/Google Pay (Webhook: /api/v1/payments/webhook/stripe)',
-          statusKey: 'stripeStatus',
-          fields: [
-            { key: 'stripeName', label: 'Display Name' },
-            { key: 'stripePublicKey', label: 'Publishable Key' },
-            { key: 'stripeSecretKey', label: 'Secret Key' },
-            { key: 'stripeWebhookSecret', label: 'Webhook Signing Secret' },
-          ],
-        },
-        {
-          title: 'PayPal',
-          subtitle: 'PayPal Express Checkout (Webhook: /api/v1/payments/webhook/paypal)',
-          statusKey: 'paypalStatus',
-          fields: [
-            { key: 'paypalName', label: 'Display Name' },
-            { key: 'paypalMode', label: 'Mode (sandbox or live)' },
-            { key: 'paypalClientId', label: 'Client ID' },
-            { key: 'paypalSecretKey', label: 'Client Secret' },
-            { key: 'paypalWebhookId', label: 'Webhook ID' },
-          ],
-        },
-        {
-          title: 'YooKassa',
-          subtitle: 'YooKassa Acquiring (Webhook: /api/v1/payments/webhook/yoo_kassa)',
-          statusKey: 'ykStatus',
-          fields: [
-            { key: 'ykName', label: 'Display Name' },
-            { key: 'ykShopId', label: 'Shop ID' },
-            { key: 'ykSecretKey', label: 'Secret Key' },
-            { key: 'ykCurrency', label: 'Currency' },
-          ],
-        },
-        {
-          title: 'RoboKassa',
-          subtitle: 'RoboKassa Acquiring (Webhook: /api/v1/payments/webhook/robokassa)',
-          statusKey: 'rkStatus',
-          fields: [
-            { key: 'rkName', label: 'Display Name' },
-            { key: 'rkMerchantLogin', label: 'Merchant Login' },
-            { key: 'rkPassOne', label: 'Password #1' },
-            { key: 'rkPassTwo', label: 'Password #2' },
-            { key: 'rkMode', label: 'Mode (test or live)' },
-            { key: 'rkCurrency', label: 'Currency' },
-          ],
-        },
-      ];
+          {
+            title: 'Paystack',
+            subtitle: 'Cards, Bank Transfer, USSD & Mobile Money (Webhook: /api/v1/payments/webhook/paystack)',
+            statusKey: 'paystackStatus',
+            fields: [
+              { key: 'paystackName', label: 'Display Name' },
+              { key: 'paystackPublicKey', label: 'Public Key (pk_...)' },
+              { key: 'paystackSecretKey', label: 'Secret Key (sk_...)' },
+              { key: 'paystackCurrency', label: 'Currency (e.g. NGN, GHS, ZAR, USD)' },
+            ],
+          },
+          {
+            title: 'Stripe',
+            subtitle: 'Global Cards & Apple/Google Pay (Webhook: /api/v1/payments/webhook/stripe)',
+            statusKey: 'stripeStatus',
+            fields: [
+              { key: 'stripeName', label: 'Display Name' },
+              { key: 'stripePublicKey', label: 'Publishable Key' },
+              { key: 'stripeSecretKey', label: 'Secret Key' },
+              { key: 'stripeWebhookSecret', label: 'Webhook Signing Secret' },
+            ],
+          },
+          {
+            title: 'PayPal',
+            subtitle: 'PayPal Express Checkout (Webhook: /api/v1/payments/webhook/paypal)',
+            statusKey: 'paypalStatus',
+            fields: [
+              { key: 'paypalName', label: 'Display Name' },
+              { key: 'paypalMode', label: 'Mode (sandbox or live)' },
+              { key: 'paypalClientId', label: 'Client ID' },
+              { key: 'paypalSecretKey', label: 'Client Secret' },
+              { key: 'paypalWebhookId', label: 'Webhook ID' },
+            ],
+          },
+          {
+            title: 'YooKassa',
+            subtitle: 'YooKassa Acquiring (Webhook: /api/v1/payments/webhook/yoo_kassa)',
+            statusKey: 'ykStatus',
+            fields: [
+              { key: 'ykName', label: 'Display Name' },
+              { key: 'ykShopId', label: 'Shop ID' },
+              { key: 'ykSecretKey', label: 'Secret Key' },
+              { key: 'ykCurrency', label: 'Currency' },
+            ],
+          },
+          {
+            title: 'RoboKassa',
+            subtitle: 'RoboKassa Acquiring (Webhook: /api/v1/payments/webhook/robokassa)',
+            statusKey: 'rkStatus',
+            fields: [
+              { key: 'rkName', label: 'Display Name' },
+              { key: 'rkMerchantLogin', label: 'Merchant Login' },
+              { key: 'rkPassOne', label: 'Password #1' },
+              { key: 'rkPassTwo', label: 'Password #2' },
+              { key: 'rkMode', label: 'Mode (test or live)' },
+              { key: 'rkCurrency', label: 'Currency' },
+            ],
+          },
+        ];
 
       return (
         <div key={group} className="rounded-2xl border border-bord-card p-4 space-y-4">
@@ -1425,33 +1581,33 @@ export function AdminConfigSection({
         defaultUrl: string;
         darkPreviewBg?: boolean;
       }> = [
-        {
-          key: 'logoLightUrl',
-          label: 'Light Theme Logo',
-          hint: 'Displayed when light mode is active (stored in Cloudflare R2).',
-          defaultUrl: '/assets/logos/light.png',
-        },
-        {
-          key: 'logoDarkUrl',
-          label: 'Dark Theme Logo',
-          hint: 'Displayed when dark mode is active (stored in Cloudflare R2).',
-          defaultUrl: '/assets/logos/dark.png',
-          darkPreviewBg: true,
-        },
-        {
-          key: 'faviconUrl',
-          label: 'Browser Favicon',
-          hint: 'Square PNG/ICO/SVG icon used in browser tabs.',
-          defaultUrl: '/assets/logos/favicon.png',
-        },
-        {
-          key: 'watermarkUrl',
-          label: 'Media Watermark Image',
-          hint: 'Transparent PNG overlay applied when image/video watermarking is enabled.',
-          defaultUrl: '/assets/watermarks/default.png',
-          darkPreviewBg: true,
-        },
-      ];
+          {
+            key: 'logoLightUrl',
+            label: 'Light Theme Logo',
+            hint: 'Displayed when light mode is active (stored in Cloudflare R2).',
+            defaultUrl: '/assets/logos/light.png',
+          },
+          {
+            key: 'logoDarkUrl',
+            label: 'Dark Theme Logo',
+            hint: 'Displayed when dark mode is active (stored in Cloudflare R2).',
+            defaultUrl: '/assets/logos/dark.png',
+            darkPreviewBg: true,
+          },
+          {
+            key: 'faviconUrl',
+            label: 'Browser Favicon',
+            hint: 'Square PNG/ICO/SVG icon used in browser tabs.',
+            defaultUrl: '/assets/logos/favicon.png',
+          },
+          {
+            key: 'watermarkUrl',
+            label: 'Media Watermark Image',
+            hint: 'Transparent PNG overlay applied when image/video watermarking is enabled.',
+            defaultUrl: '/assets/watermarks/default.png',
+            darkPreviewBg: true,
+          },
+        ];
 
       return (
         <div key={group} className="rounded-2xl border border-bord-card p-4 space-y-5">
@@ -1525,9 +1681,8 @@ export function AdminConfigSection({
                       <p className="text-cap-s text-lab-sc">{asset.hint}</p>
                     </div>
                     <div
-                      className={`h-12 w-16 rounded-xl border border-bord-pr flex items-center justify-center p-1.5 shrink-0 ${
-                        asset.darkPreviewBg ? 'bg-zinc-900' : 'bg-white'
-                      }`}
+                      className={`h-12 w-16 rounded-xl border border-bord-pr flex items-center justify-center p-1.5 shrink-0 ${asset.darkPreviewBg ? 'bg-zinc-900' : 'bg-white'
+                        }`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={currentUrl} alt={asset.label} className="max-h-full max-w-full object-contain" />
@@ -1776,14 +1931,30 @@ export function AdminConfigSection({
       verification?: Record<string, unknown>;
       pendingAuthorshipCount?: number;
       verifiedUsersCount?: number;
+      users?: Array<{
+        _id: string;
+        username: string;
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        avatar?: string;
+        verified?: boolean;
+        verifiedAt?: string | null;
+        type?: string;
+      }>;
     };
+    const filteredUsers = (d.users || []).filter((u) => {
+      if (verificationFilter === 'verified') return Boolean(u.verified);
+      if (verificationFilter === 'unverified') return !u.verified;
+      return true;
+    });
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="rounded-2xl border border-bord-card bg-bg-pr p-4">
             <p className="text-cap-s text-lab-sc">Verified Accounts</p>
             <p className="font-outfit text-title-2 font-bold text-lab-pr mt-1 flex items-center gap-2">
-              <BadgeCheck className="h-5 w-5 text-lab-pr2" />
+              <BadgeCheck className="h-5 w-5 text-brand-900" />
               {d.verifiedUsersCount ?? 0}
             </p>
           </div>
@@ -1803,6 +1974,66 @@ export function AdminConfigSection({
             )}
           </div>
         </div>
+
+        <div className="rounded-3xl border border-bord-card bg-bg-pr p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-bold text-par-m text-lab-pr">Verification Directory</h3>
+              <p className="text-cap-s text-lab-sc">
+                Search via the bar above and grant or revoke official account verification badges.
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              {(['all', 'verified', 'unverified'] as const).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setVerificationFilter(st)}
+                  className={`rounded-full px-3 py-1 text-cap-s font-medium capitalize transition-colors cursor-pointer ${verificationFilter === st ? 'bg-lab-pr text-bg-pr' : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                    }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredUsers.length === 0 ? (
+            <p className="text-cap-l text-lab-sc py-4 text-center">No matching accounts in verification view.</p>
+          ) : (
+            <div className="space-y-2">
+              {filteredUsers.map((u) => (
+                <div key={u._id} className="rounded-2xl border border-bord-pr p-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar src={u.avatar || '/assets/avatars/default-avatar.png'} alt={u.username} size="sm" verified={u.verified} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-par-s text-lab-pr truncate">
+                          {`${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username}
+                        </p>
+                        <AdminStatusBadge status={u.verified ? 'verified' : 'unverified'} />
+                        {u.type && <Badge variant="outline">{u.type}</Badge>}
+                      </div>
+                      <p className="text-cap-s text-lab-sc truncate">
+                        @{u.username} · {u.email || 'no email'}
+                        {u.verifiedAt ? ` · Verified ${new Date(u.verifiedAt).toLocaleDateString()}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={u.verified ? 'outline' : 'primary'}
+                    onClick={() => onAction('user.toggle_verify', u._id)}
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    {u.verified ? 'Revoke Badge' : 'Verify User'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {d.verification && renderSettingsGroupCard('verification', d.verification)}
       </div>
     );
@@ -1825,14 +2056,13 @@ export function AdminConfigSection({
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">
-            {['all', 'pending', 'paid', 'rejected'].map((st) => (
+            {['all', 'pending', 'paid', 'rejected', 'cancelled'].map((st) => (
               <button
                 key={st}
                 type="button"
                 onClick={() => setCashoutFilter(st)}
-                className={`rounded-full px-3 py-1 text-cap-s font-medium capitalize transition-colors cursor-pointer ${
-                  cashoutFilter === st ? 'bg-lab-pr text-bg-pr' : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
-                }`}
+                className={`rounded-full px-3 py-1 text-cap-s font-medium capitalize transition-colors cursor-pointer ${cashoutFilter === st ? 'bg-lab-pr text-bg-pr' : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                  }`}
               >
                 {st}
               </button>
@@ -1847,43 +2077,116 @@ export function AdminConfigSection({
               No withdrawal requests found.
             </div>
           ) : (
-            filtered.map((c) => (
-              <div key={c._id} className="rounded-2xl border border-bord-card bg-bg-pr p-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1 min-w-0">
-                  <p className="font-bold text-par-n text-lab-pr">
-                    @{c.userId?.username || 'user'}{' '}
-                    <span className="font-normal text-lab-sc">({c.userId?.email || 'no email'})</span>
-                  </p>
-                  <p className="text-cap-l font-bold text-lab-pr">
-                    {formatCurrency(Number(c.amount || 0), c.currency, bootstrap?.currencies, locale)}
-                    {c.paymentMethod ? ` · ${c.paymentMethod}` : ''}
-                  </p>
-                  {c.credentials && <p className="text-cap-s text-lab-sc break-all">{c.credentials}</p>}
-                  {c.reviewerNotes && <p className="text-cap-s text-lab-tr break-all">Note: {c.reviewerNotes}</p>}
-                  <div className="flex items-center gap-2">
-                    <Badge variant={c.status === 'paid' || c.status === 'approved' ? 'success' : c.status === 'rejected' ? 'danger' : 'brand'}>
-                      {c.status}
-                    </Badge>
-                    {c.createdAt && <span className="text-cap-s text-lab-sc">{new Date(c.createdAt).toLocaleString()}</span>}
+            filtered.map((c) => {
+              const amountLabel = formatCurrency(Number(c.amount || 0), c.currency, bootstrap?.currencies, locale);
+              return (
+                <div key={c._id} className="rounded-2xl border border-bord-card bg-bg-pr p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1 min-w-0">
+                    <p className="font-bold text-par-n text-lab-pr">
+                      @{c.userId?.username || 'user'}{' '}
+                      <span className="font-normal text-lab-sc">({c.userId?.email || 'no email'})</span>
+                    </p>
+                    <p className="text-cap-l font-bold text-lab-pr">
+                      {amountLabel}
+                      {c.paymentMethod ? ` · ${c.paymentMethod}` : ''}
+                    </p>
+                    {c.credentials && <p className="text-cap-s text-lab-sc break-all">{c.credentials}</p>}
+                    {c.reviewerNotes && <p className="text-cap-s text-lab-tr break-all">Note: {c.reviewerNotes}</p>}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <AdminStatusBadge status={c.status} />
+                      {c.createdAt && <span className="text-cap-s text-lab-sc">{new Date(c.createdAt).toLocaleString()}</span>}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {c.status === 'pending' && (
-                    <AdminDecisionButtons
+                  <div className="flex items-center gap-2">
+                    <AdminApprovalControl
+                      status={c.status}
                       approveLabel="Mark Paid"
                       rejectLabel="Reject"
-                      onApprove={() => onAction('cashout.review', c._id, { decision: 'paid' })}
-                      onReject={() => onAction('cashout.review', c._id, { decision: 'rejected' })}
+                      allowOverride={false}
+                      onApprove={() => {
+                        setCashoutNote('');
+                        setCashoutDecisionModal({
+                          id: c._id,
+                          decision: 'paid',
+                          username: c.userId?.username || 'user',
+                          amountLabel,
+                        });
+                      }}
+                      onReject={() => {
+                        setCashoutNote('');
+                        setCashoutDecisionModal({
+                          id: c._id,
+                          decision: 'rejected',
+                          username: c.userId?.username || 'user',
+                          amountLabel,
+                        });
+                      }}
                     />
-                  )}
-                  <Button size="sm" variant="ghost" onClick={() => onAction('cashout.delete', c._id)}>
-                    <Trash2 className="h-4 w-4 text-red-900" />
-                  </Button>
+                    <Button size="sm" variant="ghost" onClick={() => onAction('cashout.delete', c._id)}>
+                      <Trash2 className="h-4 w-4 text-red-900" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
+
+        <Modal
+          open={Boolean(cashoutDecisionModal)}
+          onClose={() => setCashoutDecisionModal(null)}
+          title={
+            cashoutDecisionModal?.decision === 'paid'
+              ? `Confirm Payout for @${cashoutDecisionModal?.username}`
+              : `Reject Withdrawal for @${cashoutDecisionModal?.username}`
+          }
+        >
+          {cashoutDecisionModal && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await onAction('cashout.review', cashoutDecisionModal.id, {
+                  decision: cashoutDecisionModal.decision,
+                  notes: cashoutNote.trim(),
+                });
+                setCashoutDecisionModal(null);
+                setCashoutNote('');
+              }}
+              className="space-y-4"
+            >
+              <div className="rounded-xl border border-bord-pr bg-fill-qt p-3 text-cap-l">
+                <p className="font-bold text-lab-pr">{cashoutDecisionModal.amountLabel}</p>
+                <p className="text-lab-sc mt-0.5">
+                  {cashoutDecisionModal.decision === 'paid'
+                    ? 'Marking this request as paid notifies the creator that funds have been sent.'
+                    : 'Rejecting this request atomically refunds the reserved amount back to the user wallet.'}
+                </p>
+              </div>
+              <Textarea
+                label="Reviewer Note (optional)"
+                placeholder={
+                  cashoutDecisionModal.decision === 'paid'
+                    ? 'e.g. Sent via bank transfer ref #...'
+                    : 'Reason shown to user for declined withdrawal...'
+                }
+                value={cashoutNote}
+                onChange={(e) => setCashoutNote(e.target.value)}
+                rows={3}
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setCashoutDecisionModal(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant={cashoutDecisionModal.decision === 'paid' ? 'primary' : 'danger'}
+                >
+                  {cashoutDecisionModal.decision === 'paid' ? 'Confirm Paid' : 'Reject & Refund'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Modal>
       </div>
     );
   }
@@ -1984,11 +2287,10 @@ export function AdminConfigSection({
               key={st.key}
               type="button"
               onClick={() => setSettingsSubTab(st.key)}
-              className={`rounded-full px-3 py-1 text-cap-s font-medium transition-colors cursor-pointer ${
-                settingsSubTab === st.key
+              className={`rounded-full px-3 py-1 text-cap-s font-medium transition-colors cursor-pointer ${settingsSubTab === st.key
                   ? 'bg-lab-pr text-bg-pr'
                   : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
-              }`}
+                }`}
             >
               {st.label}
             </button>
@@ -2026,6 +2328,129 @@ export function AdminConfigSection({
   }
 
   return null;
+}
+
+export function AdminStatusBadge({
+  status,
+  label,
+}: {
+  status?: string | boolean | null;
+  label?: string;
+}) {
+  const normalized =
+    typeof status === 'boolean'
+      ? status
+        ? 'approved'
+        : 'pending'
+      : String(status || 'pending').trim().toLowerCase();
+
+  const variant: 'default' | 'brand' | 'success' | 'warning' | 'danger' | 'outline' =
+    [
+      'approved',
+      'paid',
+      'processed',
+      'resolved',
+      'verified',
+      'active',
+      'published',
+      'completed',
+      'author',
+    ].includes(normalized)
+      ? 'success'
+      : [
+        'rejected',
+        'declined',
+        'ignored',
+        'dismissed',
+        'blocked',
+        'suspended',
+        'failed',
+        'cancelled',
+        'banned',
+      ].includes(normalized)
+        ? 'danger'
+        : ['pending', 'in_progress', 'paused', 'warning'].includes(normalized)
+          ? 'warning'
+          : ['draft', 'inactive', 'closed', 'expired', 'unverified'].includes(normalized)
+            ? 'outline'
+            : 'brand';
+
+  const displayLabel = label || normalized.replace(/_/g, ' ');
+  return (
+    <Badge variant={variant} className="capitalize">
+      {displayLabel}
+    </Badge>
+  );
+}
+
+export function AdminApprovalControl({
+  status,
+  approvedLabel = 'Approved',
+  rejectedLabel = 'Rejected',
+  pendingLabel = 'Pending',
+  approveLabel = 'Approve',
+  rejectLabel = 'Reject',
+  allowOverride = true,
+  onApprove,
+  onReject,
+}: {
+  status?: string | null;
+  approvedLabel?: string;
+  rejectedLabel?: string;
+  pendingLabel?: string;
+  approveLabel?: string;
+  rejectLabel?: string;
+  allowOverride?: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const st = String(status || 'pending').trim().toLowerCase();
+  const isApproved = ['approved', 'paid', 'processed', 'resolved', 'verified'].includes(st);
+  const isRejected = ['rejected', 'declined', 'ignored', 'dismissed'].includes(st);
+
+  if (isApproved) {
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Badge variant="success" className="gap-1">
+          <CheckCircle2 className="h-3 w-3" /> {approvedLabel}
+        </Badge>
+        {allowOverride && (
+          <Button size="sm" variant="outline" onClick={onReject}>
+            <X className="h-3.5 w-3.5 text-red-900" /> {rejectLabel}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  if (isRejected) {
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Badge variant="danger" className="gap-1">
+          <X className="h-3 w-3" /> {rejectedLabel}
+        </Badge>
+        {allowOverride && (
+          <Button size="sm" variant="outline" onClick={onApprove}>
+            <Check className="h-3.5 w-3.5" /> {approveLabel}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <Badge variant="warning" className="gap-1">
+        <Clock className="h-3 w-3" /> {pendingLabel}
+      </Badge>
+      <AdminDecisionButtons
+        approveLabel={approveLabel}
+        rejectLabel={rejectLabel}
+        onApprove={onApprove}
+        onReject={onReject}
+      />
+    </div>
+  );
 }
 
 export function AdminDecisionButtons({

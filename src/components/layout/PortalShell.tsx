@@ -136,26 +136,27 @@ export function PortalShell({
 
   function renderNavContent(onSelect?: () => void) {
     return (
-      <div className="pl-6 pr-8 h-full overflow-y-auto hidden-scroll">
-        <div className="flex flex-col min-h-full py-6">
-          {/* Logo & Portal Label matching Source/resources/views/layouts/mpa/apps/{business,admin}/parts/sidebar.blade.php */}
-          <div className="mb-10 flex items-center justify-between">
-            <Link href={homeHref} className="flex items-center gap-2" onClick={onSelect}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="h-5 w-auto object-contain" src={logoSrc} alt="Weto" />
-              <span className="font-bold text-lab-pr text-par-l">{portalTitle}</span>
-            </Link>
-            {mobileMenuOpen && (
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="md:hidden h-8 w-8 rounded-full flex items-center justify-center text-lab-sc hover:bg-fill-pr"
-                aria-label="Close navigation"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+      <div className="h-full overflow-y-auto hidden-scroll">
+        {/* Sticky top-left Logo & Portal Label */}
+        <div className="sticky top-0 z-10 bg-bg-pr/95 backdrop-blur-sm pl-6 pr-8 pt-6 pb-4 mb-4 border-b border-bord-tr/60 flex items-center justify-between">
+          <Link href={homeHref} className="flex items-center gap-2 min-w-0" onClick={onSelect}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="h-5 w-auto object-contain shrink-0" src={logoSrc} alt="Weto" />
+            <span className="font-bold text-lab-pr text-par-l truncate">{portalTitle}</span>
+          </Link>
+          {mobileMenuOpen && (
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden h-8 w-8 rounded-full flex items-center justify-center text-lab-sc hover:bg-fill-pr shrink-0"
+              aria-label="Close navigation"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col pl-6 pr-8 pb-6 min-h-[calc(100%-5rem)]">
 
           {/* Nav list */}
           <div className="flex flex-col gap-4 mb-4">
