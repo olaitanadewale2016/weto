@@ -43,6 +43,8 @@ interface ProductCardProps {
 export function ProductCard({ product, onToggleBookmark }: ProductCardProps) {
   const { bootstrap, locale } = useApp();
   const productHref = `/marketplace/product/${product.hashId || product.id}`;
+  const previewSrc =
+    resolveMediaUrl(product.previewImageUrl) || '/assets/products/default-preview.png';
 
   return (
     <div className="group flex flex-col">
@@ -52,13 +54,20 @@ export function ProductCard({ product, onToggleBookmark }: ProductCardProps) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={resolveMediaUrl(product.previewImageUrl) || '/assets/products/default-preview.png'}
+          key={previewSrc}
+          src={previewSrc}
           alt={product.title}
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          onLoad={(e) => {
+            e.currentTarget.dataset.fallbackApplied = '';
+          }}
           onError={(e) => {
-            (e.target as HTMLImageElement).src = '/assets/products/default-preview.png';
+            if (e.currentTarget.dataset.fallbackApplied !== '1') {
+              e.currentTarget.dataset.fallbackApplied = '1';
+              e.currentTarget.src = '/assets/products/default-preview.png';
+            }
           }}
         />
         {product.isPromoted ? (

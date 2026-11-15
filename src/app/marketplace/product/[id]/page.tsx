@@ -35,6 +35,7 @@ import { ProductPromoteModal } from '@/components/marketplace/ProductPromoteModa
 import { apiFetch } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 import { formatRelativeTime } from '@/lib/i18n';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 import { cn } from '@/lib/utils';
@@ -244,14 +245,16 @@ export default function ProductDetailPage() {
   }
 
   const isOwner = user && String(product.seller._id) === user.id;
+  const fallbackPreview =
+    resolveMediaUrl(product.previewImageUrl) || '/assets/products/default-preview.png';
   const photos =
     product.media && product.media.length > 0
       ? product.media.map((m) => ({
-        url: m.publicUrl || m.url || product.previewImageUrl,
-        lqipBase64: m.lqipBase64,
-        alt: product.title,
-      }))
-      : [{ url: product.previewImageUrl, alt: product.title }];
+          url: resolveMediaUrl(m.publicUrl || m.url) || fallbackPreview,
+          lqipBase64: m.lqipBase64,
+          alt: product.title,
+        }))
+      : [{ url: fallbackPreview, alt: product.title }];
 
   const safeActiveIndex = Math.min(activePhoto, photos.length - 1);
   const currentPhoto = photos[safeActiveIndex] || photos[0];
@@ -313,11 +316,21 @@ export default function ProductDetailPage() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
+                  key={currentPhoto.url}
                   src={currentPhoto.url}
                   alt={product.title}
                   decoding="async"
                   fetchPriority="high"
-                  className="h-full w-full object-cover"
+                  onLoad={(e) => {
+                    e.currentTarget.dataset.fallbackApplied = '';
+                  }}
+                  onError={(e) => {
+                    if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                      e.currentTarget.dataset.fallbackApplied = '1';
+                      e.currentTarget.src = '/assets/products/default-preview.png';
+                    }
+                  }}
+                  className="h-full w-full object-contain bg-fill-qt"
                 />
               </button>
 
@@ -370,6 +383,15 @@ export default function ProductDetailPage() {
                       alt=""
                       loading="lazy"
                       decoding="async"
+                      onLoad={(e) => {
+                        e.currentTarget.dataset.fallbackApplied = '';
+                      }}
+                      onError={(e) => {
+                        if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                          e.currentTarget.dataset.fallbackApplied = '1';
+                          e.currentTarget.src = '/assets/products/default-preview.png';
+                        }
+                      }}
                       className="h-full w-full object-cover"
                     />
                   </button>
@@ -570,6 +592,15 @@ export default function ProductDetailPage() {
             <img
               src={currentPhoto.url}
               alt={product.title}
+              onLoad={(e) => {
+                e.currentTarget.dataset.fallbackApplied = '';
+              }}
+              onError={(e) => {
+                if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                  e.currentTarget.dataset.fallbackApplied = '1';
+                  e.currentTarget.src = '/assets/products/default-preview.png';
+                }
+              }}
               className="size-14 rounded-xl object-cover shrink-0 bg-fill-tr"
             />
             <div className="min-w-0 flex-1">

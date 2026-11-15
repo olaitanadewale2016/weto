@@ -304,10 +304,14 @@ export default function UserProfilePage() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              key={normalizeCoverSrc(profile.cover)}
               src={normalizeCoverSrc(profile.cover)}
               alt="Profile cover"
               decoding="async"
               fetchPriority="high"
+              onLoad={(e) => {
+                e.currentTarget.dataset.fallbackApplied = '';
+              }}
               onError={(e) => {
                 if (e.currentTarget.dataset.fallbackApplied !== '1') {
                   e.currentTarget.dataset.fallbackApplied = '1';
@@ -634,10 +638,14 @@ export default function UserProfilePage() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
+            key={normalizeCoverSrc(profile.cover)}
             src={normalizeCoverSrc(profile.cover)}
             alt="Profile cover"
             decoding="async"
             fetchPriority="high"
+            onLoad={(e) => {
+              e.currentTarget.dataset.fallbackApplied = '';
+            }}
             onError={(e) => {
               if (e.currentTarget.dataset.fallbackApplied !== '1') {
                 e.currentTarget.dataset.fallbackApplied = '1';

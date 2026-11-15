@@ -6,6 +6,7 @@ import { User } from '@/models/User';
 import { Block, Follow, Mute } from '@/models/SocialGraph';
 import { FollowStatus, UserStatus } from '@/types/enums';
 import { isObjectIdLike } from '@/lib/hashids';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export async function GET(
   req: NextRequest,
@@ -86,7 +87,7 @@ export async function GET(
                 username: u.username,
                 firstName: u.firstName,
                 lastName: u.lastName,
-                avatar: u.avatar,
+                avatar: resolveMediaUrl(u.avatar) || '/assets/avatars/default-avatar.png',
                 verified: u.verified,
                 bio: u.bio,
               }
@@ -104,8 +105,8 @@ export async function GET(
       category: target.category,
       bio: target.bio,
       website: target.website,
-      avatar: target.avatar,
-      cover: target.cover,
+      avatar: resolveMediaUrl(target.avatar) || '/assets/avatars/default-avatar.png',
+      cover: resolveMediaUrl(target.cover) || '/assets/covers/default-cover.png',
       verified: target.verified,
       type: target.type,
       publicationsCount: target.publicationsCount,

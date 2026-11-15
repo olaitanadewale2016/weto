@@ -17,6 +17,7 @@ import {
   ValidationError,
 } from '@/lib/api-response';
 import { publicEnv } from '@/lib/env';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { User } from '@/models/User';
 import { DeletionFeedback } from '@/models/SocialGraph';
 import { Post } from '@/models/Post';
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest) {
         firstName: a.firstName,
         lastName: a.lastName,
         fullName,
-        avatar: a.avatar,
+        avatar: resolveMediaUrl(a.avatar) || '/assets/avatars/default-avatar.png',
         bio: a.bio || '',
         website: a.website || '',
         caption: a.bio ? a.bio : `@${a.username}`,

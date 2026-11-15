@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Hash, Search, Sparkles } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { apiFetch } from '@/lib/api-client';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -314,8 +315,13 @@ export function RightRail() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className="w-full object-cover max-h-48"
-                src={ad.media?.publicUrl || ad.media?.url || '/assets/ads/default-preview.png'}
+                src={resolveMediaUrl(ad.media?.publicUrl || ad.media?.url) || '/assets/ads/default-preview.png'}
                 alt={ad.title}
+                onError={(e) => {
+                  if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                  e.currentTarget.dataset.fallbackApplied = '1';
+                  e.currentTarget.src = '/assets/ads/default-preview.png';
+                }}
               />
               <span className="absolute top-3 bg-black/20 leading-none text-white left-3 backdrop-blur-xs px-2 py-1.5 rounded-full text-cap-s">
                 Ad &middot; 16+

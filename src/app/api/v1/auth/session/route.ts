@@ -23,6 +23,7 @@ import {
 } from '@/services/translation.service';
 import { getSettingsGroup } from '@/services/settings.service';
 import { toggleFollow } from '@/services/relations.service';
+import { resolveMediaUrl } from '@/lib/media-url';
 import crypto from 'crypto';
 
 const sessionSchema = z.object({
@@ -169,7 +170,7 @@ export async function POST(req: NextRequest) {
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
-          avatar: user.avatar,
+          avatar: resolveMediaUrl(user.avatar) || '/assets/avatars/default-avatar.png',
           role: user.role,
           status: user.status,
           type: user.type,
@@ -215,8 +216,8 @@ export async function GET(req: NextRequest) {
       email: user.email,
       bio: user.bio,
       caption: user.caption,
-      avatar: user.avatar,
-      cover: user.cover,
+      avatar: resolveMediaUrl(user.avatar) || '/assets/avatars/default-avatar.png',
+      cover: resolveMediaUrl(user.cover) || '/assets/covers/default-cover.png',
       verified: user.verified,
       role: user.role,
       status: user.status,

@@ -6,6 +6,7 @@ import { User } from '@/models/User';
 import { Follow } from '@/models/SocialGraph';
 import { FollowStatus, UserStatus } from '@/types/enums';
 import { getBlockedUserIdsFor } from '@/services/relations.service';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export async function GET(req: NextRequest) {
   try {
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
           username: u.username,
           firstName: u.firstName,
           lastName: u.lastName,
-          avatar: u.avatar,
+          avatar: resolveMediaUrl(u.avatar) || '/assets/avatars/default-avatar.png',
           bio: u.bio,
           caption: u.caption,
           verified: u.verified,
@@ -102,7 +103,7 @@ export async function GET(req: NextRequest) {
         username: u.username,
         firstName: u.firstName,
         lastName: u.lastName,
-        avatar: u.avatar,
+        avatar: resolveMediaUrl(u.avatar) || '/assets/avatars/default-avatar.png',
         bio: u.bio,
         caption: u.caption,
         verified: u.verified,

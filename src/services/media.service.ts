@@ -375,10 +375,11 @@ export async function deleteMediaRecord(mediaId: string) {
 }
 
 export function serializeMedia(media: IMediaDocument) {
-  const resolvedUrl =
+  const rawSource =
     media.storageProvider === 'external'
-      ? getPublicR2Url(media.externalUrl) || ''
-      : getPublicR2Url(media.r2Key);
+      ? media.externalUrl || media.r2Key
+      : media.r2Key || media.externalUrl;
+  const resolvedUrl = rawSource ? getPublicR2Url(rawSource) || '' : '';
   const rawThumb =
     media.thumbnailR2Key || (media.metadata?.thumbnailUrl as string | undefined) || '';
   return {

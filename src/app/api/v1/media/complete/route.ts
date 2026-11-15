@@ -14,7 +14,7 @@ const completeSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const { user } = await requireAuth(req);
+    const { user } = await requireAuth(req, { allowOnboarding: true });
     const body = completeSchema.parse(await req.json());
     const media = await completeMediaUpload({
       ...body,

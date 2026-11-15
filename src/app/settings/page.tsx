@@ -213,7 +213,7 @@ export default function SettingsPage() {
       void loadSettings(true);
     } finally {
       setUploadingImage(null);
-      URL.revokeObjectURL(localPreview);
+      setTimeout(() => URL.revokeObjectURL(localPreview), 2500);
     }
   }
 
@@ -395,22 +395,24 @@ export default function SettingsPage() {
               <div className="space-y-5">
                 {/* Avatar & Cover Upload */}
                 <div className="rounded-2xl border border-bord-pr overflow-hidden">
-                  {accountForm.cover && (
-                    <div className="h-28 w-full bg-fill-qt overflow-hidden border-b border-bord-pr">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={normalizeCoverSrc(accountForm.cover)}
-                        alt="Profile cover"
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          if (e.currentTarget.dataset.fallbackApplied !== '1') {
-                            e.currentTarget.dataset.fallbackApplied = '1';
-                            e.currentTarget.src = '/assets/covers/default-cover.png';
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
+                  <div className="h-28 w-full bg-fill-qt overflow-hidden border-b border-bord-pr">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      key={normalizeCoverSrc(accountForm.cover)}
+                      src={normalizeCoverSrc(accountForm.cover)}
+                      alt="Profile cover"
+                      className="h-full w-full object-cover"
+                      onLoad={(e) => {
+                        e.currentTarget.dataset.fallbackApplied = '';
+                      }}
+                      onError={(e) => {
+                        if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                          e.currentTarget.dataset.fallbackApplied = '1';
+                          e.currentTarget.src = '/assets/covers/default-cover.png';
+                        }
+                      }}
+                    />
+                  </div>
                   <div className="flex flex-wrap items-center gap-4 p-4">
                     <Avatar src={accountForm.avatar} alt={accountForm.username} size="lg" />
                     <div className="flex flex-wrap gap-2">

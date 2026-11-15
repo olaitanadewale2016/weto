@@ -6,6 +6,8 @@ import {
 } from '@/lib/r2';
 import { apiError, AppError, NotFoundError, ValidationError } from '@/lib/api-response';
 
+import { getServerEnv } from '@/lib/env';
+
 const MAX_INLINE_PROXY_BYTES = 3_500_000;
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -31,7 +33,11 @@ function normalizeAndValidateKey(rawKey: string | null): string {
   if (!rawKey) {
     throw new ValidationError('Invalid R2 object key');
   }
-  const normalized = rawKey.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  let normalized = rawKey.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  const bucket = (getServerEnv().R2_BUCKET_NAME || '').trim();
+  if (bucket && normalized.startsWith(`${bucket}/`)) {
+    normalized = normalized.slice(bucket.length + 1);
+  }
   if (!normalized || normalized.includes('..') || normalized.includes('\0')) {
     throw new ValidationError('Invalid R2 object key');
   }

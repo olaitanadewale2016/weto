@@ -29,6 +29,7 @@ import { deleteMediaRecord, serializeMedia } from '@/services/media.service';
 import { ensureWallet } from '@/services/wallet.service';
 import { dispatchNotification } from '@/services/notification.service';
 import { getListingPromotionPlan } from '@/lib/promotions';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 async function findProduct(idOrHash: string) {
   return Product.findOne(isObjectIdLike(idOrHash) ? { _id: idOrHash } : { hashId: idOrHash });
@@ -69,18 +70,30 @@ export async function GET(
 
     const media = mediaRows.map((m) => serializeMedia(m as never));
     const discountAmount = product.discount > 0 ? (product.price * product.discount) / 100 : 0;
+    const firstVisual = media.find((m) => m.url || m.publicUrl || m.thumbnailUrl);
+    const previewRaw = firstVisual?.url || firstVisual?.publicUrl || firstVisual?.thumbnailUrl || '';
+    const sellerObj = populated?.userId as unknown as Record<string, unknown> | null;
+    const normalizedSeller =
+      sellerObj && typeof sellerObj === 'object'
+        ? {
+            ...sellerObj,
+            avatar:
+              resolveMediaUrl(String(sellerObj.avatar || '')) ||
+              '/assets/avatars/default-avatar.png',
+          }
+        : populated?.userId;
 
     return apiSuccess({
       ...populated,
       id: String(product._id),
       isPromoted: effectivePromoted,
       promotedUntil: product.promotedUntil || null,
-      seller: populated?.userId,
+      seller: normalizedSeller,
       category: populated?.categoryId,
       store: populated?.storeId,
       salePrice: Math.max(0, Number((product.price - discountAmount).toFixed(2))),
       media,
-      previewImageUrl: media[0]?.url || '/assets/products/default-preview.png',
+      previewImageUrl: resolveMediaUrl(previewRaw) || '/assets/products/default-preview.png',
       isBookmarked: Boolean(bookmarked),
     });
   } catch (err) {
@@ -103,6 +116,7 @@ const patchProductSchema = z.object({
   address: z.string().optional(),
   isPromoted: z.boolean().optional(),
   status: z.nativeEnum(ProductStatus).optional(),
+  mediaIds: z.array(z.string()).max(10).optional(),
 });
 
 export async function PATCH(
@@ -245,6 +259,18 @@ export async function PATCH(
     if (body.status !== undefined) product.status = body.status;
 
     await product.save();
+
+    if (body.mediaIds && body.mediaIds.length > 0) {
+      const validIds = body.mediaIds.filter((mid) => Types.ObjectId.isValid(mid));
+      if (validIds.length > 0) {
+        const mediaFilter: Record<string, unknown> = { _id: { $in: validIds } };
+        if (!isAdmin) mediaFilter.ownerId = user._id;
+        await Media.updateMany(mediaFilter, {
+          $set: { targetType: 'product', targetId: product._id },
+        });
+      }
+    }
+
     return apiSuccess({ id: String(product._id), status: product.status, updated: true });
   } catch (err) {
     return apiError(err);

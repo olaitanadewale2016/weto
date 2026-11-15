@@ -42,6 +42,62 @@ describe('Media URL Resolution', () => {
       '/api/v1/media/proxy?key=avatars%2Ftest.png'
     );
   });
+
+  it('normalizes R2 S3 endpoint URLs, additional namespaces, and legacy asset aliases', () => {
+    expect(
+      resolveMediaUrl(
+        'https://dc576841bd78e9a4a98b5eafd0508e71.r2.cloudflarestorage.com/avatars/u1/pic.png'
+      )
+    ).toBe('/api/v1/media/proxy?key=avatars%2Fu1%2Fpic.png');
+
+    expect(
+      resolveMediaUrl(
+        'https://dc576841bd78e9a4a98b5eafd0508e71.r2.cloudflarestorage.com/weto-media/marketplace/u1/item.jpg?X-Amz-Signature=abc'
+      )
+    ).toBe('/api/v1/media/proxy?key=marketplace%2Fu1%2Fitem.jpg');
+
+    expect(resolveMediaUrl('business/u1/logo.png')).toBe(
+      '/api/v1/media/proxy?key=business%2Fu1%2Flogo.png'
+    );
+    expect(resolveMediaUrl('jobs/u1/banner.png')).toBe(
+      '/api/v1/media/proxy?key=jobs%2Fu1%2Fbanner.png'
+    );
+    expect(resolveMediaUrl('migrated/u1/old.jpg')).toBe(
+      '/api/v1/media/proxy?key=migrated%2Fu1%2Fold.jpg'
+    );
+
+    expect(resolveMediaUrl('/assets/covers/default-cover.jpg')).toBe(
+      '/assets/covers/default-cover.png'
+    );
+    expect(resolveMediaUrl('/assets/avatars/default.png')).toBe(
+      '/assets/avatars/default-avatar.png'
+    );
+  });
+});
+
+describe('serializeMedia cross-fallback', () => {
+  it('derives publicUrl/url cleanly when either externalUrl or r2Key is missing', async () => {
+    const { serializeMedia } = await import('@/services/media.service');
+
+    const withR2Only = serializeMedia({
+      _id: 'm1',
+      type: 'image',
+      r2Key: 'marketplace/u1/product.png',
+    } as never);
+    expect(withR2Only.url).toBe('/api/v1/media/proxy?key=marketplace%2Fu1%2Fproduct.png');
+    expect(withR2Only.publicUrl).toBe('/api/v1/media/proxy?key=marketplace%2Fu1%2Fproduct.png');
+
+    const withExternalS3UrlOnly = serializeMedia({
+      _id: 'm2',
+      type: 'image',
+      externalUrl:
+        'https://dc576841bd78e9a4a98b5eafd0508e71.r2.cloudflarestorage.com/avatars/u2/face.png',
+    } as never);
+    expect(withExternalS3UrlOnly.url).toBe('/api/v1/media/proxy?key=avatars%2Fu2%2Fface.png');
+    expect(withExternalS3UrlOnly.publicUrl).toBe(
+      '/api/v1/media/proxy?key=avatars%2Fu2%2Fface.png'
+    );
+  });
 });
 
 describe('Media Proxy Route (/api/v1/media/proxy)', () => {

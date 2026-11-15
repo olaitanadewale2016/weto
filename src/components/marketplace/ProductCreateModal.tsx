@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -123,6 +124,7 @@ function ProductCreateModalInner({
             price: Number(price) || 0,
             discount: Number(discount) || 0,
             address: address.trim(),
+            ...(mediaIds.length > 0 ? { mediaIds } : {}),
           },
         });
         success('Product updated!');
@@ -247,34 +249,45 @@ function ProductCreateModalInner({
           />
         </div>
 
-        {!isEditing ? (
-          <div className="space-y-2">
-            <label className="block text-cap-l font-semibold text-lab-pr">Product Photos</label>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="text-cap-l block w-full text-lab-sc"
-            />
-            {uploading ? (
-              <p className="text-cap-s text-brand-900">Uploading images to Cloudflare R2...</p>
-            ) : null}
-            {previewUrls.length > 0 ? (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {previewUrls.map((url, idx) => (
+        <div className="space-y-2">
+          <label className="block text-cap-l font-semibold text-lab-pr">
+            {isEditing ? 'Add Product Photos' : 'Product Photos'}
+          </label>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="text-cap-l block w-full text-lab-sc"
+          />
+          {uploading ? (
+            <p className="text-cap-s text-brand-900">Uploading images to Cloudflare R2...</p>
+          ) : null}
+          {previewUrls.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {previewUrls.map((url, idx) => {
+                const resolvedPreview = resolveMediaUrl(url) || url || '/assets/products/default-preview.png';
+                return (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
-                    key={`${url}-${idx}`}
-                    src={url}
+                    key={`${resolvedPreview}-${idx}`}
+                    src={resolvedPreview}
                     alt={`Uploaded ${idx + 1}`}
-                    className="size-14 rounded-xl object-cover border border-bord-card"
+                    className="size-14 rounded-xl object-cover border border-bord-card bg-fill-qt"
+                    onLoad={(e) => {
+                      delete e.currentTarget.dataset.fallbackApplied;
+                    }}
+                    onError={(e) => {
+                      if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                      e.currentTarget.dataset.fallbackApplied = '1';
+                      e.currentTarget.src = '/assets/products/default-preview.png';
+                    }}
                   />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
 
         <Button
           type="submit"

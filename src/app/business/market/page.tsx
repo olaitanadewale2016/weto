@@ -15,6 +15,7 @@ import {
 import { ProductPromoteModal } from '@/components/marketplace/ProductPromoteModal';
 import { apiFetch } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -166,10 +167,19 @@ export default function BusinessMarketPage() {
               <Link href={`/marketplace/product/${p.hashId || p.id}`} className="relative block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={p.previewImageUrl}
+                  src={resolveMediaUrl(p.previewImageUrl) || '/assets/products/default-preview.png'}
                   alt={p.title}
                   loading="lazy"
                   decoding="async"
+                  onLoad={(e) => {
+                    e.currentTarget.dataset.fallbackApplied = '';
+                  }}
+                  onError={(e) => {
+                    if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                      e.currentTarget.dataset.fallbackApplied = '1';
+                      e.currentTarget.src = '/assets/products/default-preview.png';
+                    }
+                  }}
                   className="h-44 w-full object-cover bg-fill-qt"
                 />
                 {p.isPromoted ? (

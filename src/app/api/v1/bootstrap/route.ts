@@ -9,6 +9,7 @@ import { User } from '@/models/User';
 import { UserStatus } from '@/types/enums';
 import { connectDB } from '@/lib/db';
 import { ensureDefaultCurrenciesAndLocales } from '@/services/localization-seed.service';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export async function GET(req: NextRequest) {
   try {
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
           fullName:
             `${resolvedPrev.firstName || ''} ${resolvedPrev.lastName || ''}`.trim() ||
             resolvedPrev.username,
-          avatar: resolvedPrev.avatar || '',
+          avatar: resolveMediaUrl(resolvedPrev.avatar) || '/assets/avatars/default-avatar.png',
           isMaster: !resolvedPrev.ownerAccountId,
         };
       }
@@ -104,8 +105,8 @@ export async function GET(req: NextRequest) {
         firstName: u.firstName,
         lastName: u.lastName,
         email: u.email,
-        avatar: u.avatar,
-        cover: u.cover,
+        avatar: resolveMediaUrl(u.avatar) || '/assets/avatars/default-avatar.png',
+        cover: resolveMediaUrl(u.cover) || '/assets/covers/default-cover.png',
         bio: u.bio,
         verified: u.verified,
         role: u.role,

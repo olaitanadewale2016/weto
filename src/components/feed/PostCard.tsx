@@ -30,6 +30,7 @@ import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 import { apiFetch } from '@/lib/api-client';
 import { formatRelativeTime } from '@/lib/i18n';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { GiphyAttribution } from '@/components/feed/GiphyPicker';
 import { cn } from '@/lib/utils';
 
@@ -605,7 +606,7 @@ export function PostCard({
                       {/* Image Collage matching PHP PublicationImage.vue */}
                       {images.length === 1 && (() => {
                         const m = images[0];
-                        const src = m.publicUrl || m.url || '';
+                        const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                         return (
                           <button
                             type="button"
@@ -632,7 +633,7 @@ export function PostCard({
                       {images.length === 2 && (
                         <div className="grid grid-cols-2 gap-0.5 overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
-                            const src = m.publicUrl || m.url || '';
+                            const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                             return (
                               <button
                                 key={m.id || idx}
@@ -665,7 +666,7 @@ export function PostCard({
                       {images.length === 3 && (
                         <div className="grid grid-cols-3 grid-rows-2 gap-0.5 h-72 sm:h-80 overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
-                            const src = m.publicUrl || m.url || '';
+                            const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                             return (
                               <button
                                 key={m.id || idx}
@@ -701,7 +702,7 @@ export function PostCard({
                       {images.length === 4 && (
                         <div className="grid grid-cols-3 gap-0.5 overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
-                            const src = m.publicUrl || m.url || '';
+                            const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                             return (
                               <button
                                 key={m.id || idx}
@@ -738,7 +739,7 @@ export function PostCard({
                         <div className="overflow-hidden bg-bg-pr space-y-0.5">
                           <div className="grid grid-cols-3 gap-0.5">
                             {images.slice(0, 3).map((m, idx) => {
-                              const src = m.publicUrl || m.url || '';
+                              const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                               return (
                                 <button
                                   key={m.id || idx}
@@ -765,7 +766,7 @@ export function PostCard({
                           </div>
                           <div className="grid grid-cols-2 gap-0.5">
                             {images.slice(3, 5).map((m, idx) => {
-                              const src = m.publicUrl || m.url || '';
+                              const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                               const extraCount = idx === 1 ? images.length - 5 : 0;
                               return (
                                 <button

@@ -86,7 +86,7 @@ export function ProfileEditModal({
     } finally {
       setUploadingKind(null);
       setUploadProgress(0);
-      URL.revokeObjectURL(previewUrl);
+      setTimeout(() => URL.revokeObjectURL(previewUrl), 2500);
     }
   }
 
@@ -110,9 +110,13 @@ export function ProfileEditModal({
         <div className="bg-black overflow-hidden relative h-32 md:h-44">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
+            key={coverSrc}
             src={coverSrc}
             alt="Cover"
             decoding="async"
+            onLoad={(e) => {
+              e.currentTarget.dataset.fallbackApplied = '';
+            }}
             onError={(e) => {
               if (e.currentTarget.dataset.fallbackApplied !== '1') {
                 e.currentTarget.dataset.fallbackApplied = '1';
@@ -145,9 +149,13 @@ export function ProfileEditModal({
           <div className="relative rounded-full overflow-hidden size-24 md:size-28 border-4 border-bg-pr bg-bg-pr">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              key={avatarSrc}
               src={avatarSrc}
               alt={initial.firstName || 'Avatar'}
               decoding="async"
+              onLoad={(e) => {
+                e.currentTarget.dataset.fallbackApplied = '';
+              }}
               onError={(e) => {
                 if (e.currentTarget.dataset.fallbackApplied !== '1') {
                   e.currentTarget.dataset.fallbackApplied = '1';

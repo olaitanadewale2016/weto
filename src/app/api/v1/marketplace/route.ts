@@ -19,6 +19,7 @@ import {
 import { encodeId } from '@/lib/hashids';
 import { serializeMedia } from '@/services/media.service';
 import { getSettingsGroup } from '@/services/settings.service';
+import { resolveMediaUrl } from '@/lib/media-url';
 
 export async function GET(req: NextRequest) {
   try {
@@ -148,15 +149,27 @@ export async function GET(req: NextRequest) {
         products: products.map((p) => {
           const media = mediaMap.get(String(p._id)) || [];
           const discountAmount = p.discount > 0 ? (p.price * p.discount) / 100 : 0;
+          const firstVisual = media.find((m) => m.url || m.publicUrl || m.thumbnailUrl);
+          const previewRaw = firstVisual?.url || firstVisual?.publicUrl || firstVisual?.thumbnailUrl || '';
+          const sellerObj = p.userId as unknown as Record<string, unknown> | null;
+          const normalizedSeller =
+            sellerObj && typeof sellerObj === 'object'
+              ? {
+                  ...sellerObj,
+                  avatar:
+                    resolveMediaUrl(String(sellerObj.avatar || '')) ||
+                    '/assets/avatars/default-avatar.png',
+                }
+              : p.userId;
           return {
             ...p,
             id: String(p._id),
-            seller: p.userId,
+            seller: normalizedSeller,
             category: p.categoryId,
             store: p.storeId,
             salePrice: Math.max(0, Number((p.price - discountAmount).toFixed(2))),
             media,
-            previewImageUrl: media[0]?.url || '/assets/products/default-preview.png',
+            previewImageUrl: resolveMediaUrl(previewRaw) || '/assets/products/default-preview.png',
             isBookmarked: bmSet.has(String(p._id)),
           };
         }),

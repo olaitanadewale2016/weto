@@ -50,6 +50,7 @@ export function Avatar({
   className,
 }: AvatarProps) {
   const normalizedSrc = React.useMemo(() => normalizeAvatarSrc(src), [src]);
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
   const [failedForSrc, setFailedForSrc] = React.useState<string | null>(null);
   const [exhaustedForSrc, setExhaustedForSrc] = React.useState<string | null>(null);
 
@@ -58,11 +59,27 @@ export function Avatar({
   const effectiveSrc = fallbackApplied ? '/assets/avatars/default-avatar.png' : normalizedSrc;
   const initials = (fallback || alt || 'U').slice(0, 2).toUpperCase();
 
+  React.useEffect(() => {
+    const img = imgRef.current;
+    if (!img || !effectiveSrc || !normalizedSrc) return;
+    if (img.complete && img.naturalWidth === 0) {
+      queueMicrotask(() => {
+        if (!fallbackApplied && normalizedSrc !== '/assets/avatars/default-avatar.png') {
+          setFailedForSrc(normalizedSrc);
+        } else {
+          setExhaustedForSrc(normalizedSrc);
+        }
+      });
+    }
+  }, [effectiveSrc, fallbackApplied, normalizedSrc]);
+
   return (
     <div className={cn('relative inline-flex shrink-0 rounded-full', SIZE_CLASSES[size], className)}>
       {effectiveSrc && !imgError ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          ref={imgRef}
+          key={effectiveSrc}
           src={effectiveSrc}
           alt={alt}
           decoding="async"
