@@ -12,6 +12,14 @@ export const metadata: Metadata = {
   description:
     'Connect, publish, trade on the Marketplace, find Jobs, message in real time, and monetize your community.',
   manifest: '/pwa/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Weto',
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: '/assets/logos/favicon.png',
     apple: '/pwa/icons/192x192.png',
@@ -22,10 +30,11 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+    { media: '(prefers-color-scheme: dark)', color: '#111111' },
   ],
 };
 

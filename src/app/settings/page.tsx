@@ -516,27 +516,36 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Authorship Verification */}
-                <div className="rounded-2xl border border-bord-pr p-4 flex items-center justify-between gap-4">
+                {/* Authorship Verification & Community Monetization */}
+                <div className="rounded-2xl border border-bord-pr p-4 flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <Award className="h-6 w-6 text-lab-pr2 shrink-0" />
                     <div>
-                      <p className="font-bold text-par-n text-lab-pr">Creator Authorship Status</p>
+                      <p className="font-bold text-par-n text-lab-pr">
+                        Creator Authorship &amp; Community Monetization
+                      </p>
                       <p className="text-cap-l text-lab-sc">
                         Current type: <span className="capitalize font-semibold">{accountForm.type}</span>
                         {data?.authorshipRequest && ` · Request: ${data.authorshipRequest.status}`}
                       </p>
                     </div>
                   </div>
-                  {accountForm.type !== 'author' && data?.authorshipRequest?.status !== 'pending' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => patchSection('request_authorship', {}, 'Authorship request submitted!')}
-                    >
-                      Request Verification
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Link href="/business/monetization">
+                      <Button size="sm" variant="primary">
+                        Monetization Studio
+                      </Button>
+                    </Link>
+                    {accountForm.type !== 'author' && data?.authorshipRequest?.status !== 'pending' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => patchSection('request_authorship', {}, 'Authorship request submitted!')}
+                      >
+                        Request Authorship
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Identity Verification (VERIFICATION_SERVICE_URL) */}

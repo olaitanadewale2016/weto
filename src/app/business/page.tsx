@@ -109,6 +109,21 @@ export default function BusinessDashboardPage() {
                 <Button variant="primary">{data.business ? 'Manage Business' : 'Configure Business'}</Button>
               </Link>
             </div>
+
+            <div className="rounded-3xl border border-bord-card bg-bg-pr p-6 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-title-3 font-bold text-lab-pr">
+                  Community Monetization &amp; Creator Studio
+                </h2>
+                <p className="text-par-n text-lab-sc">
+                  Check your creator authorship eligibility, enable fan tips, and launch monthly
+                  community memberships.
+                </p>
+              </div>
+              <Link href="/business/monetization">
+                <Button variant="outline">Open Monetization Studio</Button>
+              </Link>
+            </div>
           </>
         )}
       </div>

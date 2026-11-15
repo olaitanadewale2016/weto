@@ -25,6 +25,7 @@ import {
 import { getDictionary, isRtlLocale } from '@/lib/i18n';
 import { publicEnv } from '@/lib/env';
 import { useToast } from './ToastProvider';
+import { NetworkStatusBar } from '@/components/layout/NetworkStatusBar';
 
 export interface BootstrapUser {
   id: string;
@@ -305,7 +306,9 @@ export function AppProvider({
     if (!bootstrap?.config) return;
     const pwaEnabled = bootstrap.config.pwaEnabled !== false;
     if (pwaEnabled) {
-      navigator.serviceWorker.register('/pwa/service-worker.js').catch(() => undefined);
+      navigator.serviceWorker
+        .register('/pwa/service-worker.js', { updateViaCache: 'none' })
+        .catch(() => undefined);
     } else {
       navigator.serviceWorker
         .getRegistrations()
@@ -410,6 +413,15 @@ export function AppProvider({
         setCounters((prev) => ({ ...prev, unreadNotifications: prev.unreadNotifications + 1 }));
         if (payload?.title || payload?.message) {
           info(payload.title || 'New notification', payload.message);
+        }
+        try {
+          if (typeof window !== 'undefined' && localStorage.getItem('notificationsSound') === '1') {
+            const audio = new Audio('/assets/sounds/notifications/notification-received.mp3');
+            audio.volume = 0.6;
+            audio.play().catch(() => undefined);
+          }
+        } catch {
+          // ignore audio playback restrictions
         }
       });
 
@@ -735,6 +747,13 @@ export function AppProvider({
 
   const dict = useMemo(() => getDictionary(locale), [locale]);
 
+  const handleNetworkReconnect = useCallback(async () => {
+    await refreshBootstrap();
+    if (socket && !socket.connected) {
+      socket.connect();
+    }
+  }, [refreshBootstrap, socket]);
+
   return (
     <AppContext.Provider
       value={{
@@ -763,6 +782,7 @@ export function AppProvider({
       }}
     >
       {children}
+      <NetworkStatusBar onReconnect={handleNetworkReconnect} />
     </AppContext.Provider>
   );
 }

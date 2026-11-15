@@ -119,6 +119,13 @@ export async function GET(
       gender: canSee(Boolean(priv?.genderPrivacy)) ? target.gender : null,
       lastActive: canSee(Boolean(priv?.lastSeenPrivacy)) ? target.lastActive : null,
       createdAt: target.createdAt,
+      monetization: {
+        tipsEnabled: Boolean(target.monetization?.tipsEnabled),
+        subscriptionsEnabled: Boolean(target.monetization?.subscriptionsEnabled),
+        monthlyPrice: Number(target.monetization?.monthlyPrice ?? 5),
+        currency: target.monetization?.currency || 'USD',
+        description: target.monetization?.description || '',
+      },
       viewerContext: {
         isSelf,
         isFollowing: followState === FollowStatus.FOLLOWING,

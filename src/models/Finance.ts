@@ -220,3 +220,34 @@ AuditLogSchema.index({ createdAt: -1 });
 
 export const AuditLog: Model<IAuditLogDocument> =
   mongoose.models.AuditLog || mongoose.model<IAuditLogDocument>('AuditLog', AuditLogSchema);
+
+export interface ICreatorSubscriptionDocument extends Document {
+  creatorId: Types.ObjectId;
+  subscriberId: Types.ObjectId;
+  amount: number;
+  currency: string;
+  status: 'active' | 'cancelled';
+  lastPaidAt: Date;
+  currentPeriodEnd: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const CreatorSubscriptionSchema = new Schema<ICreatorSubscriptionDocument>(
+  {
+    creatorId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    subscriberId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    amount: { type: Number, required: true, min: 0 },
+    currency: { type: String, default: 'USD' },
+    status: { type: String, enum: ['active', 'cancelled'], default: 'active', index: true },
+    lastPaidAt: { type: Date, default: () => new Date() },
+    currentPeriodEnd: { type: Date, required: true },
+  },
+  { timestamps: true }
+);
+
+CreatorSubscriptionSchema.index({ creatorId: 1, subscriberId: 1 }, { unique: true });
+
+export const CreatorSubscription: Model<ICreatorSubscriptionDocument> =
+  mongoose.models.CreatorSubscription ||
+  mongoose.model<ICreatorSubscriptionDocument>('CreatorSubscription', CreatorSubscriptionSchema);

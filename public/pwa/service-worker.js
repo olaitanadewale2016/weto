@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weto-pwa-v1';
+const CACHE_NAME = 'weto-pwa-v2';
 const PRECACHE_ASSETS = [
   '/pwa/manifest.json',
   '/pwa/icons/192x192.png',
@@ -33,6 +33,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -42,7 +48,8 @@ self.addEventListener('fetch', (event) => {
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/_next/webpack-hmr') ||
-    url.pathname.startsWith('/__nextjs')
+    url.pathname.startsWith('/__nextjs') ||
+    url.pathname.startsWith('/socket.io')
   ) {
     return;
   }
@@ -70,7 +77,24 @@ self.addEventListener('fetch', (event) => {
 
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(() => caches.match(req))
+      fetch(req)
+        .then((networkRes) => {
+          if (networkRes && networkRes.ok) {
+            const copy = networkRes.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => undefined);
+          }
+          return networkRes;
+        })
+        .catch(async () => {
+          const cached = await caches.match(req);
+          if (cached) return cached;
+          const rootCached = await caches.match('/');
+          if (rootCached) return rootCached;
+          return new Response(
+            '<!doctype html><html><body style="font-family:sans-serif;padding:2rem;text-align:center;"><h2>You are offline</h2><p>Waiting for internet connection to reload content...</p></body></html>',
+            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          );
+        })
     );
   }
 });

@@ -9,6 +9,7 @@ import {
   Bell,
   Briefcase,
   Building2,
+  Coins,
   CreditCard,
   Crown,
   Database,
@@ -59,6 +60,7 @@ const BUSINESS_LINKS: PortalNavItem[] = [
   { key: 'ads', href: '/business/ads', label: 'Ad campaigns', icon: Megaphone },
   { key: 'market', href: '/business/market', label: 'Marketplace', icon: ShoppingBag },
   { key: 'jobs', href: '/business/jobs', label: 'Jobs', icon: Briefcase },
+  { key: 'monetization', href: '/business/monetization', label: 'Monetization', icon: Coins },
   { key: 'wallet', href: '/business/wallet', label: 'Wallet', icon: Wallet, dividerBefore: true },
   { key: 'notifications', href: '/business/notifications', label: 'Alerts', icon: Bell },
   { key: 'settings', href: '/business/settings', label: 'Account settings', icon: Settings },
@@ -282,7 +284,7 @@ export function PortalShell({
       )}
 
       {/* Fixed top header bar matching Source/resources/views/components/header.blade.php */}
-      <header className="fixed top-0 right-0 left-0 md:left-72 z-30 bg-bg-pr border-b border-bord-tr">
+      <header className="fixed top-0 right-0 left-0 md:left-72 z-30 bg-bg-pr border-b border-bord-tr pt-safe px-safe">
         <div className="flex items-center justify-between px-4 md:px-8 h-16">
           <div className="flex items-center gap-3 md:hidden">
             <button

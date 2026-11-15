@@ -159,6 +159,7 @@ export interface IProductDocument extends Document {
   reviewsCount: number;
   bookmarksCount: number;
   isPromoted: boolean;
+  promotedUntil?: Date | null;
   lastContactedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -202,6 +203,7 @@ const ProductSchema = new Schema<IProductDocument>(
     reviewsCount: { type: Number, default: 0 },
     bookmarksCount: { type: Number, default: 0 },
     isPromoted: { type: Boolean, default: false, index: true },
+    promotedUntil: { type: Date, default: null },
     lastContactedAt: { type: Date, default: null },
   },
   { timestamps: true }

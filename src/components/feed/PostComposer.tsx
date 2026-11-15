@@ -447,7 +447,7 @@ export function PostComposer({
         className={cn(
           'shrink-0',
           fullScreen
-            ? 'px-4 pt-3 pb-4 pb-safe border-t border-bord-tr/60 bg-bg-pr space-y-2'
+            ? 'px-4 pt-3 pb-4 pb-safe pb-safe-standalone border-t border-bord-tr/60 bg-bg-pr space-y-2'
             : 'pt-2 border-t border-bord-pr space-y-2.5'
         )}
       >

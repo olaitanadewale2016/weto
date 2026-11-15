@@ -9,6 +9,7 @@ import {
   Calendar,
   Flag,
   Globe,
+  HeartHandshake,
   Link2,
   MapPin,
   MessageCircle,
@@ -27,6 +28,7 @@ import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { FeedList } from '@/components/feed/FeedList';
 import { ReportModal } from '@/components/modals/ReportModal';
 import { ProfileEditModal } from '@/components/profile/ProfileEditModal';
+import { SupportCreatorModal } from '@/components/profile/SupportCreatorModal';
 import { apiFetch } from '@/lib/api-client';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -52,6 +54,13 @@ interface ProfileData {
   country?: string | null;
   city?: string | null;
   createdAt: string;
+  monetization?: {
+    tipsEnabled: boolean;
+    subscriptionsEnabled: boolean;
+    monthlyPrice: number;
+    currency: string;
+    description?: string;
+  };
   viewerContext: {
     isSelf: boolean;
     isFollowing: boolean;
@@ -83,6 +92,7 @@ export default function UserProfilePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [mediaLightbox, setMediaLightbox] = useState<{ url: string; label: string } | null>(null);
 
   const [listModal, setListModal] = useState<'followers' | 'followings' | null>(null);
@@ -270,6 +280,22 @@ export default function UserProfilePage() {
               </>
             ) : (
               <>
+                {(profile.monetization?.tipsEnabled || profile.monetization?.subscriptionsEnabled) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!user) {
+                        router.push('/auth/login');
+                        return;
+                      }
+                      setSupportOpen(true);
+                    }}
+                    title="Support creator"
+                  >
+                    <HeartHandshake className="h-4 w-4 text-brand-900" /> Support
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" onClick={handleStartChat} title="Send message">
                   <MessageCircle className="h-4 w-4" />
                 </Button>
@@ -493,6 +519,21 @@ export default function UserProfilePage() {
         images={mediaLightbox ? [{ url: mediaLightbox.url, alt: mediaLightbox.label }] : []}
         albumName={mediaLightbox?.label}
       />
+
+      {!profile.viewerContext.isSelf &&
+        (profile.monetization?.tipsEnabled || profile.monetization?.subscriptionsEnabled) && (
+          <SupportCreatorModal
+            open={supportOpen}
+            onClose={() => setSupportOpen(false)}
+            creator={{
+              id: profile.id,
+              username: profile.username,
+              firstName: profile.firstName,
+              lastName: profile.lastName,
+              monetization: profile.monetization,
+            }}
+          />
+        )}
     </AppShell>
   );
 }

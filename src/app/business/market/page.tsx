@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Edit3, Plus, Power, ShoppingBag, Trash2 } from 'lucide-react';
+import { Edit3, Plus, Power, ShoppingBag, Sparkles, Trash2 } from 'lucide-react';
 import { BusinessPortalHeader } from '@/components/business/BusinessPortalHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import {
   MarketplaceCategoryOption,
   ProductCreateModal,
 } from '@/components/marketplace/ProductCreateModal';
+import { ProductPromoteModal } from '@/components/marketplace/ProductPromoteModal';
 import { apiFetch } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 import { useApp } from '@/components/providers/AppContext';
@@ -32,6 +33,8 @@ interface MyProduct {
   address?: string;
   status: string;
   approval: string;
+  isPromoted?: boolean;
+  promotedUntil?: string | null;
   previewImageUrl: string;
   category?: { _id?: string; id?: string };
 }
@@ -44,6 +47,7 @@ export default function BusinessMarketPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<EditableProductData | null>(null);
+  const [promoting, setPromoting] = useState<MyProduct | null>(null);
 
   const loadInventory = useCallback(async () => {
     setLoading(true);
@@ -131,7 +135,7 @@ export default function BusinessMarketPage() {
               key={p.id}
               className="rounded-3xl border border-bord-card bg-bg-pr overflow-hidden flex flex-col"
             >
-              <Link href={`/marketplace/product/${p.hashId || p.id}`} className="block">
+              <Link href={`/marketplace/product/${p.hashId || p.id}`} className="relative block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={p.previewImageUrl}
@@ -140,6 +144,11 @@ export default function BusinessMarketPage() {
                   decoding="async"
                   className="h-44 w-full object-cover bg-fill-qt"
                 />
+                {p.isPromoted ? (
+                  <Badge variant="brand" className="absolute top-2.5 left-2.5 shadow-sm">
+                    Promoted
+                  </Badge>
+                ) : null}
               </Link>
               <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
                 <div className="space-y-1.5">
@@ -160,6 +169,15 @@ export default function BusinessMarketPage() {
                 </div>
 
                 <div className="flex items-center gap-2 pt-2 border-t border-bord-tr">
+                  <Button
+                    size="sm"
+                    variant={p.isPromoted ? 'secondary' : 'primary'}
+                    onClick={() => setPromoting(p)}
+                    title={p.isPromoted ? 'Extend promotion' : 'Promote listing'}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {p.isPromoted ? 'Boosted' : 'Promote'}
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -215,6 +233,30 @@ export default function BusinessMarketPage() {
         categories={categories}
         editProduct={editing}
         onSaved={() => void loadInventory()}
+      />
+
+      <ProductPromoteModal
+        open={Boolean(promoting)}
+        onClose={() => setPromoting(null)}
+        product={
+          promoting
+            ? {
+              id: promoting.id,
+              title: promoting.title,
+              isPromoted: promoting.isPromoted,
+              promotedUntil: promoting.promotedUntil,
+            }
+            : null
+        }
+        onPromoted={({ productId, isPromoted, promotedUntil }) =>
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === productId
+                ? { ...item, isPromoted, promotedUntil, status: 'active' }
+                : item
+            )
+          )
+        }
       />
     </div>
   );

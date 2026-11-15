@@ -194,7 +194,7 @@ export function AppShell({
     <div className="min-h-screen bg-bg-pr text-lab-pr">
       {/* Mobile Sticky Top Header matching mobile/components/layout/ApplicationHeader.vue */}
       {!hideMobileChrome && (
-      <header className="md:hidden sticky top-0 z-40 h-14 px-4 bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr flex items-center justify-between">
+      <header className="md:hidden sticky top-0 z-40 min-h-14 pt-safe px-safe px-4 py-2 bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr flex items-center justify-between">
         <button
           type="button"
           onClick={() => setMobileHeaderMenuOpen(true)}
@@ -493,7 +493,7 @@ export function AppShell({
           'flex-1 min-w-0',
           !hideDesktopSidebar && 'md:ml-[260px] xl:ml-[340px]',
           hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6',
-          hideMobileChrome ? 'pb-0' : 'pb-20'
+          hideMobileChrome ? 'pb-0' : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
         )}
       >
         {fullWidth || hideRightRail ? (
@@ -513,7 +513,7 @@ export function AppShell({
 
       {/* Mobile Bottom Navigation matching mobile/components/layout/ApplicationNavbar.vue */}
       {!hideMobileChrome && (
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg-pr border-t border-bord-tr pb-safe">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg-pr border-t border-bord-tr pb-safe pb-safe-standalone px-safe">
         <div className="grid grid-cols-5 h-14 items-center">
           <Link href="/" className="flex items-center justify-center text-lab-pr">
             <Home className={cn('size-5', pathname === '/' ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />

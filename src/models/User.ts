@@ -99,6 +99,14 @@ export interface IUserDocument extends Document {
     loginNotification: boolean;
     loginNotificationType: NotificationType;
   };
+  monetization: {
+    tipsEnabled: boolean;
+    subscriptionsEnabled: boolean;
+    monthlyPrice: number;
+    currency: string;
+    description: string;
+    totalEarnings: number;
+  };
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -238,6 +246,18 @@ const UserSchema = new Schema<IUserDocument>(
           enum: Object.values(NotificationType),
           default: NotificationType.EMAIL,
         },
+      },
+      default: () => ({}),
+      _id: false,
+    },
+    monetization: {
+      type: {
+        tipsEnabled: { type: Boolean, default: false },
+        subscriptionsEnabled: { type: Boolean, default: false },
+        monthlyPrice: { type: Number, default: 5, min: 1 },
+        currency: { type: String, default: 'USD' },
+        description: { type: String, default: '' },
+        totalEarnings: { type: Number, default: 0, min: 0 },
       },
       default: () => ({}),
       _id: false,

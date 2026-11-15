@@ -16,6 +16,7 @@ import {
   Package,
   Power,
   Share2,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
@@ -30,6 +31,7 @@ import {
   MarketplaceCategoryOption,
   ProductCreateModal,
 } from '@/components/marketplace/ProductCreateModal';
+import { ProductPromoteModal } from '@/components/marketplace/ProductPromoteModal';
 import { apiFetch } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 import { formatRelativeTime } from '@/lib/i18n';
@@ -52,6 +54,8 @@ interface ProductDetail {
   stockQuantity: number;
   address?: string;
   viewsCount: number;
+  isPromoted?: boolean;
+  promotedUntil?: string | null;
   createdAt?: string;
   isBookmarked: boolean;
   previewImageUrl: string;
@@ -80,6 +84,7 @@ export default function ProductDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
 
   // PHP ChatLauncher state
@@ -414,6 +419,7 @@ export default function ProductDetailPage() {
               {/* Badges + Title + Price */}
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-1.5">
+                  {product.isPromoted ? <Badge variant="brand">Promoted</Badge> : null}
                   {product.status === 'inactive' ? <Badge variant="danger">Inactive</Badge> : null}
                   {product.category?.localization?.en ? (
                     <Badge variant="brand">{product.category.localization.en}</Badge>
@@ -472,22 +478,33 @@ export default function ProductDetailPage() {
                     <MessageCircle className="h-4 w-4" /> Ask seller
                   </Button>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                      <Edit3 className="h-3.5 w-3.5" /> Edit
-                    </Button>
+                  <div className="space-y-2">
                     <Button
-                      variant="outline"
-                      size="sm"
-                      loading={togglingStatus}
-                      onClick={toggleProductStatus}
+                      variant="primary"
+                      size="md"
+                      className="w-full rounded-full"
+                      onClick={() => setPromoteOpen(true)}
                     >
-                      <Power className="h-3.5 w-3.5" />{' '}
-                      {product.status === 'active' ? 'Pause' : 'Activate'}
+                      <Sparkles className="h-4 w-4" />
+                      {product.isPromoted ? 'Extend listing promotion' : 'Promote listing'}
                     </Button>
-                    <Button variant="danger" size="sm" onClick={deleteListing}>
-                      <Trash2 className="h-3.5 w-3.5" /> Delete
-                    </Button>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                        <Edit3 className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={togglingStatus}
+                        onClick={toggleProductStatus}
+                      >
+                        <Power className="h-3.5 w-3.5" />{' '}
+                        {product.status === 'active' ? 'Pause' : 'Activate'}
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={deleteListing}>
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -625,6 +642,20 @@ export default function ProductDetailPage() {
         onClose={() => setReportOpen(false)}
         targetType="product"
         targetId={product.id}
+      />
+
+      <ProductPromoteModal
+        open={promoteOpen}
+        onClose={() => setPromoteOpen(false)}
+        product={{
+          id: product.id,
+          title: product.title,
+          isPromoted: product.isPromoted,
+          promotedUntil: product.promotedUntil,
+        }}
+        onPromoted={({ isPromoted, promotedUntil }) =>
+          setProduct((prev) => (prev ? { ...prev, isPromoted, promotedUntil } : prev))
+        }
       />
     </AppShell>
   );

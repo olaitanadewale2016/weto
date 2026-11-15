@@ -147,6 +147,16 @@ export function FeedList({
     void loadPosts(1, false, true);
   }
 
+  useEffect(() => {
+    const onRestored = () => {
+      feedPostsCache.delete(cacheKey);
+      setPage(1);
+      void loadPosts(1, false, true);
+    };
+    window.addEventListener('weto:network-restored', onRestored);
+    return () => window.removeEventListener('weto:network-restored', onRestored);
+  }, [cacheKey, loadPosts]);
+
   // Live feed updates from Firestore system_realtime/feed
   useEffect(() => {
     if (mode !== 'feed' && mode !== 'explore') return;

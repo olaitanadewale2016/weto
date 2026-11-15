@@ -106,6 +106,12 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Auto-expire finished listing promotions
+    await Product.updateMany(
+      { isPromoted: true, promotedUntil: { $ne: null, $lte: new Date() } },
+      { $set: { isPromoted: false } }
+    );
+
     const [products, categories, total] = await Promise.all([
       Product.find(filter)
         .sort({ isPromoted: -1, createdAt: -1 })

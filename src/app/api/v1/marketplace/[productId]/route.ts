@@ -1,15 +1,34 @@
+import crypto from 'crypto';
 import { Types } from 'mongoose';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { connectDB } from '@/lib/db';
+import { connectDB, withMongoTransaction } from '@/lib/db';
 import { getOptionalAuth, requireAuth } from '@/lib/auth/session';
-import { apiError, apiSuccess, ForbiddenError, NotFoundError } from '@/lib/api-response';
+import {
+  apiError,
+  apiSuccess,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '@/lib/api-response';
 import { Product } from '@/models/Commerce';
 import { Bookmark } from '@/models/Post';
 import { Media } from '@/models/Media';
-import { ProductCondition, ProductStatus, ProductType, UserRole } from '@/types/enums';
+import { Wallet, WalletTransaction } from '@/models/Finance';
+import {
+  ProductCondition,
+  ProductStatus,
+  ProductType,
+  TransactionDirection,
+  TransactionStatus,
+  TransactionType,
+  UserRole,
+} from '@/types/enums';
 import { isObjectIdLike } from '@/lib/hashids';
 import { deleteMediaRecord, serializeMedia } from '@/services/media.service';
+import { ensureWallet } from '@/services/wallet.service';
+import { dispatchNotification } from '@/services/notification.service';
+import { getListingPromotionPlan } from '@/lib/promotions';
 
 async function findProduct(idOrHash: string) {
   return Product.findOne(isObjectIdLike(idOrHash) ? { _id: idOrHash } : { hashId: idOrHash });
@@ -34,6 +53,13 @@ export async function GET(
       .populate('storeId')
       .lean();
 
+    const effectivePromoted = Boolean(
+      product.isPromoted && (!product.promotedUntil || product.promotedUntil.getTime() > Date.now())
+    );
+    if (product.isPromoted && !effectivePromoted) {
+      await Product.updateOne({ _id: product._id }, { $set: { isPromoted: false } });
+    }
+
     const [mediaRows, bookmarked] = await Promise.all([
       Media.find({ targetType: 'product', targetId: product._id }).sort({ order: 1 }).lean(),
       authCtx
@@ -47,6 +73,8 @@ export async function GET(
     return apiSuccess({
       ...populated,
       id: String(product._id),
+      isPromoted: effectivePromoted,
+      promotedUntil: product.promotedUntil || null,
       seller: populated?.userId,
       category: populated?.categoryId,
       store: populated?.storeId,
@@ -61,7 +89,8 @@ export async function GET(
 }
 
 const patchProductSchema = z.object({
-  action: z.enum(['update', 'bookmark', 'toggle_status']).default('update'),
+  action: z.enum(['update', 'bookmark', 'toggle_status', 'promote']).default('update'),
+  promotionPlan: z.enum(['3d', '7d', '14d']).optional(),
   title: z.string().min(3).max(160).optional(),
   description: z.string().max(5000).optional(),
   categoryId: z.string().nullable().optional(),
@@ -114,6 +143,89 @@ export async function PATCH(
       return apiSuccess({ id: String(product._id), status: product.status, updated: true });
     }
 
+    if (body.action === 'promote') {
+      const plan = getListingPromotionPlan(body.promotionPlan);
+      const wallet = await ensureWallet(user._id);
+
+      const baseStart =
+        product.isPromoted && product.promotedUntil && product.promotedUntil.getTime() > Date.now()
+          ? product.promotedUntil.getTime()
+          : Date.now();
+      const promotedUntil = new Date(baseStart + plan.durationDays * 24 * 60 * 60 * 1000);
+      const tnxRef = `PROMO-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+
+      await withMongoTransaction(async (session) => {
+        const updatedWallet = await Wallet.findOneAndUpdate(
+          { _id: wallet._id, balance: { $gte: plan.price } },
+          { $inc: { balance: -plan.price } },
+          { new: true, session }
+        );
+        if (!updatedWallet) {
+          throw new ValidationError(
+            `Insufficient wallet balance. ${plan.price} ${wallet.currency} required to activate ${plan.label}.`
+          );
+        }
+
+        await WalletTransaction.create(
+          [
+            {
+              walletId: updatedWallet._id,
+              userId: user._id,
+              amount: plan.price,
+              commission: 0,
+              currency: updatedWallet.currency,
+              transactionType: TransactionType.ADVERTISING,
+              isInternal: true,
+              direction: TransactionDirection.OUTGOING,
+              status: TransactionStatus.COMPLETED,
+              idempotencyKey: `promo_${product._id}_${crypto.randomUUID()}`,
+              metadata: {
+                tnxId: tnxRef,
+                sourceName: `Listing boost: ${product.title}`,
+                productId: String(product._id),
+                productHashId: product.hashId,
+                planId: plan.id,
+                planLabel: plan.label,
+                durationDays: plan.durationDays,
+              },
+            },
+          ],
+          { session }
+        );
+
+        await Product.updateOne(
+          { _id: product._id },
+          {
+            $set: {
+              isPromoted: true,
+              promotedUntil,
+              status: ProductStatus.ACTIVE,
+            },
+          },
+          { session }
+        );
+      });
+
+      await dispatchNotification({
+        recipientId: user._id,
+        actorId: user._id,
+        type: 'product_promoted',
+        category: 'important',
+        title: 'Listing Promoted',
+        message: `Your listing "${product.title}" is now Promoted (${plan.label}).`,
+        entityType: 'product',
+        entityId: String(product._id),
+        actionUrl: `/marketplace/product/${product.hashId || product._id}`,
+      });
+
+      return apiSuccess({
+        id: String(product._id),
+        isPromoted: true,
+        promotedUntil: promotedUntil.toISOString(),
+        plan,
+      });
+    }
+
     if (body.title !== undefined) product.title = body.title.trim();
     if (body.description !== undefined) product.description = body.description.trim();
     if (body.categoryId !== undefined) {
@@ -129,7 +241,7 @@ export async function PATCH(
     if (body.discount !== undefined) product.discount = body.discount;
     if (body.stockQuantity !== undefined) product.stockQuantity = body.stockQuantity;
     if (body.address !== undefined) product.address = body.address;
-    if (body.isPromoted !== undefined) product.isPromoted = body.isPromoted;
+    if (body.isPromoted !== undefined && isAdmin) product.isPromoted = body.isPromoted;
     if (body.status !== undefined) product.status = body.status;
 
     await product.save();
