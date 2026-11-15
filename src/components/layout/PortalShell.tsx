@@ -130,6 +130,7 @@ export function PortalShell({
       ...item,
       active: pathname === item.href,
     }));
+  const resolvedHeading = activeHeading || items.find((i) => i.active)?.label;
 
   async function handleLogout() {
     await logout();
@@ -302,14 +303,14 @@ export function PortalShell({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="h-5 w-auto object-contain shrink-0" src={logoSrc} alt="Weto" />
               <span className="font-bold text-lab-pr text-par-s truncate">
-                {activeHeading || portalTitle}
+                {resolvedHeading || portalTitle}
               </span>
             </Link>
           </div>
 
-          {activeHeading && (
+          {resolvedHeading && (
             <div className="hidden md:flex items-center min-w-0 pr-4">
-              <span className="text-par-n font-semibold text-lab-pr2 truncate">{activeHeading}</span>
+              <span className="text-par-n font-semibold text-lab-pr2 truncate">{resolvedHeading}</span>
             </div>
           )}
 
@@ -343,17 +344,50 @@ export function PortalShell({
         </div>
       </header>
 
-      {/* Main container matching Source/resources/views/components/container.blade.php */}
+      {/* Main container matching Source/resources/views/components/container.blade.php (ml-72 pl-8 pr-8 pb-12) */}
       <main
         className={cn(
-          'pt-[calc(5rem+env(safe-area-inset-top))] px-4 px-safe md:ml-72 md:pr-8 md:pl-8',
+          'pt-[calc(5rem+env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:ml-72 md:pl-8 md:pr-8 md:pb-12',
           portal === 'admin'
             ? 'pb-[calc(3.5rem+env(safe-area-inset-bottom))]'
-            : 'pb-[calc(3rem+env(safe-area-inset-bottom))]'
+            : 'pb-[calc(5.25rem+env(safe-area-inset-bottom))]'
         )}
       >
-        {children}
+        <div className="mx-auto w-full min-w-0">{children}</div>
       </main>
+
+      {portal === 'business' && (
+        <nav
+          aria-label="Business portal mobile navigation"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg-pr/95 backdrop-blur-md border-t border-bord-tr pb-safe pb-safe-standalone"
+        >
+          <div className="grid grid-cols-5 h-14 px-1">
+            {[
+              { href: '/business', label: 'Overview', icon: LayoutDashboard },
+              { href: '/business/ads', label: 'Ads', icon: Megaphone },
+              { href: '/business/market', label: 'Market', icon: ShoppingBag },
+              { href: '/business/jobs', label: 'Jobs', icon: Briefcase },
+              { href: '/business/wallet', label: 'Wallet', icon: Wallet },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = pathname === tab.href;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors',
+                    isActive ? 'text-brand-900 font-semibold' : 'text-lab-sc hover:text-lab-pr'
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="truncate max-w-full px-1">{tab.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
 
       {portal === 'admin' && (
         <div className="hidden md:flex fixed bg-bg-pr border-t border-bord-tr bottom-0 right-0 left-72 px-8 h-6 items-center z-20">

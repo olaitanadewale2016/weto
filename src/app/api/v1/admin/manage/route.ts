@@ -49,6 +49,7 @@ import {
 import { dispatchNotification } from '@/services/notification.service';
 import { writeAuditLog } from '@/lib/audit';
 import { sendEmail } from '@/services/mail.service';
+import { emitToAdmins, emitToChat, emitToUser } from '@/lib/realtime-emitter';
 
 export async function GET(req: NextRequest) {
   try {
@@ -209,7 +210,7 @@ export async function GET(req: NextRequest) {
       const chats = await Chat.find(chatFilter)
         .sort({ lastActivity: -1 })
         .limit(limit)
-        .populate('participants.userId', 'username firstName lastName avatar')
+        .populate('participants.userId', 'username firstName lastName avatar verified status role')
         .lean();
       const chatIds = chats.map((c) => c._id);
       const msgCounts =
@@ -223,9 +224,65 @@ export async function GET(req: NextRequest) {
       return apiSuccess(
         chats.map((c) => ({
           ...c,
+          participantsCount: Array.isArray(c.participants) ? c.participants.length : 0,
           messagesCount: countMap.get(String(c._id)) || 0,
         }))
       );
+    }
+
+    if (resource === 'chat_messages') {
+      const chatId = (searchParams.get('chatId') || '').trim();
+      if (!chatId || !/^[0-9a-fA-F]{24}$/.test(chatId)) {
+        throw new ValidationError('Valid chatId is required.');
+      }
+      const chat = await Chat.findById(chatId)
+        .populate(
+          'participants.userId',
+          'username firstName lastName email avatar verified status role'
+        )
+        .lean();
+      if (!chat) {
+        throw new NotFoundError('Chat conversation not found.');
+      }
+      const before = searchParams.get('before');
+      const msgFilter: Record<string, unknown> = { chatId: chat._id };
+      if (before) {
+        const beforeDate = new Date(before);
+        if (!Number.isNaN(beforeDate.getTime())) {
+          msgFilter.createdAt = { $lt: beforeDate };
+        }
+      }
+      const [totalMessages, rawMessages] = await Promise.all([
+        Message.countDocuments({ chatId: chat._id, isDeleted: false }),
+        Message.find(msgFilter)
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .populate('senderId', 'username firstName lastName avatar verified role status')
+          .populate('mediaId')
+          .lean(),
+      ]);
+
+      const orderedMessages = rawMessages.reverse().map((m) => ({
+        _id: String(m._id),
+        type: m.type,
+        content: m.content,
+        isDeleted: Boolean(m.isDeleted),
+        deletedAt: m.isDeleted ? m.updatedAt || null : null,
+        createdAt: m.createdAt,
+        sender: m.senderId || null,
+        media: m.mediaId ? serializeMedia(m.mediaId as never) : null,
+      }));
+
+      return apiSuccess({
+        chat: {
+          ...chat,
+          _id: String(chat._id),
+          participantsCount: Array.isArray(chat.participants) ? chat.participants.length : 0,
+          messagesCount: totalMessages,
+        },
+        messages: orderedMessages,
+        hasMore: rawMessages.length === limit,
+      });
     }
 
     if (resource === 'ads') {
@@ -762,17 +819,18 @@ export async function POST(req: NextRequest) {
       });
     } else if (action === 'user.adjust_wallet' && targetId) {
       const amount = Number(payload.amount || 0);
-      if (amount > 0) {
-        const appCfg = await getSettingsGroup('app');
-        await creditWalletIdempotent({
-          userId: targetId,
-          amount,
-          currency: String(payload.currency || appCfg.defaultCurrency || 'NGN'),
-          transactionType: TransactionType.DEPOSIT,
-          idempotencyKey: `admin_adj_${Date.now()}_${targetId}`,
-          metadata: { adminId: String(admin._id), note: payload.note || 'Admin adjustment' },
-        });
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new ValidationError('Enter a positive amount to credit the user wallet.');
       }
+      const appCfg = await getSettingsGroup('app');
+      await creditWalletIdempotent({
+        userId: targetId,
+        amount,
+        currency: String(payload.currency || appCfg.defaultCurrency || 'NGN'),
+        transactionType: TransactionType.DEPOSIT,
+        idempotencyKey: `admin_adj_${Date.now()}_${targetId}`,
+        metadata: { adminId: String(admin._id), note: payload.note || 'Admin adjustment' },
+      });
     } else if (action === 'user.set_wallet_balance' && targetId) {
       const balance = Number(payload.balance);
       if (!Number.isFinite(balance) || balance < 0) {
@@ -965,8 +1023,54 @@ export async function POST(req: NextRequest) {
     } else if (action === 'business.delete' && targetId) {
       await BusinessAccount.deleteOne({ _id: targetId });
     } else if (action === 'chat.delete' && targetId) {
-      await Message.deleteMany({ chatId: targetId });
-      await Chat.deleteOne({ _id: targetId });
+      const chatDoc = await Chat.findById(targetId).lean();
+      if (!chatDoc) throw new NotFoundError('Conversation not found.');
+      const msgs = await Message.find({ chatId: targetId, mediaId: { $ne: null } })
+        .select('mediaId')
+        .lean();
+      await Promise.all(
+        msgs.map((m) => (m.mediaId ? deleteMediaRecord(String(m.mediaId)) : Promise.resolve()))
+      );
+      await Promise.all([
+        Message.deleteMany({ chatId: targetId }),
+        Chat.deleteOne({ _id: targetId }),
+      ]);
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetType: 'chat',
+        targetId,
+        action: 'delete_chat',
+        reason: String(payload.reason || 'Admin deleted conversation'),
+      });
+      await emitToChat(targetId, 'chat:deleted', { chatId: targetId });
+      for (const participant of chatDoc.participants || []) {
+        if (participant.userId) {
+          await emitToUser(String(participant.userId), 'chat:deleted', { chatId: targetId });
+        }
+      }
+    } else if (action === 'chat.delete_message' && targetId) {
+      const msgDoc = await Message.findById(targetId);
+      if (!msgDoc) throw new NotFoundError('Message not found.');
+      const chatIdStr = String(msgDoc.chatId);
+      if (msgDoc.mediaId) {
+        await deleteMediaRecord(String(msgDoc.mediaId));
+        msgDoc.mediaId = null;
+      }
+      msgDoc.isDeleted = true;
+      msgDoc.content = '[Message removed by administrator]';
+      await msgDoc.save();
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetUserId: msgDoc.senderId,
+        targetType: 'message',
+        targetId: String(msgDoc._id),
+        action: 'delete_chat_message',
+        reason: String(payload.reason || 'Admin moderated chat message'),
+      });
+      await emitToChat(chatIdStr, 'message:deleted', {
+        chatId: chatIdStr,
+        messageId: String(msgDoc._id),
+      });
     } else if (action === 'ad.set_approval' && targetId) {
       const approval = payload.approval as AdApproval;
       const adDoc = await Ad.findByIdAndUpdate(targetId, { $set: { approval } }, { new: true });
@@ -1404,7 +1508,19 @@ export async function POST(req: NextRequest) {
       metadata: payload,
     });
 
-    return apiSuccess({ ok: true });
+    const activeAdmins = await User.find({
+      role: { $in: [UserRole.ROOT, UserRole.ADMIN, UserRole.MODERATOR] },
+      deletedAt: null,
+    })
+      .select('_id')
+      .lean();
+    await emitToAdmins(
+      activeAdmins.map((a) => String(a._id)),
+      'admin:updated',
+      { action, targetId: targetId || null, actorId: String(admin._id), at: Date.now() }
+    );
+
+    return apiSuccess({ ok: true, action, targetId: targetId || null });
   } catch (err) {
     return apiError(err);
   }

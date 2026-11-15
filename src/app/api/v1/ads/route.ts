@@ -185,7 +185,13 @@ export async function POST(req: NextRequest) {
 
 const patchAdSchema = z.object({
   adId: z.string().min(1),
-  action: z.enum(['impression', 'pause', 'publish', 'delete']),
+  action: z.enum(['impression', 'pause', 'publish', 'delete', 'edit']),
+  title: z.string().min(2).max(120).optional(),
+  content: z.string().min(2).max(1000).optional(),
+  ctaText: z.string().min(1).max(40).optional(),
+  targetUrl: z.string().url().optional(),
+  totalBudget: z.number().min(1).optional(),
+  mediaId: z.string().optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -224,7 +230,22 @@ export async function PATCH(req: NextRequest) {
     const isAdmin = user.role === UserRole.ROOT || user.role === UserRole.ADMIN;
     if (!isOwner && !isAdmin) throw new ForbiddenError('Cannot modify this campaign.');
 
-    if (body.action === 'pause') {
+    if (body.action === 'edit') {
+      if (body.title !== undefined) ad.title = body.title.trim();
+      if (body.content !== undefined) ad.content = body.content.trim();
+      if (body.ctaText !== undefined) ad.ctaText = body.ctaText.trim();
+      if (body.targetUrl !== undefined) ad.targetUrl = body.targetUrl;
+      if (body.totalBudget !== undefined) {
+        ad.totalBudget = Math.max(ad.spentBudget, body.totalBudget);
+        if (ad.status === AdStatus.COMPLETED && ad.totalBudget > ad.spentBudget) {
+          ad.status = AdStatus.PUBLISHED;
+        }
+      }
+      if (body.mediaId !== undefined) {
+        ad.mediaId = Types.ObjectId.isValid(body.mediaId) ? new Types.ObjectId(body.mediaId) : ad.mediaId;
+      }
+      await ad.save();
+    } else if (body.action === 'pause') {
       ad.status = AdStatus.PAUSED;
       await ad.save();
     } else if (body.action === 'publish') {

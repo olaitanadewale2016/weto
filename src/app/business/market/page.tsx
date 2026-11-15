@@ -48,6 +48,7 @@ export default function BusinessMarketPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<EditableProductData | null>(null);
   const [promoting, setPromoting] = useState<MyProduct | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   const loadInventory = useCallback(async () => {
     setLoading(true);
@@ -106,23 +107,46 @@ export default function BusinessMarketPage() {
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link href="/marketplace">
-          <Button variant="outline">View Public Marketplace</Button>
-        </Link>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setEditing(null);
-            setCreateOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" /> New Listing
-        </Button>
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { key: 'all', label: `All (${items.length})` },
+            { key: 'active', label: 'Active' },
+            { key: 'inactive', label: 'Paused / Draft' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatusFilter(tab.key as 'all' | 'active' | 'inactive')}
+              className={`rounded-full px-3.5 py-1.5 text-cap-l font-semibold transition-colors cursor-pointer ${
+                statusFilter === tab.key
+                  ? 'bg-lab-pr text-bg-pr'
+                  : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/marketplace">
+            <Button variant="outline" size="sm">View Public Marketplace</Button>
+          </Link>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setEditing(null);
+              setCreateOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> New Listing
+          </Button>
+        </div>
       </div>
 
       {loading ? (
         <p className="text-lab-sc py-8 text-center">Loading inventory...</p>
-      ) : items.length === 0 ? (
+      ) : items.filter((p) => statusFilter === 'all' ? true : statusFilter === 'active' ? p.status === 'active' : p.status !== 'active').length === 0 ? (
         <EmptyState
           icon={ShoppingBag}
           title="No store listings yet"
@@ -130,7 +154,11 @@ export default function BusinessMarketPage() {
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((p) => (
+          {items
+            .filter((p) =>
+              statusFilter === 'all' ? true : statusFilter === 'active' ? p.status === 'active' : p.status !== 'active'
+            )
+            .map((p) => (
             <div
               key={p.id}
               className="rounded-3xl border border-bord-card bg-bg-pr overflow-hidden flex flex-col"

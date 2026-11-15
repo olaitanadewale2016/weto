@@ -104,6 +104,54 @@ export function apiError(err: unknown) {
     );
   }
 
+  if (err && typeof err === 'object') {
+    const record = err as {
+      name?: string;
+      message?: string;
+      code?: number;
+      errors?: Record<string, { message?: string }>;
+    };
+    if (record.name === 'ValidationError') {
+      const firstFieldMsg = record.errors
+        ? Object.values(record.errors).find((e) => e?.message)?.message
+        : undefined;
+      return NextResponse.json<ApiErrorPayload>(
+        {
+          status: 'error',
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: firstFieldMsg || record.message || 'Validation failed',
+          },
+        },
+        { status: 422 }
+      );
+    }
+    if (record.name === 'CastError') {
+      return NextResponse.json<ApiErrorPayload>(
+        {
+          status: 'error',
+          error: {
+            code: 'INVALID_ID',
+            message: 'Invalid identifier format.',
+          },
+        },
+        { status: 400 }
+      );
+    }
+    if (record.code === 11000) {
+      return NextResponse.json<ApiErrorPayload>(
+        {
+          status: 'error',
+          error: {
+            code: 'CONFLICT',
+            message: 'A record with that unique value already exists.',
+          },
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   logger.error({ err }, 'Unhandled API error');
   return NextResponse.json<ApiErrorPayload>(
     {

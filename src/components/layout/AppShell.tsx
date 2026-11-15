@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -82,25 +82,68 @@ export function AppShell({
   }
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [moreMenuPos, setMoreMenuPos] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+    maxHeight: number;
+  }>({ left: 24, bottom: 80, maxHeight: 520 });
   const [mobileCreateOpen, setMobileCreateOpen] = useState(false);
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const moreMenuPanelRef = useRef<HTMLDivElement>(null);
 
   const features = bootstrap?.config?.features;
   const isAdmin = user?.role === 'root' || user?.role === 'admin' || user?.role === 'moderator';
   const appName = bootstrap?.config?.appName || 'Weto';
 
-  // Close More dropdown on outside click
+  const updateMoreMenuPosition = useCallback(() => {
+    if (!moreRef.current || typeof window === 'undefined') return;
+    const rect = moreRef.current.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const left = Math.max(12, Math.min(rect.left, vw - 272));
+    const spaceAbove = rect.top - 12;
+
+    if (spaceAbove >= 480) {
+      setMoreMenuPos({
+        left,
+        bottom: Math.max(12, vh - rect.top + 8),
+        maxHeight: Math.max(240, vh - 24),
+      });
+    } else {
+      setMoreMenuPos({
+        left,
+        bottom: 12,
+        maxHeight: Math.max(240, vh - 24),
+      });
+    }
+  }, []);
+
+  // Close More dropdown on outside click & keep viewport-clamped on resize/scroll
   useEffect(() => {
     if (!moreMenuOpen) return;
+    updateMoreMenuPosition();
     const onDocClick = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        moreRef.current &&
+        !moreRef.current.contains(target) &&
+        (!moreMenuPanelRef.current || !moreMenuPanelRef.current.contains(target))
+      ) {
         setMoreMenuOpen(false);
       }
     };
+    const onWindowChange = () => updateMoreMenuPosition();
     document.addEventListener('click', onDocClick);
-    return () => document.removeEventListener('click', onDocClick);
-  }, [moreMenuOpen]);
+    window.addEventListener('resize', onWindowChange);
+    window.addEventListener('scroll', onWindowChange, true);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      window.removeEventListener('resize', onWindowChange);
+      window.removeEventListener('scroll', onWindowChange, true);
+    };
+  }, [moreMenuOpen, updateMoreMenuPosition]);
 
   // Global keyboard shortcuts matching ColibriPlus hotkeys
   useEffect(() => {
@@ -349,8 +392,16 @@ export function AppShell({
 
                 {moreMenuOpen && (
                   <div
+                    ref={moreMenuPanelRef}
                     onClick={() => setMoreMenuOpen(false)}
-                    className="absolute bottom-full mb-2 left-0 py-2 overflow-hidden min-w-60 divide-y divide-fill-sc rounded-md backdrop-blur-xs bg-bg-pr/95 shadow-2xl border border-bord-tr z-50"
+                    style={{
+                      left: moreMenuPos.left,
+                      ...(moreMenuPos.top !== undefined
+                        ? { top: moreMenuPos.top }
+                        : { bottom: moreMenuPos.bottom }),
+                      maxHeight: moreMenuPos.maxHeight,
+                    }}
+                    className="fixed py-2 overflow-y-auto overscroll-contain min-w-60 w-64 divide-y divide-fill-sc rounded-md backdrop-blur-xs bg-bg-pr/95 shadow-2xl border border-bord-tr z-[70]"
                   >
                     {isAdmin && (
                       <div className="py-1">

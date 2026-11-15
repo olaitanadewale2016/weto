@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Megaphone, Pause, Play, Plus, Trash2 } from 'lucide-react';
+import { Edit3, ExternalLink, Megaphone, Pause, Play, Plus, Trash2 } from 'lucide-react';
 import { BusinessPortalHeader } from '@/components/business/BusinessPortalHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,9 +24,10 @@ interface AdCampaign {
   spentBudget: number;
   currency?: string;
   viewsCount: number;
+  clicksCount?: number;
   status: string;
   approval: string;
-  media?: { publicUrl?: string; url?: string } | null;
+  media?: { publicUrl?: string; url?: string; type?: string } | null;
 }
 
 export default function BusinessAdsPage() {
@@ -35,7 +36,9 @@ export default function BusinessAdsPage() {
   const { error, success } = useToast();
   const [ads, setAds] = useState<AdCampaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'paused' | 'pending'>('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingAdId, setEditingAdId] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -83,64 +86,136 @@ export default function BusinessAdsPage() {
     }
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  function openNewModal() {
+    setEditingAdId(null);
+    setTitle('');
+    setContent('');
+    setCtaText('Learn More');
+    setTargetUrl('https://');
+    setTotalBudget('50');
+    setMediaId(undefined);
+    setCreativePreview(null);
+    setCreateOpen(true);
+  }
+
+  function openEditModal(ad: AdCampaign) {
+    setEditingAdId(ad.id);
+    setTitle(ad.title || '');
+    setContent(ad.content || '');
+    setCtaText(ad.ctaText || 'Learn More');
+    setTargetUrl(ad.targetUrl || 'https://');
+    setTotalBudget(String(ad.totalBudget || 50));
+    setMediaId(undefined);
+    const existingUrl = ad.media?.publicUrl || ad.media?.url;
+    setCreativePreview(existingUrl ? { url: existingUrl, type: ad.media?.type || 'image' } : null);
+    setCreateOpen(true);
+  }
+
+  async function handleCreateOrEdit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await apiFetch('/ads', {
-        method: 'POST',
-        json: {
-          title: title.trim(),
-          content: content.trim(),
-          ctaText: ctaText.trim() || 'Learn More',
-          targetUrl: targetUrl.trim(),
-          totalBudget: Number(totalBudget) || 10,
-          mediaId,
-          publishNow: true,
-        },
-      });
-      success('Ad campaign created!');
+      if (editingAdId) {
+        await apiFetch('/ads', {
+          method: 'PATCH',
+          json: {
+            adId: editingAdId,
+            action: 'edit',
+            title: title.trim(),
+            content: content.trim(),
+            ctaText: ctaText.trim() || 'Learn More',
+            targetUrl: targetUrl.trim(),
+            totalBudget: Number(totalBudget) || 10,
+            ...(mediaId ? { mediaId } : {}),
+          },
+        });
+        success('Ad campaign updated!');
+      } else {
+        await apiFetch('/ads', {
+          method: 'POST',
+          json: {
+            title: title.trim(),
+            content: content.trim(),
+            ctaText: ctaText.trim() || 'Learn More',
+            targetUrl: targetUrl.trim(),
+            totalBudget: Number(totalBudget) || 10,
+            mediaId,
+            publishNow: true,
+          },
+        });
+        success('Ad campaign created!');
+      }
       setCreateOpen(false);
+      setEditingAdId(null);
       setTitle('');
       setContent('');
       setMediaId(undefined);
       setCreativePreview(null);
-      loadAds();
+      await loadAds();
     } catch (err) {
-      error('Could not create ad', err instanceof Error ? err.message : undefined);
+      error(editingAdId ? 'Could not update ad' : 'Could not create ad', err instanceof Error ? err.message : undefined);
     } finally {
       setSubmitting(false);
     }
   }
 
   async function adAction(adId: string, action: 'pause' | 'publish' | 'delete') {
+    if (action === 'delete' && !window.confirm('Delete this ad campaign permanently?')) return;
     try {
       await apiFetch('/ads', { method: 'PATCH', json: { adId, action } });
-      success(`Campaign ${action}d`);
-      loadAds();
+      success(`Campaign ${action === 'delete' ? 'deleted' : `${action}d`}`);
+      await loadAds();
     } catch (err) {
       error('Action failed', err instanceof Error ? err.message : undefined);
     }
   }
+
+  const visibleAds = ads.filter((ad) => {
+    if (statusFilter === 'published') return ad.status === 'published' && ad.approval === 'approved';
+    if (statusFilter === 'paused') return ad.status === 'paused' || ad.status === 'completed';
+    if (statusFilter === 'pending') return ad.approval === 'pending' || ad.approval === 'rejected';
+    return true;
+  });
 
   return (
     <>
       <div className="space-y-6">
         <BusinessPortalHeader title="Advertisement Manager" subtitle="Create, fund, and monitor promoted feed campaigns." />
 
-        <div className="flex justify-end">
-          <Button variant="primary" onClick={() => setCreateOpen(true)}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { key: 'all', label: `All (${ads.length})` },
+              { key: 'published', label: 'Active' },
+              { key: 'paused', label: 'Paused / Completed' },
+              { key: 'pending', label: 'Review' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setStatusFilter(tab.key as 'all' | 'published' | 'paused' | 'pending')}
+                className={`rounded-full px-3.5 py-1.5 text-cap-l font-semibold transition-colors cursor-pointer ${
+                  statusFilter === tab.key
+                    ? 'bg-lab-pr text-bg-pr'
+                    : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <Button variant="primary" size="sm" onClick={openNewModal}>
             <Plus className="h-4 w-4" /> New Campaign
           </Button>
         </div>
 
         {loading ? (
           <p className="text-center text-lab-sc py-8">Loading campaigns...</p>
-        ) : ads.length === 0 ? (
-          <EmptyState icon={Megaphone} title="No ad campaigns yet" description="Launch your first campaign to reach Weto feeds." />
+        ) : visibleAds.length === 0 ? (
+          <EmptyState icon={Megaphone} title="No ad campaigns found" description="Launch your first campaign to reach Weto feeds." />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {ads.map((ad) => (
+            {visibleAds.map((ad) => (
               <div key={ad.id} className="rounded-3xl border border-bord-card bg-bg-pr overflow-hidden flex flex-col">
                 {(ad.media?.publicUrl || ad.media?.url) && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -203,19 +278,33 @@ export default function BusinessAdsPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    {ad.status === 'published' ? (
-                      <Button size="sm" variant="outline" onClick={() => adAction(ad.id, 'pause')}>
-                        <Pause className="h-3.5 w-3.5" /> Pause
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                    <a
+                      href={ad.targetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-cap-l text-brand-900 hover:underline truncate max-w-[160px]"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{ad.ctaText}</span>
+                    </a>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openEditModal(ad)}>
+                        <Edit3 className="h-3.5 w-3.5" /> Edit
                       </Button>
-                    ) : (
-                      <Button size="sm" variant="primary" onClick={() => adAction(ad.id, 'publish')}>
-                        <Play className="h-3.5 w-3.5" /> Resume
+                      {ad.status === 'published' ? (
+                        <Button size="sm" variant="outline" onClick={() => adAction(ad.id, 'pause')}>
+                          <Pause className="h-3.5 w-3.5" /> Pause
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="primary" onClick={() => adAction(ad.id, 'publish')}>
+                          <Play className="h-3.5 w-3.5" /> Resume
+                        </Button>
+                      )}
+                      <Button size="sm" variant="danger" onClick={() => adAction(ad.id, 'delete')}>
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
-                    )}
-                    <Button size="sm" variant="danger" onClick={() => adAction(ad.id, 'delete')}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -224,11 +313,18 @@ export default function BusinessAdsPage() {
         )}
       </div>
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Ad Campaign">
-        <form onSubmit={handleCreate} className="space-y-4">
+      <Modal
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setEditingAdId(null);
+        }}
+        title={editingAdId ? 'Edit Ad Campaign' : 'Create Ad Campaign'}
+      >
+        <form onSubmit={handleCreateOrEdit} className="space-y-4">
           <Input label="Headline" value={title} onChange={(e) => setTitle(e.target.value)} required />
           <Textarea label="Ad Copy" value={content} onChange={(e) => setContent(e.target.value)} required />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="CTA Button Text" value={ctaText} onChange={(e) => setCtaText(e.target.value)} required />
             <Input label={`Total Budget (${defaultCurrency})`} type="number" min="1" step="1" value={totalBudget} onChange={(e) => setTotalBudget(e.target.value)} required />
           </div>
@@ -245,11 +341,11 @@ export default function BusinessAdsPage() {
                 )}
               </div>
             )}
-            <input type="file" accept="image/*,video/*" disabled={uploadingCreative} onChange={handleUpload} className="text-cap-l" />
+            <input type="file" accept="image/*,video/*" disabled={uploadingCreative} onChange={handleUpload} className="text-cap-l block w-full" />
             {uploadingCreative && <p className="text-cap-s text-brand-900">Uploading creative to Cloudflare R2...</p>}
           </div>
           <Button type="submit" variant="primary" className="w-full" loading={submitting}>
-            Launch Campaign
+            {editingAdId ? 'Save Campaign Changes' : 'Launch Campaign'}
           </Button>
         </form>
       </Modal>

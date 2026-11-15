@@ -44,3 +44,19 @@ export async function emitToPost(postId: string, event: string, payload: unknown
     logger.warn({ err, postId, event }, 'Failed to emit realtime event to post');
   }
 }
+
+export async function emitToAdmins(
+  adminUserIds: string[],
+  event: string,
+  payload: unknown
+): Promise<void> {
+  try {
+    const em = getRealtimeEmitter();
+    if (!em || adminUserIds.length === 0) return;
+    for (const id of adminUserIds) {
+      em.to(`user:${id}`).emit(event, payload);
+    }
+  } catch (err) {
+    logger.warn({ err, event }, 'Failed to emit realtime event to admins');
+  }
+}

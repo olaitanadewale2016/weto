@@ -31,12 +31,48 @@ const ReportSchema = new Schema<IReportDocument>(
 export const Report: Model<IReportDocument> =
   mongoose.models.Report || mongoose.model<IReportDocument>('Report', ReportSchema);
 
+export const MODERATION_ACTION_TYPES = [
+  'warn',
+  'remove_content',
+  'suspend',
+  'ban',
+  'unban',
+  'restrict',
+  'dismiss_report',
+  'resolve_report',
+  'delete_user',
+  'verify_user',
+  'unverify_user',
+  'grant_author',
+  'revoke_author',
+  'set_wallet_balance',
+  'approve_product',
+  'reject_product',
+  'approve_job',
+  'reject_job',
+  'verify_business',
+  'reject_business',
+  'approve_ad',
+  'reject_ad',
+  'pause_ad',
+  'publish_ad',
+  'blacklist_add',
+  'approve_authorship',
+  'reject_authorship',
+  'approve_cashout',
+  'reject_cashout',
+  'delete_chat',
+  'delete_chat_message',
+] as const;
+
+export type ModerationActionType = (typeof MODERATION_ACTION_TYPES)[number];
+
 export interface IModerationActionDocument extends Document {
   moderatorId: Types.ObjectId;
   targetUserId?: Types.ObjectId | null;
   targetType: string;
   targetId: string;
-  action: 'warn' | 'remove_content' | 'suspend' | 'ban' | 'unban' | 'restrict' | 'dismiss_report';
+  action: ModerationActionType;
   reason: string;
   expiresAt?: Date | null;
   createdAt: Date;
@@ -50,7 +86,7 @@ const ModerationActionSchema = new Schema<IModerationActionDocument>(
     targetId: { type: String, required: true },
     action: {
       type: String,
-      enum: ['warn', 'remove_content', 'suspend', 'ban', 'unban', 'restrict', 'dismiss_report'],
+      enum: MODERATION_ACTION_TYPES,
       required: true,
     },
     reason: { type: String, default: '' },

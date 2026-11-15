@@ -12,6 +12,7 @@ import {
   FileText,
   Film,
   LayoutDashboard,
+  MessageSquare,
   Music,
   RefreshCw,
   Search,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { ADMIN_NAV_ICONS, PortalShell, type PortalNavItem } from '@/components/layout/PortalShell';
+import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +31,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
+import { resolveMediaUrl } from '@/lib/media-url';
 import {
   getFirebaseClientAuth,
   googleAuthProvider,
@@ -314,7 +317,7 @@ export default function AdminDashboardPage() {
 function AdminDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { loading: appLoading, user, bootstrap, refreshBootstrap, locale } = useApp();
+  const { loading: appLoading, user, bootstrap, refreshBootstrap, locale, socket } = useApp();
   const { error, success } = useToast();
   const urlTab = searchParams.get('tab');
   const activeTab = urlTab && VALID_ADMIN_TAB_KEYS.has(urlTab) ? urlTab : 'overview';
@@ -322,9 +325,35 @@ function AdminDashboardContent() {
   const [tabFilter, setTabFilter] = useState<string>('all');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [liveSync, setLiveSync] = useState(true);
   const [detailModal, setDetailModal] = useState<{
     kind: 'ad' | 'story' | 'post' | 'report' | 'chat' | 'payment';
     row: Record<string, unknown>;
+  } | null>(null);
+  const [chatInspectState, setChatInspectState] = useState<{
+    loading: boolean;
+    chatId: string;
+    chat: Record<string, unknown> | null;
+    messages: Array<{
+      _id: string;
+      type: string;
+      content?: string | null;
+      isDeleted?: boolean;
+      deletedAt?: string | null;
+      createdAt?: string;
+      sender?: {
+        _id?: string;
+        username?: string;
+        firstName?: string;
+        lastName?: string;
+        avatar?: string;
+        verified?: boolean;
+      } | null;
+      media?: { url?: string; publicUrl?: string; type?: string } | null;
+    }>;
+    hasMore: boolean;
+    limit: number;
+    deletingMessageId?: string | null;
   } | null>(null);
   const [confirmState, setConfirmState] = useState<{
     title: string;
@@ -451,13 +480,16 @@ function AdminDashboardContent() {
     [router]
   );
 
-  const loadTab = useCallback(async () => {
+  const loadTab = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
     if (!isAdmin) {
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
-    setLoading(true);
-    setResourceData(null);
+    if (!silent) {
+      setLoading(true);
+      setResourceData(null);
+    }
     try {
       if (activeTab === 'overview') {
         const res = await apiFetch('/admin/overview');
@@ -478,11 +510,47 @@ function AdminDashboardContent() {
         setResourceData(res);
       }
     } catch (err) {
-      error('Failed to load admin data', err instanceof Error ? err.message : undefined);
+      if (!silent) {
+        error('Failed to load admin data', err instanceof Error ? err.message : undefined);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [activeTab, isAdmin, searchQuery, tabFilter, userFilter, error]);
+
+  const openChatInspect = useCallback(
+    async (chatId: string, initialRow?: Record<string, unknown>, limit = 60) => {
+      setChatInspectState((prev) => ({
+        loading: true,
+        chatId,
+        chat: prev && prev.chatId === chatId ? prev.chat : initialRow || null,
+        messages: prev && prev.chatId === chatId ? prev.messages : [],
+        hasMore: prev && prev.chatId === chatId ? prev.hasMore : false,
+        limit,
+        deletingMessageId: null,
+      }));
+      try {
+        const res = await apiFetch<{
+          chat: Record<string, unknown>;
+          messages: NonNullable<typeof chatInspectState>['messages'];
+          hasMore: boolean;
+        }>(`/admin/manage?resource=chat_messages&chatId=${encodeURIComponent(chatId)}&limit=${limit}`);
+        setChatInspectState({
+          loading: false,
+          chatId,
+          chat: res.chat,
+          messages: Array.isArray(res.messages) ? res.messages : [],
+          hasMore: Boolean(res.hasMore),
+          limit,
+          deletingMessageId: null,
+        });
+      } catch (err) {
+        error('Failed to inspect conversation', err instanceof Error ? err.message : undefined);
+        setChatInspectState(null);
+      }
+    },
+    [error]
+  );
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -490,6 +558,46 @@ function AdminDashboardContent() {
     }, 0);
     return () => clearTimeout(id);
   }, [loadTab]);
+
+  // Real-time Socket.IO & silent background polling sync for admin panel
+  useEffect(() => {
+    if (!isAdmin || !liveSync) return;
+
+    const refreshCurrent = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      void loadTab({ silent: true });
+      if (chatInspectState?.chatId) {
+        void openChatInspect(chatInspectState.chatId, chatInspectState.chat || undefined, chatInspectState.limit);
+      }
+    };
+
+    const onSocketAdminUpdate = () => {
+      refreshCurrent();
+    };
+
+    socket?.on('admin:updated', onSocketAdminUpdate);
+    socket?.on('notification:new', onSocketAdminUpdate);
+
+    // Avoid polling while typing inside platform settings / forms to prevent unsaved flicker
+    const intervalMs = activeTab === 'settings' || activeTab === 'acquiring' ? 30000 : 10000;
+    const intervalId = setInterval(refreshCurrent, intervalMs);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshCurrent();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', refreshCurrent);
+
+    return () => {
+      socket?.off('admin:updated', onSocketAdminUpdate);
+      socket?.off('notification:new', onSocketAdminUpdate);
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', refreshCurrent);
+    };
+  }, [isAdmin, liveSync, activeTab, socket, loadTab, chatInspectState?.chatId, chatInspectState?.chat, chatInspectState?.limit, openChatInspect]);
 
   async function handleAction(action: string, targetId?: string, payload: Record<string, unknown> = {}) {
     try {
@@ -507,7 +615,12 @@ function AdminDashboardContent() {
         await refreshBootstrap();
       }
       success(action === 'cache.reset' ? 'Platform settings and layout cache cleared' : 'Action completed');
-      loadTab();
+      if (action === 'chat.delete' && chatInspectState?.chatId === targetId) {
+        setChatInspectState(null);
+      } else if (action === 'chat.delete_message' && chatInspectState?.chatId) {
+        await openChatInspect(chatInspectState.chatId, chatInspectState.chat || undefined, chatInspectState.limit);
+      }
+      await loadTab({ silent: true });
     } catch (err) {
       error('Admin action failed', err instanceof Error ? err.message : undefined);
     }
@@ -656,6 +769,20 @@ const list = Array.isArray(resourceData) ? (resourceData as Array<Record<string,
 
 const portalHeaderControls = (
   <div className="flex items-center gap-2">
+    <button
+      type="button"
+      onClick={() => setLiveSync((v) => !v)}
+      title={liveSync ? 'Real-time auto-sync active (click to pause)' : 'Real-time auto-sync paused (click to enable)'}
+      className={cn(
+        'hidden sm:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-cap-s font-semibold border transition-colors cursor-pointer',
+        liveSync
+          ? 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400'
+          : 'border-bord-pr bg-fill-qt text-lab-sc'
+      )}
+    >
+      <span className={cn('h-1.5 w-1.5 rounded-full', liveSync ? 'bg-green-500 animate-pulse' : 'bg-lab-tr')} />
+      {liveSync ? 'Live' : 'Paused'}
+    </button>
     <Button size="sm" variant="outline" onClick={() => void loadTab()}>
       <RefreshCw className="h-3.5 w-3.5" /> Refresh
     </Button>
@@ -1306,8 +1433,8 @@ const portalHeaderControls = (
                                 )}
                                 {activeTab === 'chats' && (
                                   <>
-                                    <Button size="sm" variant="outline" onClick={() => setDetailModal({ kind: 'chat', row })}>
-                                      <Eye className="h-3.5 w-3.5" /> Inspect
+                                    <Button size="sm" variant="outline" onClick={() => void openChatInspect(id, row)}>
+                                      <MessageSquare className="h-3.5 w-3.5" /> Inspect
                                     </Button>
                                     <Button
                                       size="sm"
@@ -1898,6 +2025,277 @@ const portalHeaderControls = (
                                                           </div>
         )}
                                                         </Modal>
+
+      {/* PHP-Parity + Full Message Thread Chat Inspector Modal */}
+      <Modal
+        open={chatInspectState !== null}
+        onClose={() => setChatInspectState(null)}
+        maxWidthClass="max-w-3xl"
+        title={
+          chatInspectState?.chat
+            ? (chatInspectState.chat.group as { name?: string } | undefined)?.name ||
+              `Inspect ${String(chatInspectState.chat.type || 'direct').toUpperCase()} Chat`
+            : 'Inspect Conversation'
+        }
+      >
+        {chatInspectState && (() => {
+          const c = chatInspectState.chat || {};
+          const grp = c.group as { name?: string; description?: string; avatar?: string } | undefined;
+          const participants = Array.isArray(c.participants)
+            ? (c.participants as Array<{
+                userId?: {
+                  _id?: string;
+                  username?: string;
+                  firstName?: string;
+                  lastName?: string;
+                  email?: string;
+                  avatar?: string;
+                  status?: string;
+                  role?: string;
+                  verified?: boolean;
+                };
+              }>)
+            : [];
+          const chatType = String(c.type || 'direct');
+
+          return (
+            <div className="space-y-4">
+              {/* Overview & PHP Metadata Grid */}
+              <div className="rounded-2xl border border-bord-pr bg-fill-qt/50 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={chatType === 'group' ? 'brand' : 'outline'} className="capitalize">
+                      {chatType}
+                    </Badge>
+                    <Badge variant="default">
+                      {Number(c.participantsCount ?? participants.length)} participant(s)
+                    </Badge>
+                    <Badge variant="default">
+                      {Number(c.messagesCount ?? chatInspectState.messages.length)} message(s)
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void openChatInspect(chatInspectState.chatId, c, chatInspectState.limit)}
+                      disabled={chatInspectState.loading}
+                    >
+                      <RefreshCw className={cn('h-3.5 w-3.5', chatInspectState.loading && 'animate-spin')} /> Sync
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() =>
+                        setConfirmState({
+                          title: 'Delete entire conversation?',
+                          description: 'Deletes the entire chat thread, attachments, and all stored messages permanently.',
+                          confirmLabel: 'Delete Chat',
+                          variant: 'danger',
+                          onConfirm: () => handleAction('chat.delete', chatInspectState.chatId),
+                        })
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete Chat
+                    </Button>
+                  </div>
+                </div>
+
+                {chatType === 'group' && grp && (
+                  <div className="flex items-center gap-3 pt-1 border-t border-bord-pr/70">
+                    <Avatar src={grp.avatar} alt={grp.name || 'Group'} fallback={grp.name} size="md" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-par-n text-lab-pr truncate">{grp.name || 'Group Chat'}</p>
+                      {grp.description && <p className="text-cap-l text-lab-sc line-clamp-2">{grp.description}</p>}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-cap-s text-lab-sc pt-1 border-t border-bord-pr/70">
+                  <p className="truncate font-mono">
+                    #ID: <span className="text-lab-pr">{chatInspectState.chatId}</span>
+                  </p>
+                  {Boolean(c.chatUuid) && (
+                    <p className="truncate font-mono">
+                      #HASH: <span className="text-lab-pr">{String(c.chatUuid)}</span>
+                    </p>
+                  )}
+                  {Boolean(c.createdAt) && (
+                    <p>Created: {new Date(String(c.createdAt)).toLocaleString()}</p>
+                  )}
+                  {Boolean(c.lastActivity) && (
+                    <p>Last activity: {new Date(String(c.lastActivity)).toLocaleString()}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Participants */}
+              <div className="space-y-2">
+                <p className="text-cap-s font-semibold uppercase tracking-wide text-lab-tr">
+                  Participants ({participants.length})
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {participants.map((p, idx) => {
+                    const pu = p.userId;
+                    const displayName =
+                      `${pu?.firstName || ''} ${pu?.lastName || ''}`.trim() || pu?.username || 'User';
+                    return (
+                      <div
+                        key={pu?._id || idx}
+                        className="rounded-xl border border-bord-pr bg-bg-pr p-2.5 flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Avatar src={pu?.avatar} alt={displayName} fallback={pu?.username} size="sm" />
+                          <div className="min-w-0">
+                            <p className="text-cap-l font-semibold text-lab-pr truncate">{displayName}</p>
+                            <p className="text-cap-s text-lab-sc truncate">
+                              @{pu?.username || 'user'}
+                              {pu?.email ? ` · ${pu.email}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        {pu?.username && (
+                          <Link href={`/u/${pu.username}`} target="_blank" title="Open user profile">
+                            <Button size="sm" variant="ghost">
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Live Message & Attachment Thread */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-cap-s font-semibold uppercase tracking-wide text-lab-tr">
+                    Conversation Messages
+                  </p>
+                  {chatInspectState.hasMore && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={chatInspectState.loading}
+                      onClick={() =>
+                        void openChatInspect(
+                          chatInspectState.chatId,
+                          c,
+                          Math.min(100, chatInspectState.limit + 40)
+                        )
+                      }
+                    >
+                      Load older messages
+                    </Button>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-bord-pr bg-fill-qt/30 max-h-[360px] overflow-y-auto p-3 space-y-2.5">
+                  {chatInspectState.loading && chatInspectState.messages.length === 0 ? (
+                    <p className="text-center text-cap-l text-lab-sc py-8">Loading messages...</p>
+                  ) : chatInspectState.messages.length === 0 ? (
+                    <p className="text-center text-cap-l text-lab-sc py-8">
+                      No messages in this conversation yet.
+                    </p>
+                  ) : (
+                    chatInspectState.messages.map((msg) => {
+                      const senderName =
+                        `${msg.sender?.firstName || ''} ${msg.sender?.lastName || ''}`.trim() ||
+                        (msg.sender?.username ? `@${msg.sender.username}` : 'User');
+                      const rawMediaUrl = msg.media?.publicUrl || msg.media?.url || '';
+                      const mediaUrl = rawMediaUrl ? resolveMediaUrl(rawMediaUrl) || rawMediaUrl : '';
+
+                      return (
+                        <div
+                          key={msg._id}
+                          className={cn(
+                            'rounded-xl border border-bord-pr bg-bg-pr p-3 space-y-2',
+                            msg.isDeleted && 'opacity-65'
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Avatar
+                                src={msg.sender?.avatar}
+                                alt={senderName}
+                                fallback={msg.sender?.username}
+                                size="xs"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-cap-l font-semibold text-lab-pr truncate">
+                                  {senderName}
+                                  {msg.sender?.username && (
+                                    <span className="font-normal text-lab-sc"> @{msg.sender.username}</span>
+                                  )}
+                                </p>
+                                {msg.createdAt && (
+                                  <p className="text-cap-s text-lab-tr">
+                                    {new Date(msg.createdAt).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {!msg.isDeleted ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setConfirmState({
+                                    title: 'Delete message?',
+                                    description: 'Redacts this message and removes any attached media for moderation.',
+                                    confirmLabel: 'Remove Message',
+                                    variant: 'danger',
+                                    onConfirm: () => handleAction('chat.delete_message', msg._id),
+                                  })
+                                }
+                                title="Remove message"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-red-900" />
+                              </Button>
+                            ) : (
+                              <Badge variant="outline">Removed</Badge>
+                            )}
+                          </div>
+
+                          {msg.content && (
+                            <p className="text-par-s text-lab-pr whitespace-pre-wrap break-words">
+                              {msg.content}
+                            </p>
+                          )}
+
+                          {mediaUrl && !msg.isDeleted && (
+                            <div className="rounded-xl overflow-hidden border border-bord-pr bg-fill-qt max-w-sm">
+                              {msg.media?.type === 'video' || msg.media?.type === 'video_circle' ? (
+                                <video src={mediaUrl} controls className="max-h-56 w-full object-contain" />
+                              ) : msg.media?.type === 'audio' ? (
+                                <audio src={mediaUrl} controls className="w-full p-2" />
+                              ) : msg.media?.type === 'document' ? (
+                                <a
+                                  href={mediaUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 p-2.5 text-cap-l text-brand-900 hover:underline"
+                                >
+                                  <FileText className="h-4 w-4" /> Open attached file
+                                </a>
+                              ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={mediaUrl} alt="Chat attachment" className="max-h-56 w-full object-contain" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* Review Decision With Optional Reviewer Note Modal */}
                                                       <Modal

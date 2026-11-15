@@ -107,6 +107,11 @@ export default function BusinessSettingsPage() {
         },
       });
       success('Business profile saved!');
+      setBusinessState((prev) => ({
+        configured: true,
+        verified: prev.verified,
+        isReviewed: prev.isReviewed,
+      }));
     } catch (err) {
       error('Failed to save business settings', err instanceof Error ? err.message : undefined);
     } finally {

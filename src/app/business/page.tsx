@@ -11,11 +11,14 @@ import { formatCurrency } from '@/lib/currency';
 import { useApp } from '@/components/providers/AppContext';
 
 interface BusinessOverview {
-  business: { name: string; description?: string; logo?: string; verified?: boolean } | null;
+  business: { name: string; description?: string; logo?: string; verified?: boolean; isReviewed?: boolean } | null;
   stores: Array<{ _id: string; name: string; caption?: string }>;
   metrics: {
     productsCount: number;
+    activeProductsCount?: number;
     jobsCount: number;
+    activeJobsCount?: number;
+    totalJobApplications?: number;
     adsCount: number;
     walletBalance: number;
     walletCurrency: string;
@@ -60,15 +63,21 @@ export default function BusinessDashboardPage() {
         <>
           {/* KPI Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1">
+            <Link
+              href="/business/wallet"
+              className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1 hover:border-brand-900/50 transition-colors"
+            >
               <span className="inline-flex items-center gap-1.5 text-cap-l text-lab-sc">
                 <Wallet className="h-4 w-4 text-lab-pr2" /> Wallet Balance
               </span>
               <p className="text-title-1 font-bold text-lab-pr">
                 {formatCurrency(data.metrics.walletBalance, data.metrics.walletCurrency, bootstrap?.currencies, locale)}
               </p>
-            </div>
-            <div className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1">
+            </Link>
+            <Link
+              href="/business/ads"
+              className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1 hover:border-brand-900/50 transition-colors"
+            >
               <span className="inline-flex items-center gap-1.5 text-cap-l text-lab-sc">
                 <Megaphone className="h-4 w-4 text-lab-pr2" /> Ad Campaigns
               </span>
@@ -76,19 +85,31 @@ export default function BusinessDashboardPage() {
               <p className="text-cap-s text-lab-tr">
                 <Eye className="h-3 w-3 inline mr-1" />{data.metrics.totalAdViews} views
               </p>
-            </div>
-            <div className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1">
+            </Link>
+            <Link
+              href="/business/market"
+              className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1 hover:border-brand-900/50 transition-colors"
+            >
               <span className="inline-flex items-center gap-1.5 text-cap-l text-lab-sc">
                 <ShoppingBag className="h-4 w-4 text-lab-pr2" /> Store Products
               </span>
               <p className="text-title-1 font-bold text-lab-pr">{data.metrics.productsCount}</p>
-            </div>
-            <div className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1">
+              <p className="text-cap-s text-lab-tr">
+                {data.metrics.activeProductsCount ?? data.metrics.productsCount} active
+              </p>
+            </Link>
+            <Link
+              href="/business/jobs"
+              className="rounded-3xl border border-bord-card bg-bg-pr p-5 space-y-1 hover:border-brand-900/50 transition-colors"
+            >
               <span className="inline-flex items-center gap-1.5 text-cap-l text-lab-sc">
-                <Briefcase className="h-4 w-4 text-lab-pr2" /> Active Jobs
+                <Briefcase className="h-4 w-4 text-lab-pr2" /> Jobs &amp; Openings
               </span>
               <p className="text-title-1 font-bold text-lab-pr">{data.metrics.jobsCount}</p>
-            </div>
+              <p className="text-cap-s text-lab-tr">
+                {data.metrics.totalJobApplications ?? 0} applicant(s)
+              </p>
+            </Link>
           </div>
 
           {/* Business Account Card */}
@@ -103,8 +124,20 @@ export default function BusinessDashboardPage() {
                     {data.business ? data.business.name : 'Set up your Business Profile'}
                   </h2>
                   {data.business && (
-                    <Badge variant={data.business.verified ? 'success' : 'warning'}>
-                      {data.business.verified ? 'Verified Business' : 'Pending Verification'}
+                    <Badge
+                      variant={
+                        data.business.verified
+                          ? 'success'
+                          : data.business.isReviewed
+                            ? 'danger'
+                            : 'warning'
+                      }
+                    >
+                      {data.business.verified
+                        ? 'Verified Business'
+                        : data.business.isReviewed
+                          ? 'Declined'
+                          : 'Pending Verification'}
                     </Badge>
                   )}
                 </div>
