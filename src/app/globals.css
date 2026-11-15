@@ -1,0 +1,241 @@
+@import "tailwindcss";
+@import "@fontsource/outfit/400.css";
+@import "@fontsource/outfit/500.css";
+@import "@fontsource/outfit/600.css";
+@import "@fontsource/outfit/700.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================================
+ * ColibriPlus Design System Tokens
+ * Faithfully synced with ColibriPlus/Source/resources/css/themes/
+ * ============================================================================ */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-outfit: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Desktop & Mobile Layout Spacing Tokens */
+  --spacing-sidebar-width: 350px;
+  --spacing-action-bar: 64px;
+  --spacing-messenger-sidebar: 414px;
+  --spacing-page-offset: 340px;
+  --spacing-content: 600px;
+  --spacing-content-side: 400px;
+  --spacing-catalog: 1280px;
+  --spacing-sided-content: 960px;
+  --spacing-lightbox-content: 43.75rem;
+  --spacing-content-grid: 64.075rem;
+  --spacing-safe-bottom: env(safe-area-inset-bottom);
+
+  /* Typography Scale */
+  --text-lg-title: 2.125rem;
+  --text-title-1: 1.75rem;
+  --text-title-2: 1.375rem;
+  --text-title-3: 1.25rem;
+  --text-par-l: 1.0625rem;
+  --text-par-m: 0.9375rem;
+  --text-par-n: 14px;
+  --text-par-s: 0.8125rem;
+  --text-cap-l: 0.75rem;
+  --text-cap-s: 0.6875rem;
+
+  /* Theme Color Mappings */
+  --color-fill-pr: var(--cp-fill-pr);
+  --color-fill-sc: var(--cp-fill-sc);
+  --color-fill-tr: var(--cp-fill-tr);
+  --color-fill-qt: var(--cp-fill-qt);
+  --color-fill-fv: var(--cp-fill-fv);
+
+  --color-input-pr: var(--cp-input-pr);
+  --color-badge-pr: var(--cp-badge-pr);
+
+  --color-lab-pr: var(--cp-lab-pr);
+  --color-lab-pr2: var(--cp-lab-pr2);
+  --color-lab-pr3: var(--cp-lab-pr3);
+  --color-lab-sc: var(--cp-lab-sc);
+  --color-lab-tr: var(--cp-lab-tr);
+  --color-lab-qt: var(--cp-lab-qt);
+
+  --color-bord-pr: var(--cp-bord-pr);
+  --color-bord-sc: var(--cp-bord-sc);
+  --color-bord-tr: var(--cp-bord-tr);
+  --color-bord-card: var(--cp-bord-card);
+
+  --color-edge-pr: var(--cp-edge-pr);
+  --color-edge-sc: var(--cp-edge-sc);
+  --color-edge-tr: var(--cp-edge-tr);
+
+  --color-bg-pr: var(--cp-bg-pr);
+  --color-bg-sc: var(--cp-bg-sc);
+
+  --color-red-900: rgba(255, 59, 48, 1);
+  --color-green-900: #19AF00;
+  --color-mint: #004D2E;
+  --color-brand-900: var(--cp-brand-900);
+  --color-icon-pr: #468EF9;
+
+  --shadow-vertical-tr: 0 0px 20px 0px rgba(0, 0, 0, 0.1);
+  --shadow-vertical-qt: 0 0px 20px 0px rgba(0, 0, 0, 0.06);
+}
+
+:root {
+  --cp-fill-pr: rgba(120, 120, 128, 0.2);
+  --cp-fill-sc: rgba(120, 120, 128, 0.16);
+  --cp-fill-tr: rgba(118, 118, 128, 0.12);
+  --cp-fill-qt: rgba(116, 116, 128, 0.08);
+  --cp-fill-fv: rgba(116, 116, 128, 0.04);
+
+  --cp-input-pr: rgba(243, 244, 247, 1);
+  --cp-badge-pr: rgba(66, 139, 249, 0.1);
+
+  --cp-lab-pr: #101214;
+  --cp-lab-pr2: #0f1419;
+  --cp-lab-pr3: rgba(110, 110, 110, 1);
+  --cp-lab-sc: #6C7174;
+  --cp-lab-tr: rgba(88, 109, 123, 0.7);
+  --cp-lab-qt: rgba(88, 109, 123, 0.3);
+
+  --cp-bord-pr: rgba(120, 120, 120, 0.12);
+  --cp-bord-sc: rgba(120, 120, 120, 0.10);
+  --cp-bord-tr: rgba(120, 120, 120, 0.08);
+  --cp-bord-card: rgba(198, 198, 200, 0.6);
+
+  --cp-edge-pr: rgba(60, 60, 67, 0.36);
+  --cp-edge-sc: rgba(198, 198, 200, 1);
+  --cp-edge-tr: rgba(198, 198, 200, 0.6);
+
+  --cp-bg-pr: #ffffff;
+  --cp-bg-sc: rgba(242, 242, 242, 1);
+  --cp-brand-900: #4A5CF9;
+}
+
+.dark {
+  --cp-fill-pr: rgba(120, 120, 128, 0.36);
+  --cp-fill-sc: rgba(120, 120, 128, 0.32);
+  --cp-fill-tr: rgba(118, 118, 128, 0.24);
+  --cp-fill-qt: rgba(116, 116, 128, 0.18);
+  --cp-fill-fv: rgba(116, 116, 128, 0.12);
+
+  --cp-input-pr: #202327;
+  --cp-badge-pr: #202327;
+
+  --cp-lab-pr: rgba(255, 255, 255, 1);
+  --cp-lab-pr2: rgba(255, 255, 255, 0.80);
+  --cp-lab-pr3: rgba(255, 255, 255, 0.60);
+  --cp-lab-sc: rgba(235, 235, 245, 0.60);
+  --cp-lab-tr: rgba(235, 235, 245, 0.30);
+  --cp-lab-qt: rgba(235, 235, 245, 0.16);
+
+  --cp-bord-pr: rgba(76, 76, 80, 0.3);
+  --cp-bord-sc: rgba(76, 76, 80, 0.2);
+  --cp-bord-tr: rgba(76, 76, 80, 0.2);
+  --cp-bord-card: rgba(76, 76, 80, 0.5);
+
+  --cp-edge-pr: rgba(235, 235, 245, 0.36);
+  --cp-edge-sc: rgba(76, 76, 80, 1);
+  --cp-edge-tr: rgba(76, 76, 80, 0.6);
+
+  --cp-bg-pr: #111111;
+  --cp-bg-sc: rgba(44, 44, 46, 1);
+  --cp-brand-900: rgba(0, 122, 255, 1);
+}
+
+html,
+body {
+  background-color: var(--cp-bg-pr);
+  color: var(--cp-lab-pr);
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.font-outfit {
+  font-family: var(--font-outfit);
+}
+
+.smoothing {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Exact PHP ColibriPlus utility classes */
+.app-container {
+  max-width: 1200px;
+}
+
+.auth-content {
+  width: 400px;
+  max-width: 100%;
+}
+
+.sidenav-active span {
+  color: var(--cp-lab-pr);
+  font-weight: 500;
+}
+
+.sidenav-inactive span {
+  color: var(--cp-lab-pr2);
+}
+
+.hidden-scroll {
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hidden-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.popup-background-pr {
+  backdrop-filter: blur(4px);
+  background-color: color-mix(in srgb, var(--cp-bg-pr) 80%, transparent);
+}
+
+.popup-card {
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--cp-fill-qt) 50%, transparent);
+}
+
+.colibri-primary-animation {
+  width: 0.5rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 9999px;
+  animation: colibri-primary-animation 1s infinite linear alternate;
+}
+
+@keyframes colibri-primary-animation {
+  0% {
+    box-shadow: 12px 0 var(--cp-bord-pr), -12px 0 var(--cp-fill-pr);
+    background-color: var(--cp-bord-pr);
+  }
+  33% {
+    box-shadow: 12px 0 var(--cp-bord-pr), -12px 0 var(--cp-fill-pr);
+    background-color: var(--cp-fill-pr);
+  }
+  66% {
+    box-shadow: 12px 0 var(--cp-fill-pr), -12px 0 var(--cp-bord-pr);
+    background-color: var(--cp-fill-pr);
+  }
+  100% {
+    box-shadow: 12px 0 var(--cp-fill-pr), -12px 0 var(--cp-bord-pr);
+    background-color: var(--cp-bord-pr);
+  }
+}
