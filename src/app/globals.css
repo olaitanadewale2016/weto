@@ -147,9 +147,20 @@ body {
   color: var(--cp-lab-pr);
   font-family: var(--font-sans);
   letter-spacing: -0.02em;
+  max-width: 100%;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* Prevent automatic iOS / Android browser zoom when focusing inputs on mobile */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 .font-outfit {

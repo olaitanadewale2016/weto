@@ -108,6 +108,25 @@ export function RightRail() {
     });
   }, [bootstrap?.config?.features?.ads]);
 
+  // Exact PHP AdGridItem.vue 5-minute ad rotation interval
+  useEffect(() => {
+    const adsEnabled = bootstrap?.config?.features?.ads !== false;
+    if (!adsEnabled) return;
+    const timer = setInterval(() => {
+      const prevId = rightRailCache.ad?.id || '';
+      const qs = prevId ? `?prevAdId=${encodeURIComponent(prevId)}` : '';
+      apiFetch<FeedAd | null>(`/ads${qs}`)
+        .then((res) => {
+          if (res && res.id) {
+            rightRailCache.ad = res;
+            setAd(res);
+          }
+        })
+        .catch(() => undefined);
+    }, 5 * 60_000);
+    return () => clearInterval(timer);
+  }, [bootstrap?.config?.features?.ads]);
+
   useEffect(() => {
     if (!expectedGreetingKey) return;
     if (rightRailCache.greetingKey === expectedGreetingKey && rightRailCache.greeting) {

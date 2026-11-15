@@ -13,7 +13,7 @@ export default function NewPostPage() {
   const { user } = useApp();
 
   return (
-    <div className="fixed inset-0 z-50 bg-bg-pr text-lab-pr flex flex-col">
+    <div className="fixed inset-0 z-50 bg-bg-pr text-lab-pr flex flex-col overflow-x-hidden max-w-full">
       {/* Top Toolbar matching Source/resources/js/spa/apps/mobile/views/editors/post/PostEditor.vue */}
       <header className="shrink-0 h-14 px-4 flex items-center justify-between border-b border-bord-tr bg-bg-pr">
         <button
@@ -38,7 +38,7 @@ export default function NewPostPage() {
           </Link>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto flex flex-col max-w-2xl w-full mx-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col max-w-2xl w-full mx-auto min-w-0">
           <PostComposer
             fullScreen
             placeholder="What's new?"

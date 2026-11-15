@@ -249,12 +249,14 @@ export function AppProvider({
     } catch {
       // ignore
     }
-    const id = setTimeout(() => {
+    let shouldRefresh = !initialBootstrap;
+    queueMicrotask(() => {
       try {
         const cachedRaw = sessionStorage.getItem(BOOTSTRAP_CACHE_KEY);
         if (cachedRaw && !initialBootstrap) {
           const parsed = JSON.parse(cachedRaw) as { ts?: number; data?: BootstrapData };
-          if (parsed?.data && typeof parsed.ts === 'number' && Date.now() - parsed.ts < 60_000) {
+          const ageMs = typeof parsed?.ts === 'number' ? Date.now() - parsed.ts : Infinity;
+          if (parsed?.data && ageMs < 5 * 60_000) {
             setBootstrap(parsed.data);
             setCounters(parsed.data.counters || { unreadNotifications: 0, unreadMessages: 0 });
             const cachedLoc = parsed.data.user?.language || parsed.data.config?.defaultLocale;
@@ -263,14 +265,18 @@ export function AppProvider({
               applyLocaleAttrs(cachedLoc, parsed.data.locales);
             }
             setLoading(false);
+            if (ageMs < 20_000) {
+              shouldRefresh = false;
+            }
           }
         }
       } catch {
         // ignore cache parse errors
       }
-      void refreshBootstrap();
-    }, 0);
-    return () => clearTimeout(id);
+      if (shouldRefresh) {
+        void refreshBootstrap();
+      }
+    });
   }, [refreshBootstrap, applyThemeClass, applyLocaleAttrs, initialBootstrap]);
 
   // Register or unregister PWA service worker matching Admin pwaEnabled setting

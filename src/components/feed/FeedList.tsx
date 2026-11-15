@@ -13,10 +13,21 @@ import {
 import { useApp } from '@/components/providers/AppContext';
 import { PostCard, SerializedPost } from './PostCard';
 import { PostComposer } from './PostComposer';
+import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { FeedSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+
+interface FeedCacheEntry {
+  posts: SerializedPost[];
+  hasMore: boolean;
+  ts: number;
+  userId?: string;
+}
+
+const FEED_CACHE_TTL_MS = 25_000;
+const feedPostsCache = new Map<string, FeedCacheEntry>();
 
 export function FeedList({
   mode = 'feed',
@@ -32,11 +43,14 @@ export function FeedList({
   composerEnabled?: boolean;
 }) {
   const { user, loading: authLoading } = useApp();
-  const [posts, setPosts] = useState<SerializedPost[]>([]);
+  const currentUserId = user?.id;
+  const cacheKey = `${mode}:${username || ''}:${hashtag || ''}:${query || ''}`;
+  const cachedEntry = feedPostsCache.get(cacheKey);
+  const [posts, setPosts] = useState<SerializedPost[]>(() => cachedEntry?.posts || []);
   const [composerOpen, setComposerOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(() => cachedEntry?.hasMore ?? false);
+  const [loading, setLoading] = useState(() => !cachedEntry);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const [quotePost, setQuotePost] = useState<SerializedPost | null>(null);
@@ -55,12 +69,30 @@ export function FeedList({
 
         const res = await apiFetchWithMeta<SerializedPost[]>(`/posts?${qs.toString()}`);
         const rows = Array.isArray(res.data) ? res.data : [];
+        const metaObj = (res.meta || {}) as { total?: number; hasMore?: boolean };
+        let mergedRows = rows;
         setPosts((prev) => {
-          if (!append) return rows;
+          if (!append) {
+            mergedRows = rows;
+            return rows;
+          }
           const seen = new Set(prev.map((p) => p.id));
-          return [...prev, ...rows.filter((p) => !seen.has(p.id))];
+          mergedRows = [...prev, ...rows.filter((p) => !seen.has(p.id))];
+          return mergedRows;
         });
-        setTotal(Number(res.meta?.total || rows.length));
+        const nextHasMore =
+          typeof metaObj.hasMore === 'boolean'
+            ? metaObj.hasMore
+            : mergedRows.length < Number(metaObj.total || rows.length);
+        setHasMore(nextHasMore);
+        if (!append) {
+          feedPostsCache.set(cacheKey, {
+            posts: rows,
+            hasMore: nextHasMore,
+            ts: Date.now(),
+            userId: currentUserId,
+          });
+        }
       } catch {
         if (!append) setPosts([]);
       } finally {
@@ -68,25 +100,36 @@ export function FeedList({
         setLoadingMore(false);
       }
     },
-    [mode, username, hashtag, query]
+    [mode, username, hashtag, query, cacheKey, currentUserId]
   );
 
   useEffect(() => {
-    if (authLoading) return;
+    const cached = feedPostsCache.get(cacheKey);
     const id = setTimeout(() => {
-      setPage(1);
-      void loadPosts(1, false);
+      if (cached && cached.posts.length > 0) {
+        setPosts(cached.posts);
+        setHasMore(cached.hasMore);
+        setLoading(false);
+      }
+      const isFresh =
+        cached &&
+        Date.now() - cached.ts < FEED_CACHE_TTL_MS &&
+        (authLoading || cached.userId === currentUserId);
+      if (!isFresh) {
+        setPage(1);
+        void loadPosts(1, false, Boolean(cached));
+      }
     }, 0);
     return () => clearTimeout(id);
-  }, [loadPosts, authLoading, user?.id]);
+  }, [loadPosts, cacheKey, authLoading, currentUserId]);
 
   // Infinite scroll parity with PHP HomeIndex useInfiniteScroll
   useEffect(() => {
     const el = loadMoreRef.current;
-    if (!el || loading || loadingMore || posts.length >= total) return;
+    if (!el || loading || loadingMore || !hasMore) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting && !loadingMore && posts.length < total) {
+        if (entries[0]?.isIntersecting && !loadingMore && hasMore) {
           const next = page + 1;
           setPage(next);
           void loadPosts(next, true);
@@ -96,7 +139,7 @@ export function FeedList({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loading, loadingMore, posts.length, total, page, loadPosts]);
+  }, [loading, loadingMore, hasMore, page, loadPosts]);
 
   function handleCreated() {
     setHasNewPosts(false);
@@ -160,23 +203,23 @@ export function FeedList({
           <button
             type="button"
             onClick={() => setComposerOpen(true)}
-            className="hidden md:flex w-full cursor-pointer text-lab-pr2 items-center py-3.5 justify-center gap-2 hover:bg-fill-fv transition-colors"
+            className="hidden md:flex w-full cursor-pointer text-lab-pr2 items-center py-3.5 justify-center gap-2 hover:bg-fill-fv/60 transition-colors"
           >
             <span className="text-par-l">What&apos;s new?</span>
             <PencilLine className="size-4" />
           </button>
           <Link
             href="/new/post"
-            className="flex md:hidden w-full cursor-pointer text-lab-pr2 items-center py-3.5 justify-center gap-2 hover:bg-fill-fv transition-colors"
+            className="flex md:hidden w-full cursor-pointer text-lab-pr2 items-center py-3.5 justify-center gap-2 hover:bg-fill-fv/60 transition-colors"
           >
             <span className="text-par-l">What&apos;s new?</span>
             <PencilLine className="size-4" />
           </Link>
-          <div className="h-px bg-bord-tr" />
+          <div className="h-2 bg-fill-fv/40 border-y border-bord-tr/60" />
           <Modal
             open={composerOpen}
             onClose={() => setComposerOpen(false)}
-            title="New Publication"
+            title="New publication"
             maxWidthClass="max-w-xl"
           >
             <PostComposer
@@ -201,16 +244,19 @@ export function FeedList({
         </div>
       ) : (
         <>
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
-              onQuote={(target) => setQuotePost(target)}
-            />
+          {posts.map((post, idx) => (
+            <React.Fragment key={post.id}>
+              <PostCard
+                post={post}
+                onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+                onQuote={(target) => setQuotePost(target)}
+              />
+              {(mode === 'feed' || mode === 'explore' || mode === 'trending') &&
+                (idx + 1) % 10 === 0 && <FeedAdCard />}
+            </React.Fragment>
           ))}
 
-          {posts.length < total && (
+          {hasMore && (
             <div ref={loadMoreRef} className="p-4 flex justify-center">
               <Button
                 variant="outline"

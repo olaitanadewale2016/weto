@@ -24,7 +24,7 @@ export default function HomePage() {
   return (
     <AppShell>
       {/* Exact PageHeader.vue + HomeHeader.vue */}
-      <div className="flex gap-2 items-center leading-none p-4 relative">
+      <div className="flex gap-2 items-center justify-between leading-none px-4 py-3.5 relative">
         <div className="shrink-0">
           <h1 className="text-title-3 2xl:text-title-2 font-bold text-lab-pr2 leading-tight">
             {pageTitle}
@@ -151,8 +151,10 @@ export default function HomePage() {
         </div>
       </div>
 
-      <StoriesBar />
-      <div className="h-px bg-bord-tr" />
+      <div className="pt-1 pb-2">
+        <StoriesBar />
+      </div>
+      <div className="h-2 bg-fill-fv/40 border-y border-bord-tr/60" />
       <FeedList mode={tab} composerEnabled={Boolean(user)} />
 
       <AccountSwitcherModal open={switcherOpen} onClose={() => setSwitcherOpen(false)} />

@@ -4,11 +4,37 @@ import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import { getOptionalAuth, requireAuth } from '@/lib/auth/session';
 import { apiError, apiSuccess, ForbiddenError, NotFoundError } from '@/lib/api-response';
-import { Ad } from '@/models/Finance';
+import { Ad, IAdDocument } from '@/models/Finance';
 import { Media } from '@/models/Media';
 import { AdApproval, AdStatus, UserRole } from '@/types/enums';
 import { getSettingsGroup } from '@/services/settings.service';
 import { serializeMedia } from '@/services/media.service';
+
+async function recordAdShowAndCharge(adId: Types.ObjectId) {
+  const adsCfg = await getSettingsGroup('ads');
+  const ad = await Ad.findById(adId);
+  if (!ad) return;
+
+  const now = new Date();
+  const minChargeGapMs = (adsCfg.chargeIntervalMinutes || 10) * 60_000;
+  const shouldCharge =
+    !ad.lastChargeAt || now.getTime() - new Date(ad.lastChargeAt).getTime() > minChargeGapMs;
+
+  ad.lastShowAt = now;
+  if (shouldCharge) {
+    if (ad.spentBudget >= ad.totalBudget) {
+      ad.status = AdStatus.COMPLETED;
+    } else {
+      ad.lastChargeAt = now;
+      ad.viewsCount += 1;
+      ad.spentBudget = Number((ad.spentBudget + ad.pricePerView).toFixed(2));
+      if (ad.spentBudget >= ad.totalBudget) {
+        ad.status = AdStatus.COMPLETED;
+      }
+    }
+  }
+  await ad.save();
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,23 +62,53 @@ export async function GET(req: NextRequest) {
 
     const prevAdId = searchParams.get('prevAdId');
     await getOptionalAuth(req);
+    const adsCfg = await getSettingsGroup('ads');
+    const refreshCutoff = new Date(Date.now() - (adsCfg.refreshIntervalMinutes || 5) * 60_000);
 
-    const candidates = await Ad.find({
+    // Exact PHP AdController algorithm:
+    // 1. Random eligible ad not matching prevAdId and past refresh interval cooldown
+    const primaryMatch: Record<string, unknown> = {
       status: AdStatus.PUBLISHED,
       approval: AdApproval.APPROVED,
       $expr: { $lt: ['$spentBudget', '$totalBudget'] },
+      $or: [{ lastShowAt: null }, { lastShowAt: { $lt: refreshCutoff } }],
       ...(prevAdId && Types.ObjectId.isValid(prevAdId)
         ? { _id: { $ne: new Types.ObjectId(prevAdId) } }
         : {}),
-    })
-      .sort({ lastShowAt: 1 })
-      .limit(1)
+    };
+
+    let sampled = await Ad.aggregate<{ _id: Types.ObjectId }>([
+      { $match: primaryMatch },
+      { $sample: { size: 1 } },
+      { $project: { _id: 1 } },
+    ]);
+
+    // 2. Fallback to any active published ad in random order (matches PHP lines 33-35)
+    if (!sampled.length) {
+      sampled = await Ad.aggregate<{ _id: Types.ObjectId }>([
+        {
+          $match: {
+            status: AdStatus.PUBLISHED,
+            approval: AdApproval.APPROVED,
+            $expr: { $lt: ['$spentBudget', '$totalBudget'] },
+          },
+        },
+        { $sample: { size: 1 } },
+        { $project: { _id: 1 } },
+      ]);
+    }
+
+    if (!sampled.length) return apiSuccess(null);
+
+    const ad = (await Ad.findById(sampled[0]._id)
       .populate('mediaId')
       .populate('userId', 'username firstName lastName avatar verified')
-      .lean();
+      .lean()) as (IAdDocument & { mediaId?: unknown; userId?: unknown }) | null;
 
-    const ad = candidates[0];
     if (!ad) return apiSuccess(null);
+
+    // Execute PHP AdShowAction charge & lastShowAt update
+    await recordAdShowAndCharge(ad._id).catch(() => undefined);
 
     return apiSuccess({
       id: String(ad._id),

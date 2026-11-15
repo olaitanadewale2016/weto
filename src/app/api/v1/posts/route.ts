@@ -7,7 +7,7 @@ import { getClientIp, getOptionalAuth, requireAuth } from '@/lib/auth/session';
 import { apiError, apiSuccess, NotFoundError, ValidationError } from '@/lib/api-response';
 import { Bookmark, Post, Reaction } from '@/models/Post';
 import { Media } from '@/models/Media';
-import { Follow } from '@/models/SocialGraph';
+import { Follow, Mute } from '@/models/SocialGraph';
 import { User } from '@/models/User';
 import { FollowStatus, MediaType, PostStatus, PostType } from '@/types/enums';
 import { extractHashtags, extractMentions, extractUrls } from '@/lib/utils';
@@ -30,12 +30,27 @@ export async function GET(req: NextRequest) {
     const q = (searchParams.get('q') || '').trim();
     const page = Math.max(1, Number(searchParams.get('page') || 1));
     const limit = Math.min(30, Math.max(1, Number(searchParams.get('limit') || 15)));
+    const onsetRaw = searchParams.get('onset');
 
-    const blockedIds = authCtx ? await getBlockedUserIdsFor(String(authCtx.user._id)) : [];
+    const [blockedIds, mutedIds] = authCtx
+      ? await Promise.all([
+          getBlockedUserIdsFor(String(authCtx.user._id)),
+          Mute.find({ muterId: authCtx.user._id }).distinct('mutedId'),
+        ])
+      : [[], []];
+    const hiddenAuthorIds = [...blockedIds, ...mutedIds];
+
     const filter: Record<string, unknown> = {
       status: { $in: [PostStatus.ACTIVE, PostStatus.PUBLISHED] },
-      ...(blockedIds.length > 0 ? { userId: { $nin: blockedIds } } : {}),
+      ...(hiddenAuthorIds.length > 0 ? { userId: { $nin: hiddenAuthorIds } } : {}),
     };
+
+    if (onsetRaw) {
+      const onsetDate = new Date(onsetRaw);
+      if (!Number.isNaN(onsetDate.getTime())) {
+        filter.createdAt = { $gt: onsetDate };
+      }
+    }
 
     if (mode === 'feed' && authCtx) {
       const followingIds = await Follow.find({
@@ -62,7 +77,7 @@ export async function GET(req: NextRequest) {
         filter.$or = [
           {
             status: { $in: [PostStatus.ACTIVE, PostStatus.PUBLISHED] },
-            ...(blockedIds.length > 0 ? { userId: { $nin: blockedIds } } : {}),
+            ...(hiddenAuthorIds.length > 0 ? { userId: { $nin: hiddenAuthorIds } } : {}),
           },
           { userId: authCtx.user._id, status: PostStatus.PROCESSING_VIDEO },
         ];
@@ -102,26 +117,43 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    // Exact PHP FeedController / ExploreController tie-breaker ranking
     const sortSpec: Record<string, 1 | -1> =
       mode === 'trending'
-        ? { viewsCount: -1, commentsCount: -1, createdAt: -1 }
+        ? { globalPinned: -1, commentsCount: -1, bookmarksCount: -1, viewsCount: -1, quotesCount: -1, createdAt: -1 }
         : mode === 'user'
           ? { profilePinned: -1, createdAt: -1 }
-          : { globalPinned: -1, createdAt: -1 };
+          : {
+              globalPinned: -1,
+              createdAt: -1,
+              commentsCount: -1,
+              bookmarksCount: -1,
+              viewsCount: -1,
+              quotesCount: -1,
+            };
 
-    const [posts, total] = await Promise.all([
-      Post.find(filter)
-        .sort(sortSpec)
-        .skip(mode === 'bookmarks' ? 0 : (page - 1) * limit)
-        .limit(limit)
-        .populate('userId', 'username firstName lastName avatar verified type')
-        .populate({
-          path: 'quotePostId',
-          populate: { path: 'userId', select: 'username firstName lastName avatar verified' },
-        })
-        .lean(),
-      Post.countDocuments(filter),
-    ]);
+    const rawPosts = await Post.find(filter)
+      .sort(sortSpec)
+      .skip(mode === 'bookmarks' ? 0 : (page - 1) * limit)
+      .limit(limit + 1)
+      .populate('userId', 'username firstName lastName avatar verified type')
+      .populate({
+        path: 'quotePostId',
+        populate: { path: 'userId', select: 'username firstName lastName avatar verified' },
+      })
+      .lean();
+
+    const hasMore = mode === 'bookmarks' ? false : rawPosts.length > limit;
+    const slicedPosts = hasMore ? rawPosts.slice(0, limit) : rawPosts;
+    // Match PHP FeedController: own PROCESSING_VIDEO posts merge at top of page 1
+    const posts =
+      page === 1 && mode === 'feed'
+        ? [
+            ...slicedPosts.filter((p) => p.status === PostStatus.PROCESSING_VIDEO),
+            ...slicedPosts.filter((p) => p.status !== PostStatus.PROCESSING_VIDEO),
+          ]
+        : slicedPosts;
+    const total = (page - 1) * limit + posts.length + (hasMore ? 1 : 0);
 
     const postIds = posts.map((p) => p._id);
     const [mediaRows, userReactions, userBookmarks] = await Promise.all([
@@ -181,7 +213,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return apiSuccess(items, { page, limit, total });
+    return apiSuccess(items, { page, limit, total, hasMore });
   } catch (err) {
     return apiError(err);
   }

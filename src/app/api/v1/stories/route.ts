@@ -6,7 +6,7 @@ import { connectDB } from '@/lib/db';
 import { requireAuth } from '@/lib/auth/session';
 import { apiError, apiSuccess, ValidationError } from '@/lib/api-response';
 import { StoryFrame, StoryView } from '@/models/Story';
-import { Follow } from '@/models/SocialGraph';
+import { Follow, Mute } from '@/models/SocialGraph';
 import { Media } from '@/models/Media';
 import { User } from '@/models/User';
 import { FollowStatus, StoryPrivacy, StoryStatus, StoryType } from '@/types/enums';
@@ -20,16 +20,21 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB();
     const { user } = await requireAuth(req);
-    const blockedIds = await getBlockedUserIdsFor(String(user._id));
-    const followingIds = await Follow.find({
-      followerId: user._id,
-      status: FollowStatus.FOLLOWING,
-    }).distinct('followingId');
+    const priorityUuid = new URL(req.url).searchParams.get('storyUuid');
+    const [blockedIds, mutedIds, followingIds] = await Promise.all([
+      getBlockedUserIdsFor(String(user._id)),
+      Mute.find({ muterId: user._id }).distinct('mutedId'),
+      Follow.find({
+        followerId: user._id,
+        status: FollowStatus.FOLLOWING,
+      }).distinct('followingId'),
+    ]);
+    const hiddenAuthorIds = [...blockedIds, ...mutedIds];
 
     const now = new Date();
     const frames = await StoryFrame.find({
       status: StoryStatus.ACTIVE,
-      userId: { $nin: blockedIds },
+      ...(hiddenAuthorIds.length > 0 ? { userId: { $nin: hiddenAuthorIds } } : {}),
       $or: [{ expiresAt: { $gt: now } }, { isHighlight: true }],
     })
       .sort({ createdAt: 1 })
@@ -108,6 +113,10 @@ export async function GET(req: NextRequest) {
     }
 
     const sorted = Array.from(grouped.values()).sort((a, b) => {
+      if (priorityUuid) {
+        if (a.storyUuid === priorityUuid && b.storyUuid !== priorityUuid) return -1;
+        if (b.storyUuid === priorityUuid && a.storyUuid !== priorityUuid) return 1;
+      }
       if (a.isOwner !== b.isOwner) return a.isOwner ? -1 : 1;
       if (a.hasUnviewed !== b.hasUnviewed) return a.hasUnviewed ? -1 : 1;
       return b.latestAt - a.latestAt;
