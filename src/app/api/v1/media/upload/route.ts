@@ -46,9 +46,10 @@ export async function POST(req: NextRequest) {
     const { user } = await requireAuth(req, { allowOnboarding: true });
     const form = await req.formData();
     const file = form.get('file');
-    if (!(file instanceof File)) {
+    if (!file || typeof file === 'string' || typeof (file as Blob).arrayBuffer !== 'function') {
       throw new ValidationError('No file provided in multipart payload.');
     }
+    const blob = file as File;
 
     const parsed = metaSchema.parse({
       namespace: form.get('namespace') || 'posts',
@@ -66,15 +67,15 @@ export async function POST(req: NextRequest) {
     }
 
     const existingMediaId = form.get('existingMediaId');
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await blob.arrayBuffer());
     const result = await uploadMediaBufferDirectly({
       ownerId: String(user._id),
       namespace: parsed.namespace,
       targetType: parsed.targetType,
       mediaType: parsed.mediaType,
-      mimeType: (file.type || 'application/octet-stream').split(';')[0].trim().toLowerCase(),
+      mimeType: (blob.type || 'application/octet-stream').split(';')[0].trim().toLowerCase(),
       buffer,
-      filename: file.name || `upload-${Date.now()}`,
+      filename: blob.name || `upload-${Date.now()}`,
       order: parsed.order,
       durationSeconds: parsed.durationSeconds,
       existingMediaId: typeof existingMediaId === 'string' && existingMediaId ? existingMediaId : undefined,

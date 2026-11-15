@@ -38,6 +38,8 @@ export function getR2Client(): S3Client {
   r2Client = new S3Client({
     region: 'auto',
     endpoint,
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
     credentials: {
       accessKeyId: env.R2_ACCESS_KEY_ID,
       secretAccessKey: env.R2_SECRET_ACCESS_KEY,
@@ -88,7 +90,6 @@ export async function createPresignedUploadUrl(params: {
     Bucket: env.R2_BUCKET_NAME,
     Key: params.key,
     ContentType: params.contentType,
-    ...(params.contentLength ? { ContentLength: params.contentLength } : {}),
   });
 
   const uploadUrl = await getSignedUrl(client, command, {

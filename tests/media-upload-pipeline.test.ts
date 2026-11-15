@@ -11,6 +11,7 @@ const mockMediaBulkWrite = vi.fn();
 const mockMediaFind = vi.fn();
 const mockMediaCountDocuments = vi.fn();
 const mockDeleteMediaRecord = vi.fn();
+const mockUploadMediaBufferDirectly = vi.fn();
 
 vi.mock('@/lib/db', () => ({
   connectDB: vi.fn().mockResolvedValue(undefined),
@@ -58,6 +59,7 @@ vi.mock('@/services/media.service', async (importOriginal) => {
   return {
     ...actual,
     deleteMediaRecord: (...args: unknown[]) => mockDeleteMediaRecord(...args),
+    uploadMediaBufferDirectly: (...args: unknown[]) => mockUploadMediaBufferDirectly(...args),
   };
 });
 
@@ -175,5 +177,153 @@ describe('Marketplace Product Photo Attachment & Removal', () => {
       targetId: productId,
       order: 1,
     });
+  });
+});
+
+describe('Server Upload Route, R2 Presign Headers & Client Upload Routing', () => {
+  const userId = new Types.ObjectId();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireAuth.mockResolvedValue({
+      user: { _id: userId, role: 'user' },
+    });
+  });
+
+  it('accepts multipart FormData on POST /api/v1/media/upload even when file.type is empty', async () => {
+    const fakeMediaId = new Types.ObjectId();
+    mockUploadMediaBufferDirectly.mockResolvedValue({
+      id: String(fakeMediaId),
+      type: 'image',
+      status: 'processed',
+      url: '/api/v1/media/proxy?key=marketplace%2Fu%2Fphoto.jpg',
+      publicUrl: '/api/v1/media/proxy?key=marketplace%2Fu%2Fphoto.jpg',
+      lqipBase64: 'data:image/webp;base64,test',
+    });
+
+    const { POST } = await import('@/app/api/v1/media/upload/route');
+    const form = new FormData();
+    const file = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'photo.jpg', {
+      type: '',
+    });
+    form.append('file', file);
+    form.append('namespace', 'marketplace');
+    form.append('targetType', 'product');
+    form.append('mediaType', 'image');
+
+    const req = new NextRequest('https://app.example.com/api/v1/media/upload', {
+      method: 'POST',
+      body: form,
+    });
+
+    const res = await POST(req);
+    const json = (await res.json()) as {
+      status: string;
+      data: { id: string; publicUrl: string };
+    };
+
+    expect(res.status).toBe(201);
+    expect(json.status).toBe('success');
+    expect(json.data.id).toBe(String(fakeMediaId));
+    expect(json.data.publicUrl).toContain('/api/v1/media/proxy?key=');
+    expect(mockUploadMediaBufferDirectly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: String(userId),
+        namespace: 'marketplace',
+        targetType: 'product',
+        mediaType: 'image',
+        filename: 'photo.jpg',
+      })
+    );
+  });
+
+  it('creates presigned R2 PUT URLs without x-amz-checksum-crc32 or content-length signed headers', async () => {
+    const prevEnv = { ...process.env };
+    process.env.R2_BUCKET_NAME = 'test-bucket';
+    process.env.R2_ACCESS_KEY_ID = 'test-access-key';
+    process.env.R2_SECRET_ACCESS_KEY = 'test-secret-key';
+    process.env.R2_ACCOUNT_ID = 'test-account-id';
+    delete process.env.R2_ENDPOINT;
+
+    vi.resetModules();
+    try {
+      const { createPresignedUploadUrl } = await import('@/lib/r2');
+      const result = await createPresignedUploadUrl({
+        key: 'posts/test/2026-11/sample.jpg',
+        contentType: 'image/jpeg',
+        contentLength: 12345,
+      });
+
+      const url = new URL(result.uploadUrl);
+      const signedHeaders = (url.searchParams.get('X-Amz-SignedHeaders') || '').toLowerCase();
+      expect(signedHeaders).not.toContain('content-length');
+      expect(url.searchParams.has('x-amz-checksum-crc32')).toBe(false);
+      expect(url.searchParams.has('x-amz-sdk-checksum-algorithm')).toBe(false);
+    } finally {
+      process.env = prevEnv;
+      vi.resetModules();
+    }
+  });
+
+  it('routes <= 3.5 MB images through same-origin /api/v1/media/upload without hitting R2 presign', async () => {
+    const prevXhr = globalThis.XMLHttpRequest;
+    const prevFetch = globalThis.fetch;
+    const requests: Array<{ method: string; url: string; body: unknown }> = [];
+    const fetchSpy = vi.fn();
+
+    class MockXMLHttpRequest {
+      status = 201;
+      responseText = JSON.stringify({
+        status: 'success',
+        data: {
+          id: 'media-same-origin-1',
+          publicUrl: '/api/v1/media/proxy?key=marketplace%2Fu%2Fsmall.jpg',
+          lqipBase64: 'data:image/webp;base64,tiny',
+        },
+      });
+      withCredentials = false;
+      upload: { onprogress: ((ev: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = {
+        onprogress: null,
+      };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      private method = '';
+      private url = '';
+
+      open(method: string, url: string) {
+        this.method = method;
+        this.url = url;
+      }
+
+      send(body: unknown) {
+        requests.push({ method: this.method, url: this.url, body });
+        this.upload.onprogress?.({ lengthComputable: true, loaded: 100, total: 100 });
+        this.onload?.();
+      }
+    }
+
+    globalThis.XMLHttpRequest = MockXMLHttpRequest as unknown as typeof XMLHttpRequest;
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    try {
+      const { uploadFileToR2 } = await import('@/lib/api-client');
+      const smallFile = new File([new Uint8Array([1, 2, 3, 4])], 'small.jpg', { type: 'image/jpeg' });
+      const progressCalls: number[] = [];
+
+      const uploaded = await uploadFileToR2(smallFile, 'marketplace', 'product', (pct) => {
+        progressCalls.push(pct);
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(requests).toHaveLength(1);
+      expect(requests[0].method).toBe('POST');
+      expect(requests[0].url).toBe('/api/v1/media/upload');
+      expect(uploaded.mediaId).toBe('media-same-origin-1');
+      expect(uploaded.publicUrl).toBe('/api/v1/media/proxy?key=marketplace%2Fu%2Fsmall.jpg');
+      expect(progressCalls.at(-1)).toBe(100);
+    } finally {
+      globalThis.XMLHttpRequest = prevXhr;
+      globalThis.fetch = prevFetch;
+    }
   });
 });

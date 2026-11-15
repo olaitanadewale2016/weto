@@ -184,7 +184,7 @@ const CLIENT_EXT_TO_MIME: Record<string, string> = {
   pdf: 'application/pdf',
 };
 
-const MAX_SERVER_FALLBACK_BYTES = 4 * 1024 * 1024;
+const MAX_SERVER_UPLOAD_BYTES = Math.floor(3.5 * 1024 * 1024);
 
 export function resolveUploadMimeType(file: Pick<File, 'type' | 'name'>): string {
   const raw = (file.type || '').split(';')[0].trim().toLowerCase();
@@ -196,7 +196,7 @@ export function resolveUploadMimeType(file: Pick<File, 'type' | 'name'>): string
   return CLIENT_EXT_TO_MIME[ext] || aliased || 'application/octet-stream';
 }
 
-async function compressImageForFallbackUpload(file: File, cleanMime: string): Promise<File | null> {
+async function compressImageForUpload(file: File, cleanMime: string): Promise<File | null> {
   if (
     typeof document === 'undefined' ||
     cleanMime === 'image/gif' ||
@@ -212,28 +212,30 @@ async function compressImageForFallbackUpload(file: File, cleanMime: string): Pr
       try {
         const origW = img.naturalWidth || 1;
         const origH = img.naturalHeight || 1;
-        const maxDim = 2048;
-        const scale = Math.min(1, maxDim / Math.max(origW, origH));
-        const targetW = Math.max(1, Math.round(origW * scale));
-        const targetH = Math.max(1, Math.round(origH * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = targetW;
-        canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(null);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, targetW, targetH);
-
         const outMime = cleanMime === 'image/png' ? 'image/webp' : 'image/jpeg';
         const outExt = outMime === 'image/webp' ? 'webp' : 'jpg';
-        for (const quality of [0.88, 0.78, 0.65]) {
-          const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, outMime, quality));
-          if (blob && blob.size <= MAX_SERVER_FALLBACK_BYTES) {
-            const base = file.name.replace(/\.[^.]+$/, '') || 'upload';
-            resolve(new File([blob], `${base}.${outExt}`, { type: outMime }));
+        const base = (file.name || 'upload').replace(/\.[^.]+$/, '') || 'upload';
+
+        for (const maxDim of [2048, 1600, 1280]) {
+          const scale = Math.min(1, maxDim / Math.max(origW, origH));
+          const targetW = Math.max(1, Math.round(origW * scale));
+          const targetH = Math.max(1, Math.round(origH * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
             return;
+          }
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+
+          for (const quality of [0.88, 0.78, 0.65]) {
+            const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, outMime, quality));
+            if (blob && blob.size <= MAX_SERVER_UPLOAD_BYTES) {
+              resolve(new File([blob], `${base}.${outExt}`, { type: outMime }));
+              return;
+            }
           }
         }
         resolve(null);
@@ -248,6 +250,64 @@ async function compressImageForFallbackUpload(file: File, cleanMime: string): Pr
       resolve(null);
     };
     img.src = objectUrl;
+  });
+}
+
+async function uploadViaServerXhr(
+  form: FormData,
+  onProgress?: (pct: number) => void
+): Promise<{
+  id?: string;
+  url?: string;
+  publicUrl?: string;
+  lqipBase64?: string | null;
+}> {
+  if (typeof XMLHttpRequest === 'undefined') {
+    return apiFetch('/media/upload', { method: 'POST', body: form });
+  }
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/v1/media/upload');
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) {
+        onProgress?.(Math.min(92, 10 + Math.round((ev.loaded / ev.total) * 82)));
+      }
+    };
+    xhr.onload = () => {
+      try {
+        const payload = JSON.parse(xhr.responseText || '{}') as ApiResponse<{
+          id?: string;
+          url?: string;
+          publicUrl?: string;
+          lqipBase64?: string | null;
+        }>;
+        if (xhr.status >= 200 && xhr.status < 300 && payload.status !== 'error') {
+          resolve(payload.data || {});
+          return;
+        }
+        reject(
+          new ApiClientError(
+            xhr.status || 500,
+            payload.error?.code || 'API_ERROR',
+            payload.error?.message || `Upload failed (${xhr.status})`,
+            payload.error?.details
+          )
+        );
+      } catch {
+        reject(
+          new ApiClientError(
+            xhr.status || 500,
+            'HTTP_ERROR',
+            xhr.status === 413
+              ? 'File is too large for server upload limit. Please use a smaller file.'
+              : `Upload failed (${xhr.status})`
+          )
+        );
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error uploading media to server'));
+    xhr.send(form);
   });
 }
 
@@ -292,8 +352,49 @@ export async function uploadFileToR2(
   onProgress?: (pct: number) => void,
   extraMeta?: { durationSeconds?: number }
 ): Promise<UploadedMediaResult> {
-  const cleanMime = resolveUploadMimeType(file);
-  const mediaType = inferMediaType(cleanMime, file.name);
+  const rawMime = resolveUploadMimeType(file);
+  const mediaType = inferMediaType(rawMime, file.name);
+  const defaultExt = rawMime.split('/')[1]?.replace(/[^a-z0-9]/g, '') || 'bin';
+  const safeFilename = file.name?.trim() || `upload-${Date.now()}.${defaultExt}`;
+
+  // Prepare upload candidate: for large images (> 3.5 MB), compress client-side to keep
+  // same-origin serverless uploads fast and reliable without relying on cross-origin R2 CORS.
+  let sameOriginFile: File | null = file.size <= MAX_SERVER_UPLOAD_BYTES ? file : null;
+  if (!sameOriginFile && mediaType === 'image') {
+    sameOriginFile = await compressImageForUpload(file, rawMime);
+  }
+
+  // Prefer same-origin upload whenever file fits comfortably within serverless body limits:
+  // avoids browser CORS blocks against *.r2.cloudflarestorage.com on any domain.
+  if (sameOriginFile && sameOriginFile.size <= MAX_SERVER_UPLOAD_BYTES) {
+    const uploadMime = resolveUploadMimeType(sameOriginFile);
+    const form = new FormData();
+    form.append('file', sameOriginFile, safeFilename);
+    form.append('namespace', namespace);
+    form.append('targetType', targetType);
+    form.append('mediaType', mediaType);
+    if (extraMeta?.durationSeconds !== undefined) {
+      form.append('durationSeconds', String(extraMeta.durationSeconds));
+    }
+
+    onProgress?.(10);
+    const data = await uploadViaServerXhr(form, onProgress);
+    const meta = mediaType === 'image' ? await generateImageLqip(sameOriginFile) : {};
+    onProgress?.(100);
+    return {
+      mediaId: data.id || '',
+      r2Key: '',
+      publicUrl: data.publicUrl || data.url || '',
+      mimeType: uploadMime,
+      mediaType,
+      filename: sameOriginFile.name || safeFilename,
+      durationSeconds: extraMeta?.durationSeconds,
+      lqipBase64: data.lqipBase64 || meta.lqipBase64,
+      width: meta.width,
+      height: meta.height,
+    };
+  }
+
   const presign = await apiFetch<{
     mediaId: string;
     uploadUrl: string;
@@ -305,9 +406,9 @@ export async function uploadFileToR2(
       namespace,
       targetType,
       mediaType,
-      mimeType: cleanMime,
+      mimeType: rawMime,
       sizeBytes: file.size,
-      filename: file.name,
+      filename: safeFilename,
     },
   });
 
@@ -318,7 +419,7 @@ export async function uploadFileToR2(
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', presign.uploadUrl);
-      xhr.setRequestHeader('Content-Type', cleanMime);
+      xhr.setRequestHeader('Content-Type', rawMime);
       xhr.upload.onprogress = (ev) => {
         if (ev.lengthComputable) {
           onProgress?.(Math.min(90, 20 + Math.round((ev.loaded / ev.total) * 70)));
@@ -333,15 +434,11 @@ export async function uploadFileToR2(
     });
     usedDirectPut = true;
   } catch (directErr) {
-    // Fallback to server-assisted R2 upload for CORS-restricted environments (within serverless body limits)
-    let fallbackFile: File | null = file.size <= MAX_SERVER_FALLBACK_BYTES ? file : null;
-    if (!fallbackFile && mediaType === 'image') {
-      fallbackFile = await compressImageForFallbackUpload(file, cleanMime);
-    }
-
-    if (fallbackFile && fallbackFile.size <= MAX_SERVER_FALLBACK_BYTES) {
+    // Fallback to server-assisted R2 upload when CORS blocks direct PUT (e.g. non-localhost origins)
+    const fallbackCandidate = file.size <= 4 * 1024 * 1024 ? file : sameOriginFile;
+    if (fallbackCandidate && fallbackCandidate.size <= 4 * 1024 * 1024) {
       const form = new FormData();
-      form.append('file', fallbackFile);
+      form.append('file', fallbackCandidate, safeFilename);
       form.append('namespace', namespace);
       form.append('targetType', targetType);
       form.append('mediaType', mediaType);
@@ -350,25 +447,16 @@ export async function uploadFileToR2(
         form.append('durationSeconds', String(extraMeta.durationSeconds));
       }
 
-      onProgress?.(60);
-      const fallbackData = await apiFetch<{
-        id?: string;
-        url?: string;
-        publicUrl?: string;
-        lqipBase64?: string | null;
-      }>('/media/upload', {
-        method: 'POST',
-        body: form,
-      });
-      const meta = mediaType === 'image' ? await generateImageLqip(fallbackFile) : {};
+      const fallbackData = await uploadViaServerXhr(form, onProgress);
+      const meta = mediaType === 'image' ? await generateImageLqip(fallbackCandidate) : {};
       onProgress?.(100);
       return {
         mediaId: fallbackData.id || presign.mediaId,
         r2Key: presign.r2Key,
         publicUrl: fallbackData.publicUrl || fallbackData.url || presign.publicUrl,
-        mimeType: resolveUploadMimeType(fallbackFile),
+        mimeType: resolveUploadMimeType(fallbackCandidate),
         mediaType,
-        filename: fallbackFile.name,
+        filename: fallbackCandidate.name || safeFilename,
         durationSeconds: extraMeta?.durationSeconds,
         lqipBase64: fallbackData.lqipBase64 || meta.lqipBase64,
         width: meta.width,
@@ -397,9 +485,9 @@ export async function uploadFileToR2(
     mediaId: presign.mediaId,
     r2Key: presign.r2Key,
     publicUrl: presign.publicUrl,
-    mimeType: cleanMime,
+    mimeType: rawMime,
     mediaType,
-    filename: file.name,
+    filename: safeFilename,
     durationSeconds: extraMeta?.durationSeconds,
     ...meta,
   };

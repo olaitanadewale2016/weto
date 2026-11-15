@@ -328,7 +328,7 @@ export async function uploadMediaBufferDirectly(params: {
     { mediaType: media.type, storageProvider: 'r2' },
     { $inc: { contentSizeBytes: params.buffer.length, contentItems: 1 } },
     { upsert: true }
-  );
+  ).catch((err) => logger.warn({ err }, 'DataStat update failed after upload'));
 
   return serializeMedia(media);
 }
@@ -374,7 +374,7 @@ export async function completeMediaUpload(params: {
     { mediaType: media.type, storageProvider: 'r2' },
     { $inc: { contentSizeBytes: verifiedSize, contentItems: 1 } },
     { upsert: true }
-  );
+  ).catch((err) => logger.warn({ err }, 'DataStat update failed after completion'));
 
   if (needsAsyncTranscode) {
     const q = getMediaQueue();
