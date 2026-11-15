@@ -56,7 +56,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, bootstrap, theme, toggleTheme, counters, logout, dict } = useApp();
+  const { user, loading, bootstrap, theme, toggleTheme, counters, logout, dict } = useApp();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -158,10 +158,11 @@ export function AppShell({
       show: features?.jobs !== false,
     },
     {
-      href: user ? `/@${user.username}` : '/auth/login',
+      href: user ? `/@${user.username}` : loading ? '/' : '/auth/login',
       label: user ? dict.nav.profile : 'Sign in',
-      icon: user ? UserIcon : LogIn,
-      matchPrefix: user ? `/u/${user.username}` : '/auth/login',
+      icon: user || loading ? UserIcon : LogIn,
+      matchPrefix: user ? `/u/${user.username}` : loading ? '/__loading__' : '/auth/login',
+      isLoadingAuth: !user && loading,
       show: true,
     },
   ].filter((item) => item.show);
@@ -230,6 +231,8 @@ export function AppShell({
                     </span>
                   )}
                 </Link>
+              ) : loading ? (
+                <span className="size-9 rounded-full bg-fill-qt animate-pulse" aria-hidden="true" />
               ) : (
                 <Link
                   href="/auth/login"
@@ -285,7 +288,11 @@ export function AppShell({
                         />
                       </span>
                       <span className="ml-3 text-[20px] leading-6 inline-flex items-center gap-2 truncate">
-                        {item.label}
+                        {item.isLoadingAuth ? (
+                          <span className="inline-block h-4 w-20 rounded-md fb-shimmer" aria-hidden="true" />
+                        ) : (
+                          item.label
+                        )}
                         {item.badge !== undefined && item.badge > 0 && (
                           <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-brand-900 text-white text-cap-s font-semibold px-1.5 leading-none">
                             {item.badge > 99 ? '99+' : item.badge}
@@ -516,42 +523,44 @@ export function AppShell({
       {/* Mobile Bottom Navigation matching mobile/components/layout/ApplicationNavbar.vue */}
       {!hideMobileChrome && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg-pr border-t border-bord-tr pb-safe pb-safe-standalone px-safe">
-          <div className="grid grid-cols-5 h-14 px-2 items-center">
-            <Link href="/" className="flex items-center justify-center text-lab-pr">
-              <Home className={cn('size-5', pathname === '/' ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />
+          <div className="grid grid-cols-5 h-[60px] px-2 items-center">
+            <Link href="/" className="flex items-center justify-center h-full text-lab-pr">
+              <Home className={cn('size-[26px]', pathname === '/' ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />
             </Link>
-            <Link href="/explore" className="flex items-center justify-center text-lab-pr">
-              <Search className={cn('size-5', pathname.startsWith('/explore') ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />
+            <Link href="/explore" className="flex items-center justify-center h-full text-lab-pr">
+              <Search className={cn('size-[26px]', pathname.startsWith('/explore') ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />
             </Link>
             <button
               type="button"
               onClick={() => setMobileCreateOpen((v) => !v)}
-              className="flex items-center justify-center text-lab-pr cursor-pointer"
+              className="flex items-center justify-center h-full text-lab-pr cursor-pointer"
               aria-label="Create"
             >
-              <PlusSquare className="size-5 stroke-[1.75]" />
+              <PlusSquare className="size-[26px] stroke-[1.75]" />
             </button>
             <Link
               href={user ? '/messenger' : '/auth/login'}
-              className="relative flex items-center justify-center text-lab-pr"
+              className="relative flex items-center justify-center h-full text-lab-pr"
             >
-              <MessageCircle className={cn('size-5', pathname.startsWith('/messenger') ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />
+              <MessageCircle className={cn('size-[26px]', pathname.startsWith('/messenger') ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />
               {counters.unreadMessages > 0 && (
-                <span className="absolute top-2 right-5 min-w-[16px] h-4 rounded-full bg-brand-900 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                <span className="absolute top-2 right-[calc(50%-20px)] min-w-[16px] h-4 rounded-full bg-brand-900 text-white text-[10px] font-bold flex items-center justify-center px-1">
                   {counters.unreadMessages > 99 ? '99+' : counters.unreadMessages}
                 </span>
               )}
             </Link>
             <Link
-              href={user ? `/@${user.username}` : '/auth/login'}
-              className="flex items-center justify-center"
+              href={user ? `/@${user.username}` : loading ? '/' : '/auth/login'}
+              className="flex items-center justify-center h-full"
             >
               {user ? (
-                <div className="inline-flex border border-bord-card items-center justify-center size-6 rounded-full overflow-hidden">
+                <div className="inline-flex border border-bord-card items-center justify-center size-7 rounded-full overflow-hidden">
                   <Avatar src={user.avatar} alt={user.username} size="xs" className="size-full" />
                 </div>
+              ) : loading ? (
+                <span className="size-7 rounded-full bg-fill-qt animate-pulse" aria-hidden="true" />
               ) : (
-                <Compass className="size-5 text-lab-sc" />
+                <Compass className="size-[26px] text-lab-sc" />
               )}
             </Link>
           </div>

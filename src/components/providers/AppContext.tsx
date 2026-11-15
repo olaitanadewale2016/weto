@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -146,6 +147,50 @@ interface AppContextValue {
 }
 
 const BOOTSTRAP_CACHE_KEY = 'weto_bootstrap_v1';
+const BOOTSTRAP_CACHE_MAX_AGE_MS = 24 * 60 * 60_000;
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+function readCachedBootstrap(): { ts: number; data: BootstrapData } | null {
+  if (typeof window === 'undefined') return null;
+  for (const storage of [window.sessionStorage, window.localStorage]) {
+    try {
+      const raw = storage.getItem(BOOTSTRAP_CACHE_KEY);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { ts?: number; data?: BootstrapData };
+      const ts = typeof parsed?.ts === 'number' ? parsed.ts : 0;
+      if (parsed?.data && Date.now() - ts < BOOTSTRAP_CACHE_MAX_AGE_MS) {
+        return { ts, data: parsed.data };
+      }
+    } catch {
+      // ignore cache parse/storage errors
+    }
+  }
+  return null;
+}
+
+function writeCachedBootstrap(data: BootstrapData) {
+  if (typeof window === 'undefined') return;
+  const payload = JSON.stringify({ ts: Date.now(), data });
+  for (const storage of [window.sessionStorage, window.localStorage]) {
+    try {
+      storage.setItem(BOOTSTRAP_CACHE_KEY, payload);
+    } catch {
+      // ignore storage quota errors
+    }
+  }
+}
+
+function clearCachedBootstrap() {
+  if (typeof window === 'undefined') return;
+  for (const storage of [window.sessionStorage, window.localStorage]) {
+    try {
+      storage.removeItem(BOOTSTRAP_CACHE_KEY);
+    } catch {
+      // ignore storage errors
+    }
+  }
+}
 
 const AppContext = createContext<AppContextValue | null>(null);
 
@@ -208,11 +253,7 @@ export function AppProvider({
         ...prev,
         user: { ...prev.user, ...cleanPatch },
       };
-      try {
-        sessionStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: next }));
-      } catch {
-        // ignore storage quota errors
-      }
+      writeCachedBootstrap(next);
       return next;
     });
   }, []);
@@ -240,11 +281,7 @@ export function AppProvider({
         data.user?.language || savedLocale || data.config?.defaultLocale || 'en';
       setLocaleState(nextLocale);
       applyLocaleAttrs(nextLocale, data.locales);
-      try {
-        sessionStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
-      } catch {
-        // ignore storage quota errors
-      }
+      writeCachedBootstrap(data);
     } catch {
       // Fallback to default state if API unreachable
     } finally {
@@ -252,7 +289,7 @@ export function AppProvider({
     }
   }, [applyLocaleAttrs, applyThemeClass]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (didInitBootstrapRef.current) return;
     didInitBootstrapRef.current = true;
     try {
@@ -271,28 +308,20 @@ export function AppProvider({
       // ignore
     }
     let shouldRefresh = !initialBootstrap;
+    const cached = !initialBootstrap ? readCachedBootstrap() : null;
     queueMicrotask(() => {
-      try {
-        const cachedRaw = sessionStorage.getItem(BOOTSTRAP_CACHE_KEY);
-        if (cachedRaw && !initialBootstrap) {
-          const parsed = JSON.parse(cachedRaw) as { ts?: number; data?: BootstrapData };
-          const ageMs = typeof parsed?.ts === 'number' ? Date.now() - parsed.ts : Infinity;
-          if (parsed?.data && ageMs < 5 * 60_000) {
-            setBootstrap(parsed.data);
-            setCounters(parsed.data.counters || { unreadNotifications: 0, unreadMessages: 0 });
-            const cachedLoc = parsed.data.user?.language || parsed.data.config?.defaultLocale;
-            if (cachedLoc) {
-              setLocaleState(cachedLoc);
-              applyLocaleAttrs(cachedLoc, parsed.data.locales);
-            }
-            setLoading(false);
-            if (ageMs < 20_000) {
-              shouldRefresh = false;
-            }
-          }
+      if (cached) {
+        setBootstrap(cached.data);
+        setCounters(cached.data.counters || { unreadNotifications: 0, unreadMessages: 0 });
+        const cachedLoc = cached.data.user?.language || cached.data.config?.defaultLocale;
+        if (cachedLoc) {
+          setLocaleState(cachedLoc);
+          applyLocaleAttrs(cachedLoc, cached.data.locales);
         }
-      } catch {
-        // ignore cache parse errors
+        setLoading(false);
+        if (Date.now() - cached.ts < 20_000) {
+          shouldRefresh = false;
+        }
       }
       if (shouldRefresh) {
         void refreshBootstrap();
@@ -692,11 +721,7 @@ export function AppProvider({
         // ignore
       }
     }
-    try {
-      sessionStorage.removeItem(BOOTSTRAP_CACHE_KEY);
-    } catch {
-      // ignore
-    }
+    clearCachedBootstrap();
     socket?.disconnect();
     setBootstrap((prev) => (prev ? { ...prev, user: null } : null));
     router.push('/auth/login');

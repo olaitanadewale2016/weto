@@ -6,6 +6,7 @@ import { Camera, ChevronRight, Loader2, Pencil, Settings, X } from 'lucide-react
 import { Modal } from '@/components/ui/modal';
 import { ActionSheet, ActionSheetGroup, ActionSheetItem } from '@/components/mobile/ActionSheet';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
+import { normalizeAvatarSrc, normalizeCoverSrc } from '@/components/ui/avatar';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -39,7 +40,7 @@ export function ProfileEditModal({
   const { updateUserPatch, refreshBootstrap } = useApp();
   const { error, success } = useToast();
 
-  const [form, setForm] = useState<EditableProfileFields>(initial);
+  const [draftMedia, setDraftMedia] = useState<{ avatar?: string; cover?: string }>({});
   const [uploadingKind, setUploadingKind] = useState<'avatar' | 'cover' | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -57,7 +58,7 @@ export function ProfileEditModal({
     if (!file) return;
 
     const previewUrl = URL.createObjectURL(file);
-    setForm((prev) => ({ ...prev, [kind]: previewUrl }));
+    setDraftMedia((prev) => ({ ...prev, [kind]: previewUrl }));
     setUploadingKind(kind);
     setUploadProgress(0);
 
@@ -74,13 +75,13 @@ export function ProfileEditModal({
         json: { section: kind, data: { url: up.publicUrl } },
       });
 
-      setForm((prev) => ({ ...prev, [kind]: up.publicUrl }));
+      setDraftMedia((prev) => ({ ...prev, [kind]: up.publicUrl }));
       updateUserPatch({ [kind]: up.publicUrl });
       onUpdated({ [kind]: up.publicUrl });
       success(`${kind === 'avatar' ? 'Profile photo' : 'Cover image'} updated!`);
       void refreshBootstrap();
     } catch (err) {
-      setForm((prev) => ({ ...prev, [kind]: initial[kind] }));
+      setDraftMedia((prev) => ({ ...prev, [kind]: undefined }));
       error('Upload failed', err instanceof Error ? err.message : undefined);
     } finally {
       setUploadingKind(null);
@@ -89,8 +90,8 @@ export function ProfileEditModal({
     }
   }
 
-  const avatarSrc = form.avatar || '/assets/avatars/default.png';
-  const coverSrc = form.cover || '/assets/covers/default-cover.png';
+  const avatarSrc = normalizeAvatarSrc(draftMedia.avatar ?? initial.avatar) || '/assets/avatars/default-avatar.png';
+  const coverSrc = normalizeCoverSrc(draftMedia.cover ?? initial.cover);
 
   const mediaEditorBody = (
     <div className="flex flex-col">
@@ -108,7 +109,18 @@ export function ProfileEditModal({
       <div className="mb-4">
         <div className="bg-black overflow-hidden relative h-32 md:h-44">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={coverSrc} alt="Cover" className="w-full h-full object-cover" />
+          <img
+            src={coverSrc}
+            alt="Cover"
+            decoding="async"
+            onError={(e) => {
+              if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                e.currentTarget.dataset.fallbackApplied = '1';
+                e.currentTarget.src = '/assets/covers/default-cover.png';
+              }
+            }}
+            className="w-full h-full object-cover"
+          />
           <label
             className="cursor-pointer absolute top-2.5 right-2.5 bg-black/50 hover:bg-black/35 smoothing size-10 inline-flex items-center justify-center rounded-full text-white/95"
             title="Change cover photo"
@@ -132,7 +144,18 @@ export function ProfileEditModal({
         <div className="px-4 -mt-[42px] md:-mt-[56px] z-20 relative inline-block">
           <div className="relative rounded-full overflow-hidden size-24 md:size-28 border-4 border-bg-pr bg-bg-pr">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatarSrc} alt={form.firstName || 'Avatar'} className="w-full h-full object-cover" />
+            <img
+              src={avatarSrc}
+              alt={initial.firstName || 'Avatar'}
+              decoding="async"
+              onError={(e) => {
+                if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                  e.currentTarget.dataset.fallbackApplied = '1';
+                  e.currentTarget.src = '/assets/avatars/default-avatar.png';
+                }
+              }}
+              className="w-full h-full object-cover"
+            />
             <label
               className="absolute cursor-pointer inset-0 z-20 flex items-center justify-center"
               title="Change profile photo"

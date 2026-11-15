@@ -22,6 +22,43 @@ const SIZE_CLASSES: Record<NonNullable<AvatarProps['size']>, string> = {
   xl: 'h-24 w-24 text-title-2',
 };
 
+export function normalizeAvatarSrc(src?: string | null): string | undefined {
+  if (!src) return undefined;
+  let trimmed = src.trim();
+  if (!trimmed) return undefined;
+  if (
+    !trimmed.startsWith('http://') &&
+    !trimmed.startsWith('https://') &&
+    !trimmed.startsWith('/') &&
+    !trimmed.startsWith('blob:') &&
+    !trimmed.startsWith('data:')
+  ) {
+    trimmed = `/${trimmed}`;
+  }
+  if (trimmed === '/assets/avatars/default.png' || trimmed === '/assets/avatars/default') {
+    return '/assets/avatars/default-avatar.png';
+  }
+  return trimmed;
+}
+
+export function normalizeCoverSrc(src?: string | null): string {
+  if (!src) return '/assets/covers/default-cover.png';
+  let trimmed = src.trim();
+  if (!trimmed || trimmed === '/assets/covers/default.png') {
+    return '/assets/covers/default-cover.png';
+  }
+  if (
+    !trimmed.startsWith('http://') &&
+    !trimmed.startsWith('https://') &&
+    !trimmed.startsWith('/') &&
+    !trimmed.startsWith('blob:') &&
+    !trimmed.startsWith('data:')
+  ) {
+    trimmed = `/${trimmed}`;
+  }
+  return trimmed;
+}
+
 export function Avatar({
   src,
   alt = 'Avatar',
@@ -31,17 +68,30 @@ export function Avatar({
   online,
   className,
 }: AvatarProps) {
-  const [imgError, setImgError] = React.useState(false);
+  const normalizedSrc = React.useMemo(() => normalizeAvatarSrc(src), [src]);
+  const [failedForSrc, setFailedForSrc] = React.useState<string | null>(null);
+  const [exhaustedForSrc, setExhaustedForSrc] = React.useState<string | null>(null);
+
+  const fallbackApplied = normalizedSrc != null && failedForSrc === normalizedSrc;
+  const imgError = normalizedSrc != null && exhaustedForSrc === normalizedSrc;
+  const effectiveSrc = fallbackApplied ? '/assets/avatars/default-avatar.png' : normalizedSrc;
   const initials = (fallback || alt || 'U').slice(0, 2).toUpperCase();
 
   return (
     <div className={cn('relative inline-flex shrink-0 rounded-full', SIZE_CLASSES[size], className)}>
-      {src && !imgError ? (
+      {effectiveSrc && !imgError ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={src}
+          src={effectiveSrc}
           alt={alt}
-          onError={() => setImgError(true)}
+          decoding="async"
+          onError={() => {
+            if (normalizedSrc && !fallbackApplied && normalizedSrc !== '/assets/avatars/default-avatar.png') {
+              setFailedForSrc(normalizedSrc);
+            } else if (normalizedSrc) {
+              setExhaustedForSrc(normalizedSrc);
+            }
+          }}
           className="h-full w-full rounded-full object-cover bg-fill-sc border border-bord-card"
         />
       ) : (

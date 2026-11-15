@@ -10,7 +10,7 @@ import { AccountSwitcherModal } from '@/components/modals/AccountSwitcherModal';
 import { useApp } from '@/components/providers/AppContext';
 
 export default function HomePage() {
-  const { user, theme, toggleTheme } = useApp();
+  const { user, loading, theme, toggleTheme } = useApp();
   const [tab, setTab] = useState<'feed' | 'trending'>('feed');
   const [menuOpen, setMenuOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -27,7 +27,11 @@ export default function HomePage() {
       <div className="flex gap-2 items-center justify-between leading-none px-4 py-3.5 relative">
         <div className="shrink-0">
           <h1 className="text-title-3 2xl:text-title-2 font-bold text-lab-pr2 leading-tight">
-            {pageTitle}
+            {!user && loading && tab !== 'trending' ? (
+              <span className="inline-block h-6 w-36 rounded-lg fb-shimmer align-middle" aria-label="Loading" />
+            ) : (
+              pageTitle
+            )}
           </h1>
         </div>
         <div className="flex-1 flex justify-end items-center gap-2">

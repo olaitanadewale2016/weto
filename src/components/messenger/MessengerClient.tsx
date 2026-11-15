@@ -1220,7 +1220,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   rel="noopener noreferrer"
                   download={m.media?.filename}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 border text-cap-l transition-opacity hover:opacity-90 max-w-sm',
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2 border text-cap-l transition-opacity hover:opacity-90 w-full max-w-full md:max-w-sm min-w-0 overflow-hidden',
                     boxClass
                   )}
                 >
@@ -1237,8 +1237,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         )}
 
         {m.content && (
-          <div className="space-y-1">
-            <p className="text-par-n text-lab-pr whitespace-pre-wrap break-words leading-relaxed">
+          <div className="space-y-1 min-w-0 max-w-full">
+            <p className="text-par-n text-lab-pr whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
               {msgTranslations[m.id] || m.content}
             </p>
             {msgTranslations[m.id] && (
@@ -1258,17 +1258,24 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             href={m.linkSnapshot.url}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn('block rounded-xl p-2.5 border text-left transition-opacity hover:opacity-90 max-w-md', boxClass)}
+            className={cn(
+              'block rounded-xl p-2.5 border text-left transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden',
+              boxClass
+            )}
           >
-            <div className="flex items-center justify-between gap-2 text-cap-s text-lab-sc">
+            <div className="flex items-center justify-between gap-2 text-cap-s text-lab-sc min-w-0">
               <span className="truncate">{m.linkSnapshot.domain || m.linkSnapshot.url}</span>
               <ExternalLink className="h-3 w-3 shrink-0" />
             </div>
             {m.linkSnapshot.title && (
-              <p className="text-cap-l font-semibold text-lab-pr mt-0.5 line-clamp-1">{m.linkSnapshot.title}</p>
+              <p className="text-cap-l font-semibold text-lab-pr mt-0.5 line-clamp-1 [overflow-wrap:anywhere]">
+                {m.linkSnapshot.title}
+              </p>
             )}
             {m.linkSnapshot.description && (
-              <p className="text-cap-s text-lab-sc mt-0.5 line-clamp-2">{m.linkSnapshot.description}</p>
+              <p className="text-cap-s text-lab-sc mt-0.5 line-clamp-2 [overflow-wrap:anywhere]">
+                {m.linkSnapshot.description}
+              </p>
             )}
           </a>
         )}
@@ -1282,7 +1289,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             <Link
               href={refHref}
               className={cn(
-                'flex items-center gap-2.5 rounded-xl p-2 border transition-opacity hover:opacity-90 max-w-md text-left',
+                'flex items-center gap-2.5 rounded-xl p-2 border transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden text-left',
                 boxClass
               )}
             >
@@ -1296,13 +1303,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   className="size-11 rounded-lg object-cover shrink-0 bg-fill-qt"
                 />
               ) : null}
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] uppercase tracking-wide font-semibold text-lab-sc">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p className="text-[11px] uppercase tracking-wide font-semibold text-lab-sc truncate">
                   {m.contextRef.kind === 'product' ? 'Marketplace Product' : 'Job Listing'}
                 </p>
                 <p className="text-cap-l font-semibold text-lab-pr truncate">{m.contextRef.title}</p>
                 {m.contextRef.priceLabel ? (
-                  <p className="text-cap-s font-semibold text-brand-900">{m.contextRef.priceLabel}</p>
+                  <p className="text-cap-s font-semibold text-brand-900 truncate">{m.contextRef.priceLabel}</p>
                 ) : null}
               </div>
               <ExternalLink className="h-3.5 w-3.5 text-lab-sc shrink-0" />
@@ -1986,27 +1993,27 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     {/* MOBILE BUBBLE ROW (matches PHP mobile ChatMessage.vue) */}
                     <div
                       className={cn(
-                        'flex md:hidden items-end gap-1.5 group relative',
+                        'flex md:hidden w-full min-w-0 items-end gap-1.5 group relative',
                         mine ? 'justify-end' : 'justify-start'
                       )}
                     >
                       {!mine && <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="xs" />}
 
-                      <div className={cn('max-w-[80%] space-y-1', mine && 'items-end flex flex-col')}>
+                      <div className={cn('min-w-0 max-w-[82%] space-y-1', mine && 'items-end flex flex-col')}>
                         <div
                           className={cn(
-                            'rounded-2xl px-3 py-2 space-y-1.5 relative border',
+                            'w-fit max-w-full min-w-0 overflow-hidden rounded-2xl px-3 py-2 space-y-1.5 relative border',
                             mine
                               ? 'bg-fill-qt border-fill-fv text-lab-pr rounded-br-sm'
                               : 'bg-bg-pr border-bord-pr text-lab-pr rounded-bl-sm'
                           )}
                         >
                           {!mine && activeChat.type === 'group' && (
-                            <p className="text-cap-s font-bold text-lab-sc">@{m.sender?.username}</p>
+                            <p className="text-cap-s font-bold text-lab-sc truncate">@{m.sender?.username}</p>
                           )}
 
                           {m.parentId && !m.isDeleted && (
-                            <div className="rounded-lg px-2 py-1 border-l-2 border-brand-900 bg-bg-pr/70 text-cap-l text-lab-sc">
+                            <div className="max-w-full min-w-0 overflow-hidden rounded-lg px-2 py-1 border-l-2 border-brand-900 bg-bg-pr/70 text-cap-l text-lab-sc">
                               <p className="text-cap-s font-semibold text-lab-pr truncate">
                                 {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
                               </p>

@@ -564,8 +564,8 @@ export default function ProductDetailPage() {
         title="Ask seller"
         maxWidthClass="max-w-md"
       >
-        <form onSubmit={handleSendSellerMessage} className="space-y-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-bord-card bg-fill-qt/50 p-3">
+        <form onSubmit={handleSendSellerMessage} className="space-y-4 min-w-0">
+          <div className="flex items-center gap-3 rounded-2xl border border-bord-card bg-fill-qt/50 p-3 min-w-0 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentPhoto.url}

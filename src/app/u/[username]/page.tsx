@@ -29,7 +29,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { Avatar, VerifiedBadge } from '@/components/ui/avatar';
+import { Avatar, VerifiedBadge, normalizeCoverSrc } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/ui/tabs';
 import { Modal } from '@/components/ui/modal';
@@ -268,7 +268,7 @@ export default function UserProfilePage() {
   const fullName = `${profile.firstName} ${profile.lastName}`.trim() || profile.username;
   const resolvedCountry = profile.country
     ? COUNTRIES.find((c) => c.code.toLowerCase() === profile.country?.toLowerCase())?.name ||
-      profile.country
+    profile.country
     : null;
   const locationText = [resolvedCountry, profile.city].filter(Boolean).join(', ');
   const websiteHref = profile.website
@@ -304,10 +304,16 @@ export default function UserProfilePage() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={profile.cover || '/assets/covers/default-cover.png'}
+              src={normalizeCoverSrc(profile.cover)}
               alt="Profile cover"
               decoding="async"
               fetchPriority="high"
+              onError={(e) => {
+                if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                  e.currentTarget.dataset.fallbackApplied = '1';
+                  e.currentTarget.src = '/assets/covers/default-cover.png';
+                }
+              }}
               className="h-full w-full object-cover"
             />
           </button>
@@ -627,10 +633,16 @@ export default function UserProfilePage() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={profile.cover || '/assets/covers/default-cover.png'}
+            src={normalizeCoverSrc(profile.cover)}
             alt="Profile cover"
             decoding="async"
             fetchPriority="high"
+            onError={(e) => {
+              if (e.currentTarget.dataset.fallbackApplied !== '1') {
+                e.currentTarget.dataset.fallbackApplied = '1';
+                e.currentTarget.src = '/assets/covers/default-cover.png';
+              }
+            }}
             className="w-full h-full object-cover"
           />
         </button>
