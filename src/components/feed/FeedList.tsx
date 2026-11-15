@@ -269,18 +269,23 @@ export function FeedList({
           ))}
 
           {hasMore && (
-            <div ref={loadMoreRef} className="p-4 flex justify-center">
-              <Button
-                variant="outline"
-                loading={loadingMore}
-                onClick={() => {
-                  const next = page + 1;
-                  setPage(next);
-                  loadPosts(next, true);
-                }}
-              >
-                Load more publications
-              </Button>
+            <div ref={loadMoreRef}>
+              {loadingMore ? (
+                <FeedSkeleton count={1} />
+              ) : (
+                <div className="p-4 flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const next = page + 1;
+                      setPage(next);
+                      loadPosts(next, true);
+                    }}
+                  >
+                    Load more publications
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </>

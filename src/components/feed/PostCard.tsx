@@ -413,58 +413,81 @@ export function PostCard({
   const quoteData = post.quotePostId;
   const quoteAuthor = quoteData?.author || quoteData?.userId;
 
+  const isShortStatusPost =
+    Boolean(post.content) &&
+    !post.title &&
+    !post.gifUrl &&
+    !post.poll &&
+    !post.linkSnapshot &&
+    (!post.media || post.media.length === 0) &&
+    !quoteData &&
+    post.content.trim().length <= 120;
+
   return (
-    <article className="border-b border-bord-tr p-4 transition-colors">
-      {(post.globalPinned || pinned) && (
-        <div className="flex items-center gap-1.5 text-cap-s text-lab-sc mb-2 pl-12">
-          <Pin className="h-3 w-3 text-lab-sc" />
-          <span>{post.globalPinned ? 'Featured publication' : 'Pinned post'}</span>
-        </div>
-      )}
+    <article className="bg-bg-pr border-b border-bord-tr transition-colors">
+      <div className="p-4 space-y-3">
+        {(post.globalPinned || pinned) && (
+          <div className="flex items-center gap-1.5 text-cap-l text-lab-sc">
+            <Pin className="h-3.5 w-3.5 text-lab-sc" />
+            <span>{post.globalPinned ? 'Featured publication' : 'Pinned post'}</span>
+          </div>
+        )}
 
-      <div className="flex gap-3">
-        <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="shrink-0">
-          <Avatar
-            src={isOwner ? user.avatar : post.author?.avatar}
-            alt={isOwner ? user.username : post.author?.username}
-            verified={isOwner ? user.verified : post.author?.verified}
-            size="sm"
-          />
-        </Link>
+        {/* Facebook-style Full-Width Author Header Row */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="shrink-0">
+              <Avatar
+                src={isOwner ? user.avatar : post.author?.avatar}
+                alt={isOwner ? user.username : post.author?.username}
+                verified={isOwner ? user.verified : post.author?.verified}
+                size="md"
+              />
+            </Link>
 
-        <div className="flex-1 min-w-0 space-y-2">
-          {/* Header Row */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <Link
-                href={`/@${isOwner ? user.username : post.author?.username}`}
-                className="text-par-m font-bold text-lab-pr hover:underline truncate"
-              >
-                {isOwner ? `${user.firstName} ${user.lastName}` : `${post.author?.firstName} ${post.author?.lastName}`}
-              </Link>
-              <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="text-par-m text-lab-sc truncate">
-                @{isOwner ? user.username : post.author?.username}
-              </Link>
-              <span className="text-lab-tr">·</span>
-              <Link
-                href={`/publication/${post.hashId}`}
-                className="text-par-m text-lab-tr hover:underline"
-              >
-                {formatRelativeTime(post.createdAt, locale)}
-              </Link>
-              {post.isAiGenerated && (
-                <Badge variant="default">
-                  <Bot className="h-3 w-3" /> AI
-                </Badge>
-              )}
-              {post.location && (
-                <span className="inline-flex items-center gap-1 text-cap-s text-lab-sc">
-                  <MapPin className="h-3 w-3" /> {post.location}
-                </span>
-              )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Link
+                  href={`/@${isOwner ? user.username : post.author?.username}`}
+                  className="text-par-m font-bold text-lab-pr hover:underline truncate"
+                >
+                  {isOwner
+                    ? `${user.firstName} ${user.lastName}`
+                    : `${post.author?.firstName} ${post.author?.lastName}`}
+                </Link>
+                {post.isAiGenerated && (
+                  <Badge variant="default">
+                    <Bot className="h-3 w-3" /> AI
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-par-s text-lab-sc leading-snug">
+                <Link
+                  href={`/@${isOwner ? user.username : post.author?.username}`}
+                  className="hover:underline truncate"
+                >
+                  @{isOwner ? user.username : post.author?.username}
+                </Link>
+                <span className="text-lab-tr">·</span>
+                <Link
+                  href={`/publication/${post.hashId}`}
+                  className="text-lab-sc hover:underline"
+                >
+                  {formatRelativeTime(post.createdAt, locale)}
+                </Link>
+                <span className="text-lab-tr">·</span>
+                <Globe className="size-3.5 text-lab-tr inline-block shrink-0" />
+                {post.location && (
+                  <span className="inline-flex items-center gap-1 text-cap-l text-lab-sc">
+                    · <MapPin className="h-3 w-3" /> {post.location}
+                  </span>
+                )}
+              </div>
             </div>
+          </div>
 
-            <div className="relative">
+          <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
@@ -522,12 +545,19 @@ export function PostCard({
           </div>
 
           {/* Title & Body */}
-          {post.title && <h3 className="text-par-l font-bold text-lab-pr">{post.title}</h3>}
+          {post.title && <h3 className="text-title-3 font-bold text-lab-pr">{post.title}</h3>}
 
           {post.content && (
-            <div className="text-par-m text-lab-pr whitespace-pre-wrap break-words leading-relaxed">
+            <div
+              className={cn(
+                'text-lab-pr whitespace-pre-wrap break-words',
+                isShortStatusPost
+                  ? 'text-[19px] sm:text-[21px] leading-[1.4] py-1'
+                  : 'text-par-m leading-relaxed'
+              )}
+            >
               {renderRichContent(translatedText || post.content)}
-              {translating && <span className="ml-2 text-cap-s text-lab-tr">Translating...</span>}
+              {translating && <span className="ml-2 text-cap-l text-lab-tr">Translating...</span>}
             </div>
           )}
 
@@ -1016,17 +1046,17 @@ export function PostCard({
           )}
 
           {/* Engagement Bar matching PHP TimelinePublication.vue + PrimaryIconButton.vue */}
-          <div className="flex items-center justify-between pt-1 text-lab-pr3">
+          <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-bord-tr text-lab-pr3">
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => toggleReaction('2764-fe0f')}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-cap-l hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-medium hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
                   liked && 'text-red-900 font-semibold'
                 )}
               >
-                <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
+                <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-current')} />
                 <span>{reactionsCount}</span>
               </button>
               <div className="hidden sm:flex items-center gap-0.5">
@@ -1046,9 +1076,9 @@ export function PostCard({
 
             <Link
               href={`/publication/${post.hashId}`}
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-cap-l hover:bg-fill-tr hover:text-lab-pr transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-medium hover:bg-fill-tr hover:text-lab-pr transition-colors"
             >
-              <MessageCircle className="h-4 w-4" />
+              <MessageCircle className="h-[18px] w-[18px]" />
               <span>{commentsCount}</span>
             </Link>
 
@@ -1056,10 +1086,10 @@ export function PostCard({
               <button
                 type="button"
                 onClick={() => (onQuote ? setRepostMenuOpen((v) => !v) : handleRepost())}
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-cap-l hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-medium hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
                 title="Repost or Quote"
               >
-                <Repeat2 className="h-4 w-4" />
+                <Repeat2 className="h-[18px] w-[18px]" />
                 <span>{repostsCount}</span>
               </button>
               {repostMenuOpen && (
@@ -1067,7 +1097,7 @@ export function PostCard({
                   <button
                     type="button"
                     onClick={handleRepost}
-                    className="w-full px-3.5 py-2 text-left text-cap-l text-lab-pr hover:bg-fill-pr"
+                    className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr"
                   >
                     Repost
                   </button>
@@ -1077,7 +1107,7 @@ export function PostCard({
                       setRepostMenuOpen(false);
                       onQuote?.(post);
                     }}
-                    className="w-full px-3.5 py-2 text-left text-cap-l text-lab-pr hover:bg-fill-pr"
+                    className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr"
                   >
                     Quote post
                   </button>
@@ -1095,7 +1125,7 @@ export function PostCard({
                 )}
                 aria-label="Bookmark"
               >
-                <Bookmark className={cn('h-4 w-4', bookmarked && 'fill-current')} />
+                <Bookmark className={cn('h-[18px] w-[18px]', bookmarked && 'fill-current')} />
               </button>
               <button
                 type="button"
@@ -1103,12 +1133,13 @@ export function PostCard({
                 className="p-2 rounded-full hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
                 aria-label="Share"
               >
-                <Share2 className="h-4 w-4" />
+                <Share2 className="h-[18px] w-[18px]" />
               </button>
             </div>
           </div>
         </div>
-      </div>
+
+      <div className="h-2 bg-fill-fv/50 border-t border-bord-tr/60" />
 
       <ReportModal
         open={reportOpen}

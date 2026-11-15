@@ -48,7 +48,7 @@ export function ActionSheet({ open, onClose, muted = true, children }: ActionShe
           <span className="w-10 h-[3px] bg-lab-sc rounded-full" />
         </button>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-6 pb-safe pb-safe-standalone">{children}</div>
+        <div className="flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pb-safe-standalone">{children}</div>
       </div>
     </div>
   );
