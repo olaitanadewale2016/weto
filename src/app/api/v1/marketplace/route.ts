@@ -230,10 +230,17 @@ export async function POST(req: NextRequest) {
     });
 
     if (body.mediaIds && body.mediaIds.length > 0) {
-      await Media.updateMany(
-        { _id: { $in: body.mediaIds }, ownerId: user._id },
-        { $set: { targetType: 'product', targetId: product._id } }
-      );
+      const validIds = body.mediaIds.filter((mid) => Types.ObjectId.isValid(mid));
+      if (validIds.length > 0) {
+        await Media.bulkWrite(
+          validIds.map((mid, idx) => ({
+            updateOne: {
+              filter: { _id: new Types.ObjectId(mid), ownerId: user._id },
+              update: { $set: { targetType: 'product', targetId: product._id, order: idx } },
+            },
+          }))
+        );
+      }
     }
 
     return apiSuccess({ id: String(product._id), hashId: product.hashId }, undefined, 201);

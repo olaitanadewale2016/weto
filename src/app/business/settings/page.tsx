@@ -29,6 +29,7 @@ export default function BusinessSettingsPage() {
     isReviewed: boolean;
   }>({ configured: false, verified: false, isReviewed: false });
   const [saving, setSaving] = useState(false);
+  const [uploadingKind, setUploadingKind] = useState<'logo' | 'cover' | null>(null);
 
   useEffect(() => {
     apiFetch<{
@@ -75,13 +76,24 @@ export default function BusinessSettingsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    const localPreview = URL.createObjectURL(file);
+    const previousUrl = kind === 'logo' ? logo : cover;
+    if (kind === 'logo') setLogo(localPreview);
+    else setCover(localPreview);
+    setUploadingKind(kind);
     try {
       const up = await uploadFileToR2(file, 'business', kind === 'logo' ? 'business_logo' : 'business_cover');
-      if (kind === 'logo') setLogo(up.publicUrl);
-      else setCover(up.publicUrl);
+      const resolvedUrl = resolveMediaUrl(up.publicUrl) || up.publicUrl;
+      if (kind === 'logo') setLogo(resolvedUrl);
+      else setCover(resolvedUrl);
       success(`${kind === 'logo' ? 'Logo' : 'Cover'} uploaded to Cloudflare R2`);
     } catch (err) {
+      if (kind === 'logo') setLogo(previousUrl);
+      else setCover(previousUrl);
       error('Upload failed', err instanceof Error ? err.message : undefined);
+    } finally {
+      setUploadingKind(null);
+      setTimeout(() => URL.revokeObjectURL(localPreview), 2500);
     }
   }
 
@@ -147,17 +159,37 @@ export default function BusinessSettingsPage() {
             <label className="block text-cap-l font-semibold text-lab-pr">Business Logo</label>
             {logo && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={resolveMediaUrl(logo) || logo} alt="Business logo" className="h-14 w-14 rounded-xl object-cover border border-bord-pr" />
+              <img
+                src={resolveMediaUrl(logo) || logo}
+                alt="Business logo"
+                className="h-14 w-14 rounded-xl object-cover border border-bord-pr bg-fill-qt"
+                onError={(e) => {
+                  if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                  e.currentTarget.dataset.fallbackApplied = '1';
+                  e.currentTarget.src = '/assets/avatars/default-avatar.png';
+                }}
+              />
             )}
-            <input type="file" accept="image/*" onChange={(e) => uploadAsset('logo', e)} className="text-cap-l block w-full" />
+            <input type="file" accept="image/*" disabled={uploadingKind !== null} onChange={(e) => uploadAsset('logo', e)} className="text-cap-l block w-full" />
+            {uploadingKind === 'logo' && <p className="text-cap-s text-brand-900">Uploading logo...</p>}
           </div>
           <div className="rounded-2xl border border-bord-pr p-3 space-y-2">
             <label className="block text-cap-l font-semibold text-lab-pr">Cover Banner</label>
             {cover && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={resolveMediaUrl(cover) || cover} alt="Business cover" className="h-14 w-full rounded-xl object-cover border border-bord-pr" />
+              <img
+                src={resolveMediaUrl(cover) || cover}
+                alt="Business cover"
+                className="h-14 w-full rounded-xl object-cover border border-bord-pr bg-fill-qt"
+                onError={(e) => {
+                  if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                  e.currentTarget.dataset.fallbackApplied = '1';
+                  e.currentTarget.src = '/assets/covers/default-cover.png';
+                }}
+              />
             )}
-            <input type="file" accept="image/*" onChange={(e) => uploadAsset('cover', e)} className="text-cap-l block w-full" />
+            <input type="file" accept="image/*" disabled={uploadingKind !== null} onChange={(e) => uploadAsset('cover', e)} className="text-cap-l block w-full" />
+            {uploadingKind === 'cover' && <p className="text-cap-s text-brand-900">Uploading cover...</p>}
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -173,7 +205,7 @@ export default function BusinessSettingsPage() {
           <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} />
           <Input label="Country" value={country} onChange={(e) => setCountry(e.target.value)} />
         </div>
-        <Button type="submit" variant="primary" size="lg" loading={saving}>Save Business Profile</Button>
+        <Button type="submit" variant="primary" size="lg" loading={saving || uploadingKind !== null}>Save Business Profile</Button>
       </form>
     </div>
   );

@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/modal';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -73,16 +74,21 @@ export default function BusinessAdsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    const localPreview = URL.createObjectURL(file);
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|m4v|webm|mov|mkv|3gp)$/i.test(file.name);
+    setCreativePreview({ url: localPreview, type: isVideo ? 'video' : 'image' });
     setUploadingCreative(true);
     try {
       const up = await uploadFileToR2(file, 'ads', 'ad');
       setMediaId(up.mediaId);
-      setCreativePreview({ url: up.publicUrl, type: up.mediaType });
+      setCreativePreview({ url: resolveMediaUrl(up.publicUrl) || up.publicUrl, type: up.mediaType });
       success('Creative uploaded to Cloudflare R2');
     } catch (err) {
+      setCreativePreview(null);
       error('Upload failed', err instanceof Error ? err.message : undefined);
     } finally {
       setUploadingCreative(false);
+      setTimeout(() => URL.revokeObjectURL(localPreview), 2500);
     }
   }
 
@@ -219,7 +225,16 @@ export default function BusinessAdsPage() {
               <div key={ad.id} className="rounded-3xl border border-bord-card bg-bg-pr overflow-hidden flex flex-col">
                 {(ad.media?.publicUrl || ad.media?.url) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={ad.media.publicUrl || ad.media.url} alt={ad.title} className="h-40 w-full object-cover" />
+                  <img
+                    src={resolveMediaUrl(ad.media.publicUrl || ad.media.url) || ad.media.publicUrl || ad.media.url || '/assets/ads/default-preview.png'}
+                    alt={ad.title}
+                    className="h-40 w-full object-cover bg-fill-qt"
+                    onError={(e) => {
+                      if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                      e.currentTarget.dataset.fallbackApplied = '1';
+                      e.currentTarget.src = '/assets/ads/default-preview.png';
+                    }}
+                  />
                 )}
                 <div className="p-5 space-y-3 flex-1">
                   <div className="flex items-start justify-between gap-2">
@@ -337,14 +352,14 @@ export default function BusinessAdsPage() {
                   <video src={creativePreview.url} controls className="max-h-40 w-full object-contain" />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={creativePreview.url} alt="Ad creative preview" className="max-h-40 w-full object-contain" />
+                  <img src={resolveMediaUrl(creativePreview.url) || creativePreview.url} alt="Ad creative preview" className="max-h-40 w-full object-contain" />
                 )}
               </div>
             )}
             <input type="file" accept="image/*,video/*" disabled={uploadingCreative} onChange={handleUpload} className="text-cap-l block w-full" />
             {uploadingCreative && <p className="text-cap-s text-brand-900">Uploading creative to Cloudflare R2...</p>}
           </div>
-          <Button type="submit" variant="primary" className="w-full" loading={submitting}>
+          <Button type="submit" variant="primary" className="w-full" loading={submitting || uploadingCreative}>
             {editingAdId ? 'Save Campaign Changes' : 'Launch Campaign'}
           </Button>
         </form>

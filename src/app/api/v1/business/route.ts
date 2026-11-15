@@ -5,6 +5,7 @@ import { apiError, apiSuccess, NotFoundError } from '@/lib/api-response';
 import { BusinessAccount, JobListing, Product, Store } from '@/models/Commerce';
 import { Ad } from '@/models/Finance';
 import { ensureWallet } from '@/services/wallet.service';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { JobStatus, ProductStatus } from '@/types/enums';
 
 export async function GET(req: NextRequest) {
@@ -50,9 +51,21 @@ export async function GET(req: NextRequest) {
     const totalAdSpend = Number(adStats[0]?.totalSpend || 0);
     const totalJobApplications = Number(jobStats[0]?.totalApplications || 0);
 
+    const normalizedBusiness = business
+      ? {
+          ...business,
+          logo: business.logo ? resolveMediaUrl(business.logo) || business.logo : business.logo,
+          cover: business.cover ? resolveMediaUrl(business.cover) || business.cover : business.cover,
+        }
+      : business;
+
     return apiSuccess({
-      business,
-      stores: stores.map((s) => ({ ...s, id: String(s._id) })),
+      business: normalizedBusiness,
+      stores: stores.map((s) => ({
+        ...s,
+        id: String(s._id),
+        logo: s.logo ? resolveMediaUrl(s.logo) || s.logo : s.logo,
+      })),
       metrics: {
         productsCount,
         activeProductsCount,

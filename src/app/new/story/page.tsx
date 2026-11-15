@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { useToast } from '@/components/providers/ToastProvider';
 
 const BG_PALETTES = [
@@ -38,18 +39,26 @@ export default function NewStoryPage() {
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    const localPreview = URL.createObjectURL(file);
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|m4v|webm|mov|mkv|3gp)$/i.test(file.name);
+    setPreviewUrl(localPreview);
+    setType(isVideo ? 'video' : 'image');
     setUploading(true);
     try {
       const res = await uploadFileToR2(file, 'stories', 'story_frame');
       setMediaId(res.mediaId);
-      setPreviewUrl(res.publicUrl);
+      setPreviewUrl(resolveMediaUrl(res.publicUrl) || res.publicUrl);
       setType(res.mediaType === 'video' ? 'video' : 'image');
       success('Story media uploaded');
     } catch (err) {
+      setMediaId(null);
+      setPreviewUrl(null);
       error('Upload failed', err instanceof Error ? err.message : undefined);
     } finally {
       setUploading(false);
+      setTimeout(() => URL.revokeObjectURL(localPreview), 2500);
     }
   }
 

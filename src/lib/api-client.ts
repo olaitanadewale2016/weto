@@ -98,7 +98,7 @@ export async function generateImageLqip(file: File): Promise<{
   width?: number;
   height?: number;
 }> {
-  if (!file.type.startsWith('image/') || typeof document === 'undefined') return {};
+  if (!resolveUploadMimeType(file).startsWith('image/') || typeof document === 'undefined') return {};
   return new Promise((resolve) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
@@ -146,14 +146,119 @@ export interface UploadedMediaResult {
   height?: number;
 }
 
+const CLIENT_MIME_ALIASES: Record<string, string> = {
+  'image/jpg': 'image/jpeg',
+  'image/pjpeg': 'image/jpeg',
+  'image/x-png': 'image/png',
+  'image/x-bmp': 'image/bmp',
+  'image/x-ms-bmp': 'image/bmp',
+  'video/x-m4v': 'video/mp4',
+  'audio/mp3': 'audio/mpeg',
+};
+
+const CLIENT_EXT_TO_MIME: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  jfif: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  ico: 'image/x-icon',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  mkv: 'video/x-matroska',
+  '3gp': 'video/3gpp',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  pdf: 'application/pdf',
+};
+
+const MAX_SERVER_FALLBACK_BYTES = 4 * 1024 * 1024;
+
+export function resolveUploadMimeType(file: Pick<File, 'type' | 'name'>): string {
+  const raw = (file.type || '').split(';')[0].trim().toLowerCase();
+  const aliased = CLIENT_MIME_ALIASES[raw] || raw;
+  if (aliased && aliased !== 'application/octet-stream') {
+    return aliased;
+  }
+  const ext = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() || '' : '';
+  return CLIENT_EXT_TO_MIME[ext] || aliased || 'application/octet-stream';
+}
+
+async function compressImageForFallbackUpload(file: File, cleanMime: string): Promise<File | null> {
+  if (
+    typeof document === 'undefined' ||
+    cleanMime === 'image/gif' ||
+    cleanMime === 'image/svg+xml' ||
+    cleanMime === 'image/x-icon'
+  ) {
+    return null;
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = async () => {
+      try {
+        const origW = img.naturalWidth || 1;
+        const origH = img.naturalHeight || 1;
+        const maxDim = 2048;
+        const scale = Math.min(1, maxDim / Math.max(origW, origH));
+        const targetW = Math.max(1, Math.round(origW * scale));
+        const targetH = Math.max(1, Math.round(origH * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
+        const outMime = cleanMime === 'image/png' ? 'image/webp' : 'image/jpeg';
+        const outExt = outMime === 'image/webp' ? 'webp' : 'jpg';
+        for (const quality of [0.88, 0.78, 0.65]) {
+          const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, outMime, quality));
+          if (blob && blob.size <= MAX_SERVER_FALLBACK_BYTES) {
+            const base = file.name.replace(/\.[^.]+$/, '') || 'upload';
+            resolve(new File([blob], `${base}.${outExt}`, { type: outMime }));
+            return;
+          }
+        }
+        resolve(null);
+      } catch {
+        resolve(null);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
+    img.src = objectUrl;
+  });
+}
+
 export function inferMediaType(mimeType: string, filename = ''): 'image' | 'video' | 'audio' | 'document' {
   const cleanMime = mimeType.split(';')[0].trim().toLowerCase();
   if (cleanMime.startsWith('image/')) return 'image';
   if (cleanMime.startsWith('video/')) return 'video';
   if (cleanMime.startsWith('audio/')) return 'audio';
   const ext = filename.split('.').pop()?.toLowerCase() || '';
-  if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'avif'].includes(ext)) return 'image';
-  if (['mp4', 'webm', 'mov', 'mkv'].includes(ext)) return 'video';
+  if (['jpg', 'jpeg', 'jfif', 'png', 'webp', 'gif', 'heic', 'heif', 'avif', 'bmp', 'svg', 'ico'].includes(ext)) return 'image';
+  if (['mp4', 'm4v', 'webm', 'mov', 'mkv', '3gp'].includes(ext)) return 'video';
   if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext)) return 'audio';
   return 'document';
 }
@@ -187,7 +292,7 @@ export async function uploadFileToR2(
   onProgress?: (pct: number) => void,
   extraMeta?: { durationSeconds?: number }
 ): Promise<UploadedMediaResult> {
-  const cleanMime = (file.type || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+  const cleanMime = resolveUploadMimeType(file);
   const mediaType = inferMediaType(cleanMime, file.name);
   const presign = await apiFetch<{
     mediaId: string;
@@ -229,9 +334,14 @@ export async function uploadFileToR2(
     usedDirectPut = true;
   } catch (directErr) {
     // Fallback to server-assisted R2 upload for CORS-restricted environments (within serverless body limits)
-    if (file.size <= 4 * 1024 * 1024) {
+    let fallbackFile: File | null = file.size <= MAX_SERVER_FALLBACK_BYTES ? file : null;
+    if (!fallbackFile && mediaType === 'image') {
+      fallbackFile = await compressImageForFallbackUpload(file, cleanMime);
+    }
+
+    if (fallbackFile && fallbackFile.size <= MAX_SERVER_FALLBACK_BYTES) {
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', fallbackFile);
       form.append('namespace', namespace);
       form.append('targetType', targetType);
       form.append('mediaType', mediaType);
@@ -240,6 +350,7 @@ export async function uploadFileToR2(
         form.append('durationSeconds', String(extraMeta.durationSeconds));
       }
 
+      onProgress?.(60);
       const fallbackData = await apiFetch<{
         id?: string;
         url?: string;
@@ -249,15 +360,15 @@ export async function uploadFileToR2(
         method: 'POST',
         body: form,
       });
-      const meta = mediaType === 'image' ? await generateImageLqip(file) : {};
+      const meta = mediaType === 'image' ? await generateImageLqip(fallbackFile) : {};
       onProgress?.(100);
       return {
         mediaId: fallbackData.id || presign.mediaId,
         r2Key: presign.r2Key,
         publicUrl: fallbackData.publicUrl || fallbackData.url || presign.publicUrl,
-        mimeType: cleanMime,
+        mimeType: resolveUploadMimeType(fallbackFile),
         mediaType,
-        filename: file.name,
+        filename: fallbackFile.name,
         durationSeconds: extraMeta?.durationSeconds,
         lqipBase64: fallbackData.lqipBase64 || meta.lqipBase64,
         width: meta.width,

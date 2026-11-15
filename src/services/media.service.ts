@@ -28,6 +28,7 @@ const ALLOWED_MIMES: Record<MediaType, string[]> = {
     'image/heic',
     'image/heif',
     'image/avif',
+    'image/bmp',
   ],
   [MediaType.VIDEO]: [
     'video/mp4',
@@ -69,6 +70,58 @@ const ALLOWED_MIMES: Record<MediaType, string[]> = {
   [MediaType.TEXT]: ['text/plain'],
 };
 
+const MIME_ALIASES: Record<string, string> = {
+  'image/jpg': 'image/jpeg',
+  'image/pjpeg': 'image/jpeg',
+  'image/x-png': 'image/png',
+  'image/x-bmp': 'image/bmp',
+  'image/x-ms-bmp': 'image/bmp',
+  'video/x-m4v': 'video/mp4',
+  'audio/mp3': 'audio/mpeg',
+  'audio/x-mpeg': 'audio/mpeg',
+};
+
+const EXT_TO_MIME: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  jfif: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  ico: 'image/x-icon',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  mkv: 'video/x-matroska',
+  '3gp': 'video/3gpp',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  zip: 'application/zip',
+};
+
+export function normalizeMediaMime(mimeType: string, filename = ''): string {
+  const cleaned = mimeType.split(';')[0].trim().toLowerCase();
+  const aliased = MIME_ALIASES[cleaned] || cleaned;
+  if (aliased && aliased !== 'application/octet-stream') {
+    return aliased;
+  }
+  const ext = filename.includes('.') ? filename.split('.').pop()?.toLowerCase() || '' : '';
+  return EXT_TO_MIME[ext] || aliased || 'application/octet-stream';
+}
+
 const MAX_SIZE_BYTES: Record<MediaType, number> = {
   [MediaType.IMAGE]: 15 * 1024 * 1024, // 15 MB
   [MediaType.VIDEO]: 250 * 1024 * 1024, // 250 MB
@@ -104,7 +157,7 @@ function validateMediaUploadParams(params: {
   sizeBytes: number;
   filename: string;
 }) {
-  const normalizedMime = params.mimeType.split(';')[0].trim().toLowerCase() || 'application/octet-stream';
+  const normalizedMime = normalizeMediaMime(params.mimeType, params.filename);
   const baseAllowed = ALLOWED_MIMES[params.mediaType] || [];
   const systemExtras =
     params.namespace === 'system' && params.mediaType === MediaType.IMAGE
@@ -208,7 +261,10 @@ export async function uploadMediaBufferDirectly(params: {
         })
       : null;
 
-  const r2Key = existingPending?.r2Key || buildR2Key(params.namespace, params.ownerId, ext);
+  const r2Key =
+    existingPending && existingPending.extension === ext
+      ? existingPending.r2Key
+      : buildR2Key(params.namespace, params.ownerId, ext);
   await putR2Buffer({
     key: r2Key,
     body: params.buffer,
@@ -231,6 +287,7 @@ export async function uploadMediaBufferDirectly(params: {
 
   let media: IMediaDocument;
   if (existingPending) {
+    existingPending.r2Key = r2Key;
     existingPending.extension = ext;
     existingPending.mime = normalizedMime;
     existingPending.sizeBytes = params.buffer.length;

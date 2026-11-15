@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Loader2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
@@ -28,6 +29,7 @@ export interface EditableProductData {
   price: number;
   discount?: number;
   address?: string;
+  existingMedia?: Array<{ id?: string; url?: string; publicUrl?: string }>;
 }
 
 interface ProductCreateModalProps {
@@ -81,32 +83,80 @@ function ProductCreateModalInner({
   const [condition, setCondition] = useState(editProduct?.condition || 'new');
   const [type, setType] = useState(editProduct?.type || 'physical');
   const [address, setAddress] = useState(editProduct?.address || '');
-  const [mediaIds, setMediaIds] = useState<string[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [existingPhotos, setExistingPhotos] = useState<Array<{ id: string; url: string }>>(() =>
+    (editProduct?.existingMedia || [])
+      .map((m) => ({
+        id: String(m.id || ''),
+        url: resolveMediaUrl(m.publicUrl || m.url) || m.publicUrl || m.url || '',
+      }))
+      .filter((m) => Boolean(m.id && m.url))
+  );
+  const [removedMediaIds, setRemovedMediaIds] = useState<string[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<
+    Array<{ mediaId?: string; previewUrl: string; uploading?: boolean }>
+  >([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  const uploading = uploadingCount > 0;
+  const mediaIds = uploadedPhotos
+    .map((p) => p.mediaId)
+    .filter((id): id is string => Boolean(id));
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     e.target.value = '';
     if (!files || files.length === 0) return;
-    setUploading(true);
-    try {
-      for (const file of Array.from(files).slice(0, 8)) {
+
+    const remainingSlots = Math.max(0, 10 - existingPhotos.length - uploadedPhotos.length);
+    if (remainingSlots === 0) {
+      error('Photo limit reached', 'You can attach up to 10 photos per listing.');
+      return;
+    }
+
+    const picked = Array.from(files).slice(0, remainingSlots);
+    setUploadingCount((c) => c + picked.length);
+
+    let uploadedAny = 0;
+    let firstErr: string | undefined;
+
+    for (const file of picked) {
+      const localPreview = URL.createObjectURL(file);
+      setUploadedPhotos((prev) => [...prev, { previewUrl: localPreview, uploading: true }]);
+      try {
         const res = await uploadFileToR2(file, 'marketplace', 'product');
-        setMediaIds((prev) => [...prev, res.mediaId]);
-        setPreviewUrls((prev) => [...prev, res.publicUrl]);
+        const resolvedUrl = resolveMediaUrl(res.publicUrl) || res.publicUrl || localPreview;
+        setUploadedPhotos((prev) =>
+          prev.map((item) =>
+            item.previewUrl === localPreview
+              ? { mediaId: res.mediaId, previewUrl: resolvedUrl, uploading: false }
+              : item
+          )
+        );
+        uploadedAny += 1;
+        setTimeout(() => URL.revokeObjectURL(localPreview), 2500);
+      } catch (err) {
+        firstErr = firstErr || (err instanceof Error ? err.message : 'Upload failed');
+        setUploadedPhotos((prev) => prev.filter((item) => item.previewUrl !== localPreview));
+        URL.revokeObjectURL(localPreview);
+      } finally {
+        setUploadingCount((c) => Math.max(0, c - 1));
       }
-      success('Product images uploaded');
-    } catch (err) {
-      error('Upload failed', err instanceof Error ? err.message : undefined);
-    } finally {
-      setUploading(false);
+    }
+
+    if (uploadedAny > 0 && !firstErr) {
+      success(uploadedAny === 1 ? 'Product image uploaded' : `${uploadedAny} product images uploaded`);
+    } else if (firstErr) {
+      error(
+        uploadedAny > 0 ? `Uploaded ${uploadedAny} photo(s), some failed` : 'Upload failed',
+        firstErr
+      );
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (uploading) return;
     setSubmitting(true);
     try {
       if (isEditing && editProduct) {
@@ -125,6 +175,7 @@ function ProductCreateModalInner({
             discount: Number(discount) || 0,
             address: address.trim(),
             ...(mediaIds.length > 0 ? { mediaIds } : {}),
+            ...(removedMediaIds.length > 0 ? { removeMediaIds: removedMediaIds } : {}),
           },
         });
         success('Product updated!');
@@ -250,30 +301,40 @@ function ProductCreateModalInner({
         </div>
 
         <div className="space-y-2">
-          <label className="block text-cap-l font-semibold text-lab-pr">
-            {isEditing ? 'Add Product Photos' : 'Product Photos'}
+          <div className="flex items-center justify-between">
+            <label className="block text-cap-l font-semibold text-lab-pr">
+              {isEditing ? 'Product Photos (Add or Remove)' : 'Product Photos'}
+            </label>
+            <span className="text-cap-s text-lab-sc">
+              {existingPhotos.length + uploadedPhotos.length}/10
+            </span>
+          </div>
+          <label className="inline-flex items-center gap-2 rounded-full border border-bord-pr bg-fill-qt/60 px-3.5 py-2 text-cap-l font-semibold text-lab-pr hover:bg-fill-tr cursor-pointer transition-colors">
+            <Upload className="h-3.5 w-3.5" />
+            <span>{uploading ? 'Uploading photos...' : 'Choose Photos'}</span>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
           </label>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="text-cap-l block w-full text-lab-sc"
-          />
           {uploading ? (
             <p className="text-cap-s text-brand-900">Uploading images to Cloudflare R2...</p>
           ) : null}
-          {previewUrls.length > 0 ? (
+          {existingPhotos.length > 0 || uploadedPhotos.length > 0 ? (
             <div className="flex flex-wrap gap-2 pt-1">
-              {previewUrls.map((url, idx) => {
-                const resolvedPreview = resolveMediaUrl(url) || url || '/assets/products/default-preview.png';
-                return (
-                  /* eslint-disable-next-line @next/next/no-img-element */
+              {existingPhotos.map((photo) => (
+                <div
+                  key={`existing-${photo.id}`}
+                  className="relative size-16 rounded-xl overflow-hidden border border-bord-card bg-fill-qt"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    key={`${resolvedPreview}-${idx}`}
-                    src={resolvedPreview}
-                    alt={`Uploaded ${idx + 1}`}
-                    className="size-14 rounded-xl object-cover border border-bord-card bg-fill-qt"
+                    src={photo.url}
+                    alt="Existing product photo"
+                    className="h-full w-full object-cover"
                     onLoad={(e) => {
                       delete e.currentTarget.dataset.fallbackApplied;
                     }}
@@ -283,6 +344,62 @@ function ProductCreateModalInner({
                       e.currentTarget.src = '/assets/products/default-preview.png';
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExistingPhotos((prev) => prev.filter((item) => item.id !== photo.id));
+                      setRemovedMediaIds((prev) =>
+                        prev.includes(photo.id) ? prev : [...prev, photo.id]
+                      );
+                    }}
+                    className="absolute top-1 right-1 size-5 rounded-full bg-black/70 text-white flex items-center justify-center cursor-pointer"
+                    aria-label="Remove existing photo"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {uploadedPhotos.map((item, idx) => {
+                const resolvedPreview =
+                  resolveMediaUrl(item.previewUrl) ||
+                  item.previewUrl ||
+                  '/assets/products/default-preview.png';
+                return (
+                  <div
+                    key={`${item.mediaId || resolvedPreview}-${idx}`}
+                    className="relative size-16 rounded-xl overflow-hidden border border-bord-card bg-fill-qt"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolvedPreview}
+                      alt={`Uploaded ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                      onLoad={(e) => {
+                        delete e.currentTarget.dataset.fallbackApplied;
+                      }}
+                      onError={(e) => {
+                        if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                        e.currentTarget.dataset.fallbackApplied = '1';
+                        e.currentTarget.src = '/assets/products/default-preview.png';
+                      }}
+                    />
+                    {item.uploading ? (
+                      <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                        <Loader2 className="h-4 w-4 text-white animate-spin" />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setUploadedPhotos((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        className="absolute top-1 right-1 size-5 rounded-full bg-black/70 text-white flex items-center justify-center cursor-pointer"
+                        aria-label="Remove uploaded photo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>

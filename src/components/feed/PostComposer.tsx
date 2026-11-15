@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 import { apiFetch, uploadFileToR2, UploadedMediaResult } from '@/lib/api-client';
+import { resolveMediaUrl } from '@/lib/media-url';
 import { GiphyAttribution, GiphyPicker } from '@/components/feed/GiphyPicker';
 import { cn } from '@/lib/utils';
 
@@ -312,7 +313,11 @@ export function PostComposer({
                   className="relative aspect-square rounded-lg border border-bord-card overflow-hidden bg-fill-tr"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={u.publicUrl} alt="Upload preview" className="h-full w-full object-cover" />
+                  <img
+                    src={resolveMediaUrl(u.publicUrl) || u.publicUrl}
+                    alt="Upload preview"
+                    className="h-full w-full object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() => setUploads((prev) => prev.filter((item) => item.mediaId !== u.mediaId))}

@@ -172,10 +172,17 @@ export async function POST(req: NextRequest) {
       targetUrl: body.targetUrl,
       totalBudget: body.totalBudget,
       pricePerView: adsCfg.pricePerView,
-      mediaId: body.mediaId ? new Types.ObjectId(body.mediaId) : null,
+      mediaId: body.mediaId && Types.ObjectId.isValid(body.mediaId) ? new Types.ObjectId(body.mediaId) : null,
       status: body.publishNow ? AdStatus.PUBLISHED : AdStatus.DRAFT,
       approval: adsCfg.defaultApproval ? AdApproval.APPROVED : AdApproval.PENDING,
     });
+
+    if (ad.mediaId) {
+      await Media.updateOne(
+        { _id: ad.mediaId, ownerId: user._id },
+        { $set: { targetType: 'ad', targetId: ad._id } }
+      );
+    }
 
     return apiSuccess({ id: String(ad._id), approval: ad.approval }, undefined, 201);
   } catch (err) {
@@ -241,8 +248,12 @@ export async function PATCH(req: NextRequest) {
           ad.status = AdStatus.PUBLISHED;
         }
       }
-      if (body.mediaId !== undefined) {
-        ad.mediaId = Types.ObjectId.isValid(body.mediaId) ? new Types.ObjectId(body.mediaId) : ad.mediaId;
+      if (body.mediaId !== undefined && Types.ObjectId.isValid(body.mediaId)) {
+        ad.mediaId = new Types.ObjectId(body.mediaId);
+        await Media.updateOne(
+          { _id: ad.mediaId, ...(isAdmin ? {} : { ownerId: user._id }) },
+          { $set: { targetType: 'ad', targetId: ad._id } }
+        );
       }
       await ad.save();
     } else if (body.action === 'pause') {

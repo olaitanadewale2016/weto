@@ -117,6 +117,7 @@ const patchProductSchema = z.object({
   isPromoted: z.boolean().optional(),
   status: z.nativeEnum(ProductStatus).optional(),
   mediaIds: z.array(z.string()).max(10).optional(),
+  removeMediaIds: z.array(z.string()).max(10).optional(),
 });
 
 export async function PATCH(
@@ -260,14 +261,45 @@ export async function PATCH(
 
     await product.save();
 
+    if (body.removeMediaIds && body.removeMediaIds.length > 0) {
+      const validRemoveIds = body.removeMediaIds.filter((mid) => Types.ObjectId.isValid(mid));
+      if (validRemoveIds.length > 0) {
+        const removable = await Media.find({
+          _id: { $in: validRemoveIds.map((id) => new Types.ObjectId(id)) },
+          targetType: 'product',
+          targetId: product._id,
+          ...(isAdmin ? {} : { ownerId: user._id }),
+        })
+          .select('_id')
+          .lean();
+        await Promise.all(removable.map((m) => deleteMediaRecord(String(m._id))));
+      }
+    }
+
     if (body.mediaIds && body.mediaIds.length > 0) {
       const validIds = body.mediaIds.filter((mid) => Types.ObjectId.isValid(mid));
       if (validIds.length > 0) {
-        const mediaFilter: Record<string, unknown> = { _id: { $in: validIds } };
-        if (!isAdmin) mediaFilter.ownerId = user._id;
-        await Media.updateMany(mediaFilter, {
-          $set: { targetType: 'product', targetId: product._id },
+        const existingCount = await Media.countDocuments({
+          targetType: 'product',
+          targetId: product._id,
         });
+        await Media.bulkWrite(
+          validIds.map((mid, idx) => ({
+            updateOne: {
+              filter: {
+                _id: new Types.ObjectId(mid),
+                ...(isAdmin ? {} : { ownerId: user._id }),
+              },
+              update: {
+                $set: {
+                  targetType: 'product',
+                  targetId: product._id,
+                  order: existingCount + idx,
+                },
+              },
+            },
+          }))
+        );
       }
     }
 

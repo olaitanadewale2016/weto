@@ -37,6 +37,7 @@ interface MyProduct {
   isPromoted?: boolean;
   promotedUntil?: string | null;
   previewImageUrl: string;
+  media?: Array<{ id?: string; url?: string; publicUrl?: string }>;
   category?: { _id?: string; id?: string };
 }
 
@@ -256,6 +257,7 @@ export default function BusinessMarketPage() {
                         price: p.price,
                         discount: p.discount ?? 0,
                         address: p.address || '',
+                        existingMedia: p.media || [],
                       });
                       setCreateOpen(true);
                     }}

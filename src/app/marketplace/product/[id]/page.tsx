@@ -60,7 +60,7 @@ interface ProductDetail {
   createdAt?: string;
   isBookmarked: boolean;
   previewImageUrl: string;
-  media: Array<{ publicUrl?: string; url?: string; lqipBase64?: string | null }>;
+  media: Array<{ id?: string; publicUrl?: string; url?: string; lqipBase64?: string | null }>;
   seller: {
     _id: string;
     username: string;
@@ -664,6 +664,7 @@ export default function ProductDetailPage() {
           price: product.price,
           discount: product.discount,
           address: product.address || '',
+          existingMedia: product.media || [],
         }}
         onSaved={() => void loadProduct()}
       />
