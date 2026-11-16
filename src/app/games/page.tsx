@@ -1,7 +1,6 @@
 import React, { Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { TicTacToeArena } from '@/components/games/tictactoe/TicTacToeArena';
-import { FeedAdCard } from '@/components/ads/FeedAdCard';
 
 export const metadata = {
   title: 'Tic-Tac-Toe Arena · Games',
@@ -10,11 +9,11 @@ export const metadata = {
 
 export default function GamesPage() {
   return (
-    <AppShell>
+    <AppShell hideMobileChrome hideRightRail>
       <Suspense
         fallback={
           <div
-            className="min-h-[80vh] flex items-center justify-center text-white font-bold"
+            className="min-h-dvh flex items-center justify-center text-white font-bold"
             style={{ background: 'linear-gradient(180deg, #262C30 0%, #161719 100%)' }}
           >
             Loading Tic-Tac-Toe Arena...
@@ -23,7 +22,6 @@ export default function GamesPage() {
       >
         <TicTacToeArena />
       </Suspense>
-      <FeedAdCard slotIndex={701} />
     </AppShell>
   );
 }

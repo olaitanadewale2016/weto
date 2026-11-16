@@ -6,6 +6,8 @@ import {
   computeRankKey,
   getBestDoraMove,
   isBoardFull,
+  TICTACTOE_MORE_GAMES,
+  TICTACTOE_SHOP_ITEMS,
   turnDurationFor,
 } from '@/lib/tictactoe-ai';
 
@@ -320,5 +322,35 @@ describe('Tic-Tac-Toe Engine, Dora AI & Multiplayer Settlement', () => {
     expect(jsonMove.data.match.result).toBe('player1');
     expect(jsonMove.data.coins).toBe(525); // 475 + (2 * 25 pot) = 525
     expect(createHistoryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('enforces purchase-only shop items (no free ad coins) and includes More Games catalog', async () => {
+    expect(TICTACTOE_SHOP_ITEMS.length).toBeGreaterThanOrEqual(6);
+    expect(TICTACTOE_SHOP_ITEMS.every((item) => item.type === 'purchase' && item.priceNgn > 0)).toBe(
+      true
+    );
+    expect(TICTACTOE_MORE_GAMES.map((g) => g.name)).toEqual([
+      'Hextris',
+      'Clumsy Bird',
+      'Pacman',
+    ]);
+
+    findOneProfileMock.mockResolvedValueOnce({
+      _id: new Types.ObjectId(),
+      userId: mockUser1Id,
+      coins: 500,
+      score: 0,
+      activeSkinId: 'cross',
+      ownedSkinIds: ['cross'],
+      createdAt: new Date(),
+    });
+
+    const { POST } = await import('@/app/api/v1/games/tictactoe/route');
+    const reqAd = new NextRequest('http://localhost:3000/api/v1/games/tictactoe', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'claim_ad_reward' }),
+    });
+    const resAd = await POST(reqAd);
+    expect(resAd.status).toBe(422);
   });
 });

@@ -1,15 +1,22 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Check,
   Copy,
   ExternalLink,
+  Home,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
   Users,
   Volume2,
   VolumeX,
+  Wallet,
   X,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
@@ -104,8 +111,7 @@ interface GameProfileData {
   matchesDrawn: number;
   activeSkinId: string;
   ownedSkinIds: string[];
-  dailyAdWatches?: number;
-  lastAdWatchDate?: string;
+  walletBalance?: number;
   rank: number | null;
 }
 
@@ -452,12 +458,15 @@ function DoraProfileCard({
 }
 
 export function TicTacToeArena() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const inviteKeyParam = searchParams.get('invite');
   const challengeUserParam = searchParams.get('challenge');
 
   const { user } = useApp();
   const { success, error, info } = useToast();
+  const arenaRootRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Navigation & catalog state
   const [view, setView] = useState<ScreenView>('home');
@@ -469,6 +478,7 @@ export function TicTacToeArena() {
     matchesDrawn: 0,
     activeSkinId: 'cross',
     ownedSkinIds: ['cross', 'offer'],
+    walletBalance: 0,
     rank: null,
   });
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -479,6 +489,37 @@ export function TicTacToeArena() {
   const [moreGamesCatalog, setMoreGamesCatalog] =
     useState<MoreGameCatalogItem[]>(TICTACTOE_MORE_GAMES);
   const [activeIframeGame, setActiveIframeGame] = useState<MoreGameCatalogItem | null>(null);
+  const [iframeLoading, setIframeLoading] = useState(false);
+  const [iframeReloadKey, setIframeReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!document.fullscreenElement && arenaRootRef.current?.requestFullscreen) {
+        await arenaRootRef.current.requestFullscreen();
+      } else if (document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // ignore if browser blocks fullscreen
+    }
+  }, []);
+
+  const handleExitToApp = useCallback(() => {
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => undefined);
+    }
+    router.push('/');
+  }, [router]);
 
   // Sound state & refs (`sound_service.dart` parity)
   const [soundOn, setSoundOn] = useState<boolean>(() => {
@@ -1353,34 +1394,31 @@ export function TicTacToeArena() {
     }
   };
 
-  // Shop Handlers
+  // Shop Handlers (Purchase-Only via Wallet)
   const handleShopItemClick = async (item: TicTacToeShopCatalogItem) => {
     if (!user) {
-      error('Please sign in to use the coin shop.');
+      error('Please sign in to purchase coins.');
       return;
     }
     setBusyAction(true);
     try {
-      if (item.type === 'rewardedAd') {
-        const res = await apiFetch<{ coins: number; rewardCoins: number }>('/games/tictactoe', {
-          method: 'POST',
-          json: { action: 'claim_ad_reward' },
-        });
-        setProfile((prev) => ({ ...prev, coins: res.coins }));
-        success(`Congratulations! You got ${res.rewardCoins} coins!`);
-      } else {
-        const res = await apiFetch<{ coins: number; coinsCredited: number }>(
-          '/games/tictactoe',
-          {
-            method: 'POST',
-            json: { action: 'buy_coins_wallet', shopItemId: item.id },
-          }
-        );
-        setProfile((prev) => ({ ...prev, coins: res.coins }));
-        success(`Credited ${res.coinsCredited} coins from your wallet!`);
-      }
+      const res = await apiFetch<{
+        coins: number;
+        walletBalance?: number;
+        coinsCredited: number;
+      }>('/games/tictactoe', {
+        method: 'POST',
+        json: { action: 'buy_coins_wallet', shopItemId: item.id },
+      });
+      setProfile((prev) => ({
+        ...prev,
+        coins: res.coins,
+        walletBalance:
+          typeof res.walletBalance === 'number' ? res.walletBalance : prev.walletBalance,
+      }));
+      success(`Purchased ${res.coinsCredited} coins!`);
     } catch (err) {
-      error(err instanceof Error ? err.message : 'Transaction failed.');
+      error(err instanceof Error ? err.message : 'Purchase failed.');
     } finally {
       setBusyAction(false);
     }
@@ -1391,13 +1429,127 @@ export function TicTacToeArena() {
     : 'Guest Player';
   const myAvatarUrl = user?.avatar || '/assets/games/tictactoe/png/guest.png';
 
+  const handleBackFromSubView = () => {
+    if (activeIframeGame) {
+      setActiveIframeGame(null);
+      return;
+    }
+    if (view === 'connection' && onlineMatch) {
+      void apiFetch('/games/tictactoe', {
+        method: 'POST',
+        json: { action: 'close_waiting', gameKey: onlineMatch.gameKey },
+      })
+        .then((res: unknown) => {
+          const r = res as { coins?: number };
+          if (typeof r?.coins === 'number') {
+            setProfile((p) => ({ ...p, coins: r.coins! }));
+          }
+        })
+        .catch(() => undefined);
+      setOnlineMatch(null);
+    } else if (view === 'maze' && gameMode === 'multiplayer' && onlineMatch?.status === 'inProgress') {
+      void apiFetch('/games/tictactoe', {
+        method: 'POST',
+        json: { action: 'forfeit', gameKey: onlineMatch.gameKey },
+      }).catch(() => undefined);
+    }
+    setView('home');
+  };
+
+  const viewTitleMap: Record<ScreenView, string> = {
+    home: 'Tic-Tac-Toe Arena',
+    connection: 'Matchmaking',
+    maze: 'Live Match',
+    leaderboard: 'Leaderboard',
+    skins: 'Skins',
+    shop: 'Coin Shop',
+    history: 'Match History',
+    settings: 'Game Profile',
+    howToPlay: 'How To Play ?',
+    moreGames: 'Play More Games',
+  };
+
   return (
     <div
-      className="min-h-[calc(100dvh-3.5rem)] md:min-h-screen w-full text-white flex flex-col justify-between select-none relative overflow-x-hidden"
+      ref={arenaRootRef}
+      className="min-h-dvh w-full text-white flex flex-col select-none relative overflow-x-hidden pb-safe"
       style={{
         background: 'linear-gradient(180deg, #262C30 0%, #161719 100%)',
       }}
     >
+      {/* Full-Game Mode Top Navigation Bar — Seamless UX to switch between Game Hub and Social App */}
+      <div className="sticky top-0 z-30 pt-safe bg-[#161719]/90 backdrop-blur-md border-b border-[#5A5A5A]/45">
+        <div className="max-w-[560px] mx-auto h-12 px-3.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {view === 'home' && !activeIframeGame ? (
+              <button
+                type="button"
+                onClick={handleExitToApp}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] text-xs font-bold text-white transition-colors cursor-pointer shrink-0"
+                title="Return to Social Feed"
+              >
+                <ArrowLeft className="size-3.5 text-[#F0842A]" />
+                <span>Back to App</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleBackFromSubView}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] text-xs font-bold text-white transition-colors cursor-pointer shrink-0"
+                >
+                  <ArrowLeft className="size-3.5 text-[#00A0FF]" />
+                  <span>{activeIframeGame ? 'More Games' : 'Game Hub'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExitToApp}
+                  className="inline-flex items-center gap-1 h-8 px-2.5 rounded-full bg-[#242424]/70 hover:bg-[#242424] border border-[#5A5A5A]/70 text-xs font-semibold text-white/80 hover:text-white transition-colors cursor-pointer shrink-0"
+                  title="Exit to Social App"
+                >
+                  <Home className="size-3.5 text-[#F0842A]" />
+                  <span className="hidden sm:inline">Exit to App</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/games/tictactoe/svg/dora.svg"
+              alt=""
+              className="size-5 object-contain shrink-0"
+            />
+            <span className="text-xs sm:text-sm font-extrabold tracking-wide text-white truncate">
+              {activeIframeGame ? activeIframeGame.name : viewTitleMap[view]}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="size-8 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] flex items-center justify-center text-white transition-colors cursor-pointer"
+              title={soundOn ? 'Mute game sound' : 'Unmute game sound'}
+            >
+              {soundOn ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5 text-white/60" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => void toggleFullscreen()}
+              className="size-8 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] flex items-center justify-center text-white transition-colors cursor-pointer"
+              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen game mode'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="size-3.5 text-[#F0842A]" />
+              ) : (
+                <Maximize2 className="size-3.5 text-[#00A0FF]" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
       {/* =====================================================================
        * 1. HOME SCREEN (`home_screen.dart` + `home_top_bar.dart`)
        * ===================================================================== */}
@@ -1558,6 +1710,39 @@ export function TicTacToeArena() {
                 setMatrixSizeDialogOpen(true);
               }}
             />
+
+            {/* Play More Games Feature Card (`more_games_screen.dart` entry) */}
+            <InnerShadowContainer className="p-4 flex items-center justify-between gap-4 border-[#00A0FF]/50">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="size-13 rounded-xl bg-[#161719] border border-[#5A5A5A] flex items-center justify-center shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/assets/games/tictactoe/svg/more_game.svg"
+                    alt="More Games"
+                    className="size-7 object-contain"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-extrabold text-white uppercase tracking-wide truncate">
+                    Play More Games
+                  </h3>
+                  <p className="text-xs text-white/70 truncate">
+                    Hextris · Clumsy Bird · Pacman
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setView('moreGames')}
+                className="px-4 py-2 rounded-lg font-extrabold text-xs sm:text-sm text-black shrink-0 transition-transform active:scale-95 cursor-pointer"
+                style={{
+                  background:
+                    'linear-gradient(180deg, #8CD5FF 0%, #26AEFF 50%, #0088D9 100%)',
+                }}
+              >
+                Explore
+              </button>
+            </InnerShadowContainer>
           </div>
         </div>
       )}
@@ -2163,11 +2348,11 @@ export function TicTacToeArena() {
       )}
 
       {/* =====================================================================
-       * 6. SHOP SCREEN (`shop_screen.dart` & `shop_item_card.dart`)
+       * 6. SHOP SCREEN (`shop_screen.dart` & `shop_item_card.dart` — Purchase-Only)
        * ===================================================================== */}
       {view === 'shop' && (
         <div className="w-full max-w-[560px] mx-auto px-4 py-5 flex-1 flex flex-col">
-          <div className="flex items-center justify-between gap-3 mb-5">
+          <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -2189,6 +2374,27 @@ export function TicTacToeArena() {
               <span className="text-sm font-bold text-white">{profile.coins}</span>
             </div>
           </div>
+
+          {/* Wallet Balance Banner */}
+          <InnerShadowContainer className="p-3.5 mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="size-9 rounded-lg bg-[#F0842A]/20 border border-[#F0842A]/50 flex items-center justify-center shrink-0">
+                <Wallet className="size-4 text-[#F0842A]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-white/65">Your Wallet Balance</p>
+                <p className="text-sm font-extrabold text-white truncate">
+                  ₦{(profile.walletBalance || 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/wallet"
+              className="px-3.5 py-1.5 rounded-lg bg-[#00A8CA] hover:bg-[#00b8de] text-xs font-extrabold text-white shrink-0 transition-colors"
+            >
+              + Fund Wallet
+            </Link>
+          </InnerShadowContainer>
 
           <div className="grid grid-cols-2 gap-4">
             {shopCatalog.map((item) => (
@@ -2230,9 +2436,7 @@ export function TicTacToeArena() {
                     onClick={() => void handleShopItemClick(item)}
                     className="w-full py-2 px-4 rounded-xl bg-[#F0842A] hover:bg-[#f59342] text-white text-xs sm:text-sm font-extrabold shadow-[0_3px_0_#b35c12] transition-all cursor-pointer disabled:opacity-50"
                   >
-                    {item.type === 'rewardedAd'
-                      ? 'Claim Free +50'
-                      : `₦${item.priceNgn.toLocaleString()} Wallet`}
+                    Buy · ₦{item.priceNgn.toLocaleString()}
                   </button>
                 </div>
               </InnerShadowContainer>
@@ -2526,52 +2730,122 @@ export function TicTacToeArena() {
             <h2 className="text-xl font-extrabold text-white">Play More Games</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {moreGamesCatalog.map((g) => (
-              <InnerShadowContainer
-                key={g.name}
-                className="p-4 flex flex-col items-center justify-between text-center gap-3"
-              >
-                <div className="size-16 rounded-2xl bg-[#161719] border border-[#5A5A5A] flex items-center justify-center p-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={g.image} alt={g.name} className="w-full h-full object-contain" />
+          {moreGamesCatalog.length === 0 ? (
+            <InnerShadowContainer className="p-8 text-center text-sm text-white/70">
+              No games available yet
+            </InnerShadowContainer>
+          ) : (
+            <div className="space-y-4">
+              {moreGamesCatalog.map((g) => (
+                <div key={g.name} className="flex items-stretch gap-3">
+                  <InnerShadowContainer className="flex-1 px-3 py-2 flex items-center gap-3 min-w-0">
+                    <div className="size-14 rounded-[10px] overflow-hidden bg-[#161719] border border-[#5A5A5A] shrink-0 flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={g.image || '/assets/games/tictactoe/svg/more_game.svg'}
+                        alt={g.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          if (e.currentTarget.dataset.fallback !== '1') {
+                            e.currentTarget.dataset.fallback = '1';
+                            e.currentTarget.src = '/assets/games/tictactoe/svg/more_game.svg';
+                          }
+                        }}
+                      />
+                    </div>
+                    <span className="text-lg font-extrabold text-white truncate">
+                      {g.name}
+                    </span>
+                  </InnerShadowContainer>
+
+                  {/* Exact Flutter `more_games_screen.dart` vertical blue gradient Play Now button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIframeLoading(true);
+                      setActiveIframeGame(g);
+                    }}
+                    className="px-5 rounded-[6px] font-bold text-sm text-black flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer"
+                    style={{
+                      background:
+                        'linear-gradient(180deg, #8CD5FF 0%, #26AEFF 50%, #0088D9 100%)',
+                    }}
+                  >
+                    Play Now
+                  </button>
                 </div>
-                <h3 className="text-base font-extrabold text-white">{g.name}</h3>
-                <button
-                  type="button"
-                  onClick={() => setActiveIframeGame(g)}
-                  className="w-full py-2 px-4 rounded-xl bg-[#F0842A] hover:bg-[#f59342] text-xs font-bold text-white flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>Play</span>
-                  <ExternalLink className="size-3.5" />
-                </button>
-              </InnerShadowContainer>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Embedded WebView / Iframe Modal for More Games */}
+      {/* Embedded WebView / Iframe Screen for More Games (`game_webview_screen.dart`) */}
       {activeIframeGame && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
-          <div className="h-13 px-4 bg-[#242424] border-b border-[#5A5A5A] flex items-center justify-between">
-            <span className="text-base font-extrabold text-white">
+        <div className="fixed inset-0 z-50 bg-[#161719] flex flex-col pt-safe pb-safe">
+          <div className="h-13 px-4 bg-[#242424] border-b border-[#5A5A5A] flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setActiveIframeGame(null)}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-[#161719] hover:bg-white/10 border border-[#5A5A5A] text-xs font-bold text-white cursor-pointer"
+              >
+                <ArrowLeft className="size-3.5 text-[#00A0FF]" />
+                <span>More Games</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExitToApp}
+                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-full bg-[#161719]/80 hover:bg-white/10 border border-[#5A5A5A]/70 text-xs font-semibold text-white/80 hover:text-white cursor-pointer"
+              >
+                <Home className="size-3.5 text-[#F0842A]" />
+                <span className="hidden sm:inline">Exit to App</span>
+              </button>
+            </div>
+
+            <span className="text-sm sm:text-base font-extrabold text-white truncate">
               {activeIframeGame.name}
             </span>
-            <button
-              type="button"
-              onClick={() => setActiveIframeGame(null)}
-              className="size-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
-            >
-              <X className="size-4" />
-            </button>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIframeLoading(true);
+                  setIframeReloadKey((k) => k + 1);
+                }}
+                className="size-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
+                title="Reload game"
+              >
+                <RefreshCw className="size-4" />
+              </button>
+              <a
+                href={activeIframeGame.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="size-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
+                title="Open in new tab"
+              >
+                <ExternalLink className="size-4" />
+              </a>
+            </div>
           </div>
-          <iframe
-            src={activeIframeGame.url}
-            title={activeIframeGame.name}
-            className="w-full flex-1 border-0 bg-black"
-            allow="autoplay; fullscreen; gamepad"
-          />
+
+          <div className="relative flex-1 w-full bg-black">
+            {iframeLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#161719]/80 z-10">
+                <Loader2 className="size-8 animate-spin text-[#F0842A]" />
+              </div>
+            )}
+            <iframe
+              key={`${activeIframeGame.url}-${iframeReloadKey}`}
+              src={activeIframeGame.url}
+              title={activeIframeGame.name}
+              onLoad={() => setIframeLoading(false)}
+              className="w-full h-full border-0 bg-black block"
+              allow="autoplay; fullscreen; gamepad"
+            />
+          </div>
         </div>
       )}
 

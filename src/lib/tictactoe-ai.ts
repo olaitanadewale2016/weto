@@ -25,7 +25,7 @@ export interface TicTacToeShopCatalogItem {
   coins: number;
   priceNgn: number;
   priceUsd: number;
-  type: 'purchase' | 'rewardedAd';
+  type: 'purchase';
   artwork: string;
 }
 
@@ -133,15 +133,6 @@ export const TICTACTOE_SKINS: TicTacToeSkinCatalogItem[] = [
 
 export const TICTACTOE_SHOP_ITEMS: TicTacToeShopCatalogItem[] = [
   {
-    id: 'watch_ad_50',
-    title: '50 Free Coins',
-    coins: 50,
-    priceNgn: 0,
-    priceUsd: 0,
-    type: 'rewardedAd',
-    artwork: '/assets/games/tictactoe/png/ads.png',
-  },
-  {
     id: 'coins_100',
     title: '100 Coins',
     coins: 100,
@@ -178,6 +169,15 @@ export const TICTACTOE_SHOP_ITEMS: TicTacToeShopCatalogItem[] = [
     artwork: '/assets/games/tictactoe/svg/coin_bag_small.svg',
   },
   {
+    id: 'coins_2500',
+    title: '2,500 Coins',
+    coins: 2500,
+    priceNgn: 8000,
+    priceUsd: 14.99,
+    type: 'purchase',
+    artwork: '/assets/games/tictactoe/svg/coin_bag_small.svg',
+  },
+  {
     id: 'coins_5000',
     title: '5,000 Coins',
     coins: 5000,
@@ -192,17 +192,20 @@ export const TICTACTOE_MORE_GAMES: MoreGameCatalogItem[] = [
   {
     name: 'Hextris',
     url: 'https://hextris.io/',
-    image: '/assets/games/tictactoe/svg/skins/hex.svg',
+    image:
+      'https://firebasestorage.googleapis.com/v0/b/tictact-a37a5.appspot.com/o/More%20game%20images%2Fhextris.webp?alt=media&token=302e901c-6c88-478f-bb0b-2736ed6e34ab',
   },
   {
     name: 'Clumsy Bird',
     url: 'https://ellisonleao.github.io/clumsy-bird/',
-    image: '/assets/games/tictactoe/svg/dora_1.svg',
+    image:
+      'https://firebasestorage.googleapis.com/v0/b/tictact-a37a5.appspot.com/o/More%20game%20images%2Fclumsy-bird-open-source-game.webp?alt=media&token=344ad51f-4ca5-40ae-b71e-0a863f51e9d4',
   },
   {
     name: 'Pacman',
     url: 'https://pacman.platzh1rsch.ch/',
-    image: '/assets/games/tictactoe/svg/skins/default_circle.svg',
+    image:
+      'https://firebasestorage.googleapis.com/v0/b/tictact-a37a5.appspot.com/o/More%20game%20images%2Fpacman-html5-canvat.webp?alt=media&token=94941943-d863-4dbf-9467-a7fb53819c3f',
   },
 ];
 

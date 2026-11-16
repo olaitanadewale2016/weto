@@ -322,16 +322,19 @@ export async function GET(req: NextRequest) {
     });
 
     let history: unknown[] = [];
+    let walletBalance = 0;
     if (authCtx?.user) {
       const historyFilter: Record<string, unknown> = { userId: authCtx.user._id };
       if (daysParam === '7' || daysParam === '30') {
         const cutoff = new Date(Date.now() - Number(daysParam) * 86_400_000);
         historyFilter.createdAt = { $gte: cutoff };
       }
-      history = await TicTacToeHistory.find(historyFilter)
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .lean();
+      const [histRows, userWallet] = await Promise.all([
+        TicTacToeHistory.find(historyFilter).sort({ createdAt: -1 }).limit(50).lean(),
+        ensureWallet(authCtx.user._id),
+      ]);
+      history = histRows;
+      walletBalance = userWallet?.balance || 0;
     }
 
     return apiSuccess({
@@ -344,8 +347,7 @@ export async function GET(req: NextRequest) {
             matchesDrawn: profile.matchesDrawn,
             activeSkinId: profile.activeSkinId,
             ownedSkinIds: profile.ownedSkinIds,
-            dailyAdWatches: profile.dailyAdWatches,
-            lastAdWatchDate: profile.lastAdWatchDate,
+            walletBalance,
             rank: userRank,
           }
         : {
@@ -356,8 +358,7 @@ export async function GET(req: NextRequest) {
             matchesDrawn: 0,
             activeSkinId: 'cross',
             ownedSkinIds: ['cross', 'offer'],
-            dailyAdWatches: 0,
-            lastAdWatchDate: '',
+            walletBalance: 0,
             rank: null,
           },
       leaderboard,
@@ -919,41 +920,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 10. Claim Daily Rewarded Ad Coins (+50 coins, max 5/day)
+    // 10. Free ad coin rewards are disabled — coins must be purchased
     if (body.action === 'claim_ad_reward') {
-      const todayKey = new Date().toISOString().slice(0, 10);
-      const watchesToday =
-        profile.lastAdWatchDate === todayKey ? profile.dailyAdWatches || 0 : 0;
-      if (watchesToday >= 5) {
-        throw new ValidationError("You've reached today's free coin reward limit (5/day).");
-      }
-
-      const rewardCoins = 50;
-      const updated = await GameProfile.findOneAndUpdate(
-        { userId: user._id },
-        {
-          $inc: { coins: rewardCoins },
-          $set: {
-            lastAdWatchDate: todayKey,
-            dailyAdWatches: watchesToday + 1,
-          },
-        },
-        { new: true }
+      throw new ValidationError(
+        'Free ad coin rewards are disabled. Please purchase a coin pack in the Shop.'
       );
-
-      await TicTacToeHistory.create({
-        userId: user._id,
-        opponentName: 'Rewarded Ad Bonus',
-        status: 'won',
-        amount: rewardCoins,
-        mode: 'solo',
-      });
-
-      return apiSuccess({
-        coins: updated?.coins ?? profile.coins + rewardCoins,
-        rewardCoins,
-        dailyAdWatches: watchesToday + 1,
-      });
     }
 
     // 11. Buy Coin Pack using ColibriPlus Wallet
