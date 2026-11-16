@@ -27,6 +27,7 @@ import { getSettingsGroup } from './settings.service';
  */
 export const WATERMARK_CONFIG = {
   localPath: 'assets/watermarks/default.png',
+  opacity: 0.5,
   video: {
     position: 'absolute' as const,
     y: 30,
@@ -206,13 +207,49 @@ export async function scaleStoryImageTo1080x1920(
 }
 
 /**
+ * Scales the alpha channel of a watermark PNG buffer by `opacity` (default 0.5 / 50%).
+ */
+export async function applyWatermarkOpacity(
+  watermarkBuffer: Buffer,
+  opacity: number = WATERMARK_CONFIG.opacity
+): Promise<{ data: Buffer; width: number; height: number }> {
+  const clamped = Math.max(0, Math.min(1, opacity));
+  const { data, info } = await sharp(watermarkBuffer, { failOn: 'none' })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const scaled = Buffer.from(data);
+  for (let i = 3; i < scaled.length; i += 4) {
+    scaled[i] = Math.round(scaled[i] * clamped);
+  }
+
+  const out = await sharp(scaled, {
+    raw: {
+      width: info.width,
+      height: info.height,
+      channels: 4,
+    },
+  })
+    .png()
+    .toBuffer({ resolveWithObject: true });
+
+  return {
+    data: out.data,
+    width: out.info.width,
+    height: out.info.height,
+  };
+}
+
+/**
  * Matches PHP `ImageUploadService::watermark()`:
- * Places watermark at `bottom-right` with `30px` x/y padding when `brand.images_watermark_enabled` is true.
+ * Places watermark at `bottom-right` with `30px` x/y padding (at 50% opacity) when `brand.images_watermark_enabled` is true.
  */
 export async function applyImageWatermarkBuffer(
   inputBuffer: Buffer,
   mimeType = 'image/webp',
-  customWatermarkBuffer?: Buffer | null
+  customWatermarkBuffer?: Buffer | null,
+  opacity: number = WATERMARK_CONFIG.opacity
 ): Promise<Buffer> {
   try {
     const wmBuf = customWatermarkBuffer ?? (await resolveWatermarkBuffer());
@@ -267,6 +304,11 @@ export async function applyImageWatermarkBuffer(
       finalWmW = resized.info.width;
       finalWmH = resized.info.height;
     }
+
+    const translucentWm = await applyWatermarkOpacity(finalWmBuf, opacity);
+    finalWmBuf = translucentWm.data;
+    finalWmW = translucentWm.width;
+    finalWmH = translucentWm.height;
 
     // PHP `config('assets.watermark.image.position')` === 'bottom-right' with padding = 30
     const left = Math.max(0, imgWidth - finalWmW - padding);
@@ -547,10 +589,10 @@ export async function uploadMediaBufferDirectly(params: {
   const existingPending =
     params.existingMediaId && Types.ObjectId.isValid(params.existingMediaId)
       ? await Media.findOne({
-          _id: new Types.ObjectId(params.existingMediaId),
-          ownerId: new Types.ObjectId(params.ownerId),
-          status: MediaStatus.PENDING,
-        })
+        _id: new Types.ObjectId(params.existingMediaId),
+        ownerId: new Types.ObjectId(params.ownerId),
+        status: MediaStatus.PENDING,
+      })
       : null;
 
   const r2Key =

@@ -16,6 +16,7 @@ describe('PHP ColibriPlus Watermark Parity', () => {
   it('matches PHP config/assets.php and BrandSettings migration defaults', () => {
     expect(WATERMARK_CONFIG).toEqual({
       localPath: 'assets/watermarks/default.png',
+      opacity: 0.5,
       video: {
         position: 'absolute',
         y: 30,
@@ -100,13 +101,17 @@ describe('PHP ColibriPlus Watermark Parity', () => {
     expect(topLeftPatch[2]).toBe(120);
 
     // Bottom-right watermark area: left = 400 - 64 - 30 = 306, top = 300 - 64 - 30 = 206
+    // With 50% watermark opacity, white (255, 255, 255) over blue (20, 40, 120) blends ~halfway
     const bottomRightPatch = await sharp(watermarked)
       .extract({ left: 320, top: 220, width: 10, height: 10 })
       .raw()
       .toBuffer();
-    expect(bottomRightPatch[0]).toBe(255);
-    expect(bottomRightPatch[1]).toBe(255);
-    expect(bottomRightPatch[2]).toBe(255);
+    expect(bottomRightPatch[0]).toBeGreaterThan(120);
+    expect(bottomRightPatch[0]).toBeLessThan(155);
+    expect(bottomRightPatch[1]).toBeGreaterThan(130);
+    expect(bottomRightPatch[1]).toBeLessThan(165);
+    expect(bottomRightPatch[2]).toBeGreaterThan(170);
+    expect(bottomRightPatch[2]).toBeLessThan(205);
 
     // Margin area right of watermark (left = 385, top = 285 -> inside the 30px padding) should remain blue
     const marginPatch = await sharp(watermarked)

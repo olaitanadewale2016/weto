@@ -21,6 +21,7 @@ const FFMPEG_PATH = process.env.FFMPEG_PATH || 'ffmpeg';
  */
 const WATERMARK_CONFIG = {
   localPath: 'assets/watermarks/default.png',
+  opacity: 0.5,
   video: {
     position: 'absolute',
     y: 30,
@@ -168,6 +169,26 @@ async function bootstrap() {
           if (!wmBuffer) {
             const defaultWmPath = path.join(process.cwd(), 'public', WATERMARK_CONFIG.localPath);
             wmBuffer = await fs.readFile(defaultWmPath).catch(() => null);
+          }
+
+          if (wmBuffer) {
+            try {
+              const { data, info } = await sharp(wmBuffer, { failOn: 'none' })
+                .ensureAlpha()
+                .raw()
+                .toBuffer({ resolveWithObject: true });
+              const scaled = Buffer.from(data);
+              for (let i = 3; i < scaled.length; i += 4) {
+                scaled[i] = Math.round(scaled[i] * WATERMARK_CONFIG.opacity);
+              }
+              wmBuffer = await sharp(scaled, {
+                raw: { width: info.width, height: info.height, channels: 4 },
+              })
+                .png()
+                .toBuffer();
+            } catch {
+              // Keep original watermark buffer if alpha scaling fails
+            }
           }
 
           const shouldWatermarkVideo =

@@ -43,9 +43,9 @@ export function VideoWatermarkOverlay({
       src={watermarkSrc}
       alt=""
       aria-hidden="true"
-      style={{ top: 30, left: 30 }}
+      style={{ top: 30, left: 30, opacity: 0.5 }}
       className={cn(
-        'pointer-events-none select-none absolute z-10 max-w-12 max-h-12 object-contain',
+        'pointer-events-none select-none absolute z-10 max-w-12 max-h-12 object-contain opacity-50',
         className
       )}
     />
