@@ -245,11 +245,21 @@ export function FeedList({
       {loading ? (
         <FeedSkeleton />
       ) : posts.length === 0 ? (
-        <div className="p-6">
+        <div className={mode === 'user' || mode === 'user_media' ? 'py-24 px-6' : 'p-6'}>
           <EmptyState
             icon={MessageSquareDashed}
-            title="No publications yet"
-            description="When people share posts matching this feed, they will show up here."
+            title={
+              mode === 'user_media'
+                ? 'No media yet.'
+                : mode === 'user'
+                  ? 'No posts yet.'
+                  : 'No publications yet'
+            }
+            description={
+              mode === 'user_media'
+                ? 'Photos, videos, GIFs, audio, documents, and polls shared here will appear in this tab.'
+                : 'When people share posts matching this feed, they will show up here.'
+            }
           />
         </div>
       ) : (

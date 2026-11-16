@@ -93,12 +93,15 @@ export async function GET(req: NextRequest) {
       filter.userId = profileUser._id;
       if (mode === 'user_media') {
         const mediaPostIds = await Media.distinct('targetId', {
-          userId: profileUser._id,
+          ownerId: profileUser._id,
           targetType: 'post',
-          type: { $in: [MediaType.IMAGE, MediaType.VIDEO, MediaType.GIF] },
+          type: { $ne: MediaType.TEXT },
         });
+        // Match PHP ProfileController::getProfilePosts (`whereNot('type', PostType::TEXT)`)
+        // plus any post carrying attached Media records or a GIF URL.
         filter.$or = [
-          { _id: { $in: mediaPostIds } },
+          { type: { $ne: PostType.TEXT } },
+          ...(mediaPostIds.length > 0 ? [{ _id: { $in: mediaPostIds } }] : []),
           { gifUrl: { $exists: true, $nin: [null, ''] } },
         ];
       }
@@ -206,14 +209,16 @@ export async function GET(req: NextRequest) {
           }
           : mode === 'user'
             ? { profilePinned: -1, createdAt: -1 }
-            : {
-              globalPinned: -1,
-              createdAt: -1,
-              commentsCount: -1,
-              bookmarksCount: -1,
-              viewsCount: -1,
-              quotesCount: -1,
-            };
+            : mode === 'user_media'
+              ? { createdAt: -1 }
+              : {
+                globalPinned: -1,
+                createdAt: -1,
+                commentsCount: -1,
+                bookmarksCount: -1,
+                viewsCount: -1,
+                quotesCount: -1,
+              };
 
       const rawPosts = await Post.find(filter)
         .sort(sortSpec)

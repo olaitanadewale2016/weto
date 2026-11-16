@@ -817,21 +817,22 @@ export default function UserProfilePage() {
       </div>
 
       {/* =====================================================================
-       * PHP Profile Tabs (Posts · Media · Info)
+       * PHP Profile Tabs (Posts · Media · Info) — 3-column ContentTabs grid
        * ===================================================================== */}
       <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 bg-bg-pr z-20">
         <Tabs
+          variant="grid"
           value={activeTab}
           onChange={(k) => setActiveTab(k as 'posts' | 'media' | 'info')}
           tabs={[
-            { key: 'posts', label: 'Posts', count: profile.publicationsCount },
+            { key: 'posts', label: 'Posts' },
             { key: 'media', label: 'Media' },
             { key: 'info', label: 'Info' },
           ]}
         />
       </div>
 
-      <div className="border-t border-bord-pr">
+      <div>
         {activeTab === 'posts' ? (
           <FeedList mode="user" username={profile.username} />
         ) : activeTab === 'media' ? (
