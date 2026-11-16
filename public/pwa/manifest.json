@@ -10,6 +10,24 @@
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#4A5CF9",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "New Post",
+      "short_name": "New Post",
+      "url": "/new/post"
+    },
+    {
+      "name": "Messages",
+      "short_name": "Messages",
+      "url": "/messenger"
+    },
+    {
+      "name": "Marketplace",
+      "short_name": "Marketplace",
+      "url": "/marketplace"
+    }
+  ],
   "icons": [
     {
       "src": "/pwa/icons/192x192.png",

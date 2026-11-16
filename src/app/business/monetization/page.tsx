@@ -8,7 +8,7 @@ import {
   Circle,
   Coins,
   HeartHandshake,
-  Sparkles,
+  TrendingUp,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -239,7 +239,7 @@ export default function BusinessMonetizationPage() {
             <div className="rounded-3xl border border-bord-card bg-bg-pr p-5">
               <div className="flex items-center justify-between text-cap-l text-lab-sc mb-2">
                 <span>Monthly Recurring</span>
-                <Sparkles className="h-4 w-4 text-brand-900" />
+                <TrendingUp className="h-4 w-4 text-brand-900" />
               </div>
               <p className="text-title-2 font-bold text-lab-pr">
                 {formatCurrency(
@@ -370,7 +370,7 @@ export default function BusinessMonetizationPage() {
               <label className="rounded-2xl border border-bord-tr p-4 flex items-center justify-between gap-3 cursor-pointer">
                 <div>
                   <p className="text-par-n font-semibold text-lab-pr flex items-center gap-2">
-                    <Sparkles className="size-4 text-brand-900" />
+                    <Award className="size-4 text-brand-900" />
                     Enable Community Subscriptions
                   </p>
                   <p className="text-cap-l text-lab-sc mt-0.5">

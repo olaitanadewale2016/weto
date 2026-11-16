@@ -11,6 +11,7 @@ import {
   ChevronDown,
   CirclePlus,
   Compass,
+  Download,
   FilePlus2,
   Hash,
   Home,
@@ -59,8 +60,19 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading, bootstrap, theme, toggleTheme, counters, logout, refreshBootstrap, dict } =
-    useApp();
+  const {
+    user,
+    loading,
+    bootstrap,
+    theme,
+    toggleTheme,
+    counters,
+    logout,
+    refreshBootstrap,
+    dict,
+    isPwaInstalled,
+    promptPwaInstall,
+  } = useApp();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [switchingBack, setSwitchingBack] = useState(false);
 
@@ -489,6 +501,16 @@ export function AppShell({
                         <Keyboard className="size-4 text-lab-sc" />
                         <span>Keyboard shortcuts</span>
                       </button>
+                      {bootstrap?.config?.pwaEnabled !== false && !isPwaInstalled && (
+                        <button
+                          type="button"
+                          onClick={() => void promptPwaInstall()}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-brand-900 font-medium hover:bg-fill-qt cursor-pointer"
+                        >
+                          <Download className="size-4 shrink-0" />
+                          <span>Install app</span>
+                        </button>
+                      )}
                       {user && bootstrap?.previousAccount && (
                         <button
                           type="button"
@@ -775,6 +797,16 @@ export function AppShell({
                   setMobileHeaderMenuOpen(false);
                 }}
               />
+              {bootstrap?.config?.pwaEnabled !== false && !isPwaInstalled && (
+                <ActionSheetItem
+                  label="Install app"
+                  icon={Download}
+                  onClick={() => {
+                    setMobileHeaderMenuOpen(false);
+                    void promptPwaInstall();
+                  }}
+                />
+              )}
               <ActionSheetItem
                 label={dict.nav.logout}
                 icon={LogOut}
@@ -782,6 +814,18 @@ export function AppShell({
                 onClick={() => {
                   setMobileHeaderMenuOpen(false);
                   logout();
+                }}
+              />
+            </ActionSheetGroup>
+          )}
+          {!user && bootstrap?.config?.pwaEnabled !== false && !isPwaInstalled && (
+            <ActionSheetGroup>
+              <ActionSheetItem
+                label="Install app"
+                icon={Download}
+                onClick={() => {
+                  setMobileHeaderMenuOpen(false);
+                  void promptPwaInstall();
                 }}
               />
             </ActionSheetGroup>

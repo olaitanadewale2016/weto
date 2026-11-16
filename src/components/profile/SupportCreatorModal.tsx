@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Award, CheckCircle2, HeartHandshake, Sparkles, Wallet } from 'lucide-react';
+import { Award, CheckCircle2, HeartHandshake, Wallet } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,7 +176,7 @@ export function SupportCreatorModal({
                   : 'text-lab-sc hover:text-lab-pr'
               )}
             >
-              <Sparkles className="size-4" /> Membership
+              <Award className="size-4" /> Membership
             </button>
           </div>
         )}

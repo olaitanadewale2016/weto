@@ -1,5 +1,6 @@
 import { connectDB } from '@/lib/db';
 import { Setting } from '@/models/System';
+import { getAiCapabilities } from './ai.service';
 
 export interface AppSettingsMap {
   app: {
@@ -365,6 +366,7 @@ export async function getPublicBootstrapConfig() {
       ...features,
       stories: true,
       aiTranslation: translationEnabled,
+      aiComposeEnabled: getAiCapabilities().enabled,
     },
     auth: {
       registrationEnabled: auth.registrationEnabled,

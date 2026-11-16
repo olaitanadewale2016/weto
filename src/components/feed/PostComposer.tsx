@@ -38,7 +38,7 @@ export function PostComposer({
   placeholder?: string;
   fullScreen?: boolean;
 }) {
-  const { user, dict, locale } = useApp();
+  const { user, bootstrap, dict, locale } = useApp();
   const { error, success } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -515,55 +515,57 @@ export function PostComposer({
 
             <span className="w-px h-4 bg-bord-sc mx-0.5 hidden sm:inline-block" />
 
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setAiMenuOpen((v) => !v);
-                  setMoreMenuOpen(false);
-                }}
-                disabled={aiLoading}
-                className={cn(
-                  'p-2 rounded-full transition-colors cursor-pointer inline-flex items-center gap-1',
-                  aiMenuOpen ? 'bg-fill-sc text-lab-pr' : 'text-lab-pr3 hover:text-lab-pr hover:bg-fill-tr'
+            {bootstrap?.config?.features?.aiComposeEnabled && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiMenuOpen((v) => !v);
+                    setMoreMenuOpen(false);
+                  }}
+                  disabled={aiLoading}
+                  className={cn(
+                    'p-2 rounded-full transition-colors cursor-pointer inline-flex items-center gap-1',
+                    aiMenuOpen ? 'bg-fill-sc text-lab-pr' : 'text-lab-pr3 hover:text-lab-pr hover:bg-fill-tr'
+                  )}
+                  title="AI writing assistant"
+                >
+                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                </button>
+                {aiMenuOpen && (
+                  <div className="absolute bottom-full right-0 sm:left-0 sm:right-auto mb-2 w-48 max-w-[calc(100vw-2rem)] rounded-2xl border border-bord-card bg-bg-pr p-1.5 shadow-xl z-40 space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleAiAssist('draft')}
+                      className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
+                    >
+                      Draft post from topic
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAiAssist('improve')}
+                      className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
+                    >
+                      Improve writing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAiAssist('hashtags')}
+                      className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
+                    >
+                      Add hashtags
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAiAssist('summary')}
+                      className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
+                    >
+                      Summarize draft
+                    </button>
+                  </div>
                 )}
-                title="AI writing assistant"
-              >
-                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              </button>
-              {aiMenuOpen && (
-                <div className="absolute bottom-full right-0 sm:left-0 sm:right-auto mb-2 w-48 max-w-[calc(100vw-2rem)] rounded-2xl border border-bord-card bg-bg-pr p-1.5 shadow-xl z-40 space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => handleAiAssist('draft')}
-                    className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
-                  >
-                    Draft post from topic
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAiAssist('improve')}
-                    className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
-                  >
-                    Improve writing
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAiAssist('hashtags')}
-                    className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
-                  >
-                    Add hashtags
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAiAssist('summary')}
-                    className="w-full text-left px-3 py-1.5 rounded-xl text-cap-l text-lab-pr2 hover:bg-fill-tr cursor-pointer"
-                  >
-                    Summarize draft
-                  </button>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="relative">
               <button

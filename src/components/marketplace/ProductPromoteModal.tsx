@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Sparkles, TrendingUp, Wallet } from 'lucide-react';
+import { Check, TrendingUp, Wallet } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -110,7 +110,7 @@ export function ProductPromoteModal({
         {product.isPromoted && product.promotedUntil ? (
           <div className="rounded-2xl bg-brand-900/10 border border-brand-900/20 px-4 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-par-s text-lab-pr">
-              <Sparkles className="size-4 text-brand-900 shrink-0" />
+              <TrendingUp className="size-4 text-brand-900 shrink-0" />
               <span>
                 Currently promoted until{' '}
                 <strong>{new Date(product.promotedUntil).toLocaleDateString()}</strong>. Choosing a

@@ -27,6 +27,7 @@ import { getDictionary, isRtlLocale } from '@/lib/i18n';
 import { publicEnv } from '@/lib/env';
 import { useToast } from './ToastProvider';
 import { NetworkStatusBar } from '@/components/layout/NetworkStatusBar';
+import { PwaInstallPrompt } from '@/components/pwa/PwaInstallPrompt';
 
 export interface BootstrapUser {
   id: string;
@@ -88,6 +89,7 @@ export interface BootstrapConfig {
     stories: boolean;
     businessAccounts: boolean;
     aiTranslation: boolean;
+    aiComposeEnabled?: boolean;
   };
   logos: {
     light: string;
@@ -142,6 +144,11 @@ export interface SoundbarTrack {
   src: string;
 }
 
+export interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 interface AppContextValue {
   loading: boolean;
   bootstrap: BootstrapData | null;
@@ -154,6 +161,12 @@ interface AppContextValue {
   onlineUsers: Set<string>;
   soundbarTrack: SoundbarTrack | null;
   isAudioPlaying: boolean;
+  canInstallPwa: boolean;
+  isPwaInstalled: boolean;
+  isIosDevice: boolean;
+  pwaInstallGuideOpen: boolean;
+  setPwaInstallGuideOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  promptPwaInstall: () => Promise<'accepted' | 'dismissed' | 'guide'>;
   refreshBootstrap: () => Promise<void>;
   updateUserPatch: (patch: Partial<BootstrapUser>) => void;
   setTheme: (next: 'light' | 'dark') => Promise<void>;
@@ -239,6 +252,10 @@ export function AppProvider({
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [soundbarTrack, setSoundbarTrack] = useState<SoundbarTrack | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isPwaInstalled, setIsPwaInstalled] = useState(false);
+  const [isIosDevice, setIsIosDevice] = useState(false);
+  const [pwaInstallGuideOpen, setPwaInstallGuideOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const didInitBootstrapRef = useRef(false);
   const bootstrapResolvedRef = useRef(Boolean(initialBootstrap));
@@ -362,6 +379,61 @@ export function AppProvider({
       void refreshBootstrap();
     }
   }, [refreshBootstrap, applyThemeClass, applyLocaleAttrs, initialBootstrap]);
+
+  // Capture browser PWA installability & detect standalone / iOS Safari mode
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const nav = window.navigator as Navigator & { standalone?: boolean };
+    const ua = nav.userAgent || '';
+    const ios =
+      /iphone|ipad|ipod/i.test(ua) ||
+      (nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1);
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches || nav.standalone === true;
+
+    queueMicrotask(() => {
+      setIsIosDevice(ios);
+      setIsPwaInstalled(Boolean(standalone));
+    });
+
+    const onBeforeInstallPrompt = (ev: Event) => {
+      ev.preventDefault();
+      setDeferredInstallPrompt(ev as BeforeInstallPromptEvent);
+    };
+
+    const onAppInstalled = () => {
+      setDeferredInstallPrompt(null);
+      setIsPwaInstalled(true);
+      setPwaInstallGuideOpen(false);
+    };
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    window.addEventListener('appinstalled', onAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', onAppInstalled);
+    };
+  }, []);
+
+  const promptPwaInstall = useCallback(async (): Promise<'accepted' | 'dismissed' | 'guide'> => {
+    if (deferredInstallPrompt) {
+      try {
+        await deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          setDeferredInstallPrompt(null);
+          setIsPwaInstalled(true);
+          return 'accepted';
+        }
+        return 'dismissed';
+      } catch {
+        setPwaInstallGuideOpen(true);
+        return 'guide';
+      }
+    }
+    setPwaInstallGuideOpen(true);
+    return 'guide';
+  }, [deferredInstallPrompt]);
 
   // Register or unregister PWA service worker matching Admin pwaEnabled setting
   useEffect(() => {
@@ -835,6 +907,12 @@ export function AppProvider({
         onlineUsers,
         soundbarTrack,
         isAudioPlaying,
+        canInstallPwa: Boolean(deferredInstallPrompt),
+        isPwaInstalled,
+        isIosDevice,
+        pwaInstallGuideOpen,
+        setPwaInstallGuideOpen,
+        promptPwaInstall,
         refreshBootstrap,
         updateUserPatch,
         setTheme,
@@ -850,6 +928,7 @@ export function AppProvider({
     >
       {children}
       <NetworkStatusBar onReconnect={handleNetworkReconnect} />
+      <PwaInstallPrompt />
     </AppContext.Provider>
   );
 }

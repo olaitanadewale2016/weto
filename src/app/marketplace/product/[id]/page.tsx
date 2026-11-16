@@ -16,8 +16,8 @@ import {
   Package,
   Power,
   Share2,
-  Sparkles,
   Trash2,
+  TrendingUp,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Avatar } from '@/components/ui/avatar';
@@ -250,10 +250,10 @@ export default function ProductDetailPage() {
   const photos =
     product.media && product.media.length > 0
       ? product.media.map((m) => ({
-          url: resolveMediaUrl(m.publicUrl || m.url) || fallbackPreview,
-          lqipBase64: m.lqipBase64,
-          alt: product.title,
-        }))
+        url: resolveMediaUrl(m.publicUrl || m.url) || fallbackPreview,
+        lqipBase64: m.lqipBase64,
+        alt: product.title,
+      }))
       : [{ url: fallbackPreview, alt: product.title }];
 
   const safeActiveIndex = Math.min(activePhoto, photos.length - 1);
@@ -507,7 +507,7 @@ export default function ProductDetailPage() {
                       className="w-full rounded-full"
                       onClick={() => setPromoteOpen(true)}
                     >
-                      <Sparkles className="h-4 w-4" />
+                      <TrendingUp className="h-4 w-4" />
                       {product.isPromoted ? 'Extend listing promotion' : 'Promote listing'}
                     </Button>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

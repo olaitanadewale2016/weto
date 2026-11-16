@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Hash, Search, Sparkles } from 'lucide-react';
+import { Hash, Search } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { apiFetch } from '@/lib/api-client';
 import { resolveMediaUrl } from '@/lib/media-url';
@@ -201,8 +201,10 @@ export function RightRail() {
 
         {/* PHP GreetingMessage.vue parity */}
         {user && greeting && (
-          <div className="rounded-2xl border border-bord-pr bg-fill-qt px-4 py-3 flex items-start gap-2.5">
-            <Sparkles className="size-4 text-brand-900 shrink-0 mt-0.5" />
+          <div className="p-4 text-center">
+            <div className="mb-1 text-par-m leading-none" aria-hidden="true">
+              ❤️
+            </div>
             <p className="text-par-s text-lab-pr2 leading-snug">{greeting}</p>
           </div>
         )}

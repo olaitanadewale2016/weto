@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Edit3, Plus, Power, ShoppingBag, Sparkles, Trash2 } from 'lucide-react';
+import { Edit3, Plus, Power, ShoppingBag, Trash2, TrendingUp } from 'lucide-react';
 import { BusinessPortalHeader } from '@/components/business/BusinessPortalHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -237,7 +237,7 @@ export default function BusinessMarketPage() {
                     onClick={() => setPromoting(p)}
                     title={p.isPromoted ? 'Extend promotion' : 'Promote listing'}
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <TrendingUp className="h-3.5 w-3.5" />
                     {p.isPromoted ? 'Boosted' : 'Promote'}
                   </Button>
                   <Button
