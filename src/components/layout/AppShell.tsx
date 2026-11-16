@@ -13,6 +13,7 @@ import {
   Compass,
   Download,
   FilePlus2,
+  Gamepad2,
   Hash,
   Home,
   Keyboard,
@@ -235,6 +236,12 @@ export function AppShell({
       show: features?.jobs !== false,
     },
     {
+      href: '/games',
+      label: 'Games',
+      icon: Gamepad2,
+      show: true,
+    },
+    {
       href: user ? `/@${user.username}` : loading ? '/' : '/auth/login',
       label: user ? dict.nav.profile : 'Sign in',
       icon: user || loading ? UserIcon : LogIn,
@@ -262,7 +269,9 @@ export function AppShell({
               ? dict.nav.marketplace
               : pathname.startsWith('/jobs')
                 ? dict.nav.jobs
-                : pathname.startsWith('/wallet')
+                : pathname.startsWith('/games')
+                  ? 'Games'
+                  : pathname.startsWith('/wallet')
                   ? dict.nav.wallet
                   : pathname.startsWith('/settings')
                     ? dict.nav.settings

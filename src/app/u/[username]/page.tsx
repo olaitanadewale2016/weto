@@ -11,6 +11,7 @@ import {
   Calendar,
   ChevronLeft,
   Flag,
+  Gamepad2,
   Globe,
   HeartHandshake,
   Info,
@@ -409,6 +410,19 @@ export default function UserProfilePage() {
                         <Link2 className="size-4 text-lab-sc shrink-0" />
                         <span>Copy profile link</span>
                       </button>
+                      {!profile.viewerContext.isSelf && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            router.push(`/games?challenge=${encodeURIComponent(profile.username)}`);
+                          }}
+                          className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <Gamepad2 className="size-4 text-brand-900 shrink-0" />
+                          <span className="truncate">Challenge @{profile.username}</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
