@@ -1,12 +1,20 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Hash, Search } from 'lucide-react';
+import { EyeOff, Hash, Search } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { apiFetch } from '@/lib/api-client';
 import { resolveMediaUrl } from '@/lib/media-url';
+import {
+  fetchAuctionAd,
+  formatAdDomain,
+  hideAdInSession,
+  ServedAd,
+  trackAdClick,
+  trackAdImpression,
+} from '@/lib/ads-client';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -28,20 +36,11 @@ interface HashtagItem {
   postsCount: number;
 }
 
-interface FeedAd {
-  id: string;
-  title: string;
-  content: string;
-  ctaText: string;
-  targetUrl: string;
-  media?: { url?: string; publicUrl?: string } | null;
-}
-
 const rightRailCache: {
   ts: number;
   hashtags: HashtagItem[];
   suggested: SuggestedUser[];
-  ad: FeedAd | null;
+  ad: ServedAd | null;
   greeting: string;
   greetingKey: string;
   hasData: boolean;
@@ -66,9 +65,11 @@ export function RightRail() {
   const [suggested, setSuggested] = useState<SuggestedUser[]>(() =>
     rightRailCache.hasData ? rightRailCache.suggested : []
   );
-  const [ad, setAd] = useState<FeedAd | null>(() =>
+  const [ad, setAd] = useState<ServedAd | null>(() =>
     rightRailCache.hasData ? rightRailCache.ad : null
   );
+  const adCardRef = useRef<HTMLDivElement>(null);
+  const trackedAdIdRef = useRef<string | null>(null);
   const [greetingState, setGreetingState] = useState<{ key: string; message: string }>(() => ({
     key: rightRailCache.greetingKey,
     message: rightRailCache.greeting,
@@ -90,7 +91,7 @@ export function RightRail() {
     Promise.all([
       apiFetch<{ hashtags: HashtagItem[] }>('/hashtags?limit=5').catch(() => null),
       apiFetch<SuggestedUser[] | { users: SuggestedUser[] }>('/users?mode=recommended&limit=4').catch(() => null),
-      adsEnabled ? apiFetch<FeedAd | null>('/ads').catch(() => null) : Promise.resolve(null),
+      adsEnabled ? fetchAuctionAd().catch(() => null) : Promise.resolve(null),
     ]).then(([hashRes, userRes, adRes]) => {
       if (hashRes?.hashtags) {
         rightRailCache.hashtags = hashRes.hashtags;
@@ -109,14 +110,15 @@ export function RightRail() {
     });
   }, [bootstrap?.config?.features?.ads]);
 
-  // Exact PHP AdGridItem.vue 5-minute ad rotation interval
+  // Exact PHP AdGridItem.vue 5-minute ad rotation interval (configurable via bootstrap.config.ads)
+  const refreshMinutes = Number(bootstrap?.config?.ads?.refreshIntervalMinutes ?? 5);
   useEffect(() => {
     const adsEnabled = bootstrap?.config?.features?.ads !== false;
     if (!adsEnabled) return;
+    const intervalMs = Math.max(1, refreshMinutes) * 60_000;
     const timer = setInterval(() => {
       const prevId = rightRailCache.ad?.id || '';
-      const qs = prevId ? `?prevAdId=${encodeURIComponent(prevId)}` : '';
-      apiFetch<FeedAd | null>(`/ads${qs}`)
+      fetchAuctionAd(prevId)
         .then((res) => {
           if (res && res.id) {
             rightRailCache.ad = res;
@@ -124,9 +126,50 @@ export function RightRail() {
           }
         })
         .catch(() => undefined);
-    }, 5 * 60_000);
+    }, intervalMs);
     return () => clearInterval(timer);
-  }, [bootstrap?.config?.features?.ads]);
+  }, [bootstrap?.config?.features?.ads, refreshMinutes]);
+
+  // MRC Viewable Impression tracking for RightRail ad card
+  useEffect(() => {
+    const adsEnabled = bootstrap?.config?.features?.ads !== false;
+    if (!adsEnabled || !ad?.id) return;
+    if (trackedAdIdRef.current === ad.id) return;
+
+    const el = adCardRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      trackedAdIdRef.current = ad.id;
+      trackAdImpression(ad.id);
+      return;
+    }
+
+    let dwellTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && entry.intersectionRatio >= 0.5) {
+          if (!dwellTimer && trackedAdIdRef.current !== ad.id) {
+            dwellTimer = setTimeout(() => {
+              if (trackedAdIdRef.current !== ad.id) {
+                trackedAdIdRef.current = ad.id;
+                trackAdImpression(ad.id);
+              }
+            }, 800);
+          }
+        } else if (dwellTimer) {
+          clearTimeout(dwellTimer);
+          dwellTimer = null;
+        }
+      },
+      { threshold: [0.5] }
+    );
+
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (dwellTimer) clearTimeout(dwellTimer);
+    };
+  }, [bootstrap?.config?.features?.ads, ad?.id]);
 
   useEffect(() => {
     if (!expectedGreetingKey) return;
@@ -176,12 +219,23 @@ export function RightRail() {
     }
   }
 
-  async function handleAdClick(adItem: FeedAd) {
-    apiFetch('/ads', {
-      method: 'PATCH',
-      json: { action: 'impression', adId: adItem.id },
-    }).catch(() => undefined);
+  function handleAdClick(adItem: ServedAd) {
+    trackAdClick(adItem.id);
     window.open(adItem.targetUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  function handleDismissAd(adItem: ServedAd) {
+    hideAdInSession(adItem.id);
+    rightRailCache.ad = null;
+    setAd(null);
+    fetchAuctionAd(adItem.id)
+      .then((next) => {
+        if (next && next.id) {
+          rightRailCache.ad = next;
+          setAd(next);
+        }
+      })
+      .catch(() => undefined);
   }
 
   return (
@@ -310,29 +364,53 @@ export function RightRail() {
           </div>
         )}
 
-        {/* Exact AdGridItem.vue card */}
+        {/* PHP AdGridItem.vue + Meta/X viewable ad card */}
         {ad && (
-          <div className="border border-bord-pr rounded-2xl overflow-hidden">
-            <div className="overflow-hidden relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className="w-full object-cover max-h-48"
-                src={resolveMediaUrl(ad.media?.publicUrl || ad.media?.url) || '/assets/ads/default-preview.png'}
-                alt={ad.title}
-                onError={(e) => {
-                  if (e.currentTarget.dataset.fallbackApplied === '1') return;
-                  e.currentTarget.dataset.fallbackApplied = '1';
-                  e.currentTarget.src = '/assets/ads/default-preview.png';
-                }}
-              />
-              <span className="absolute top-3 bg-black/20 leading-none text-white left-3 backdrop-blur-xs px-2 py-1.5 rounded-full text-cap-s">
+          <div ref={adCardRef} className="border border-bord-pr rounded-2xl overflow-hidden bg-bg-pr">
+            <div className="overflow-hidden relative bg-fill-qt">
+              {ad.media?.type === 'video' ? (
+                <video
+                  src={resolveMediaUrl(ad.media?.publicUrl || ad.media?.url) || ''}
+                  poster={ad.media?.thumbnailUrl || undefined}
+                  muted
+                  autoPlay
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="w-full max-h-56 object-contain bg-black block"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="w-full object-cover max-h-56 block"
+                  src={resolveMediaUrl(ad.media?.publicUrl || ad.media?.url) || '/assets/ads/default-preview.png'}
+                  alt={ad.title}
+                  onError={(e) => {
+                    if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                    e.currentTarget.dataset.fallbackApplied = '1';
+                    e.currentTarget.src = '/assets/ads/default-preview.png';
+                  }}
+                />
+              )}
+              <span className="absolute top-3 bg-black/35 leading-none text-white left-3 backdrop-blur-xs px-2 py-1.5 rounded-full text-cap-s">
                 Ad &middot; 16+
               </span>
+              <button
+                type="button"
+                onClick={() => handleDismissAd(ad)}
+                title="Hide this ad"
+                aria-label="Hide this ad"
+                className="absolute top-2.5 right-2.5 size-7 rounded-full bg-black/35 text-white hover:bg-black/55 backdrop-blur-xs flex items-center justify-center cursor-pointer"
+              >
+                <EyeOff className="size-3.5" />
+              </button>
             </div>
             <div className="p-4">
               <h4 className="font-semibold text-par-l text-lab-pr mb-1">{ad.title}</h4>
               <p className="text-lab-sc text-par-s mb-2">{ad.content}</p>
-              <span className="block text-lab-sc text-par-s mb-4 truncate">{ad.targetUrl}</span>
+              <span className="block text-lab-sc text-par-s mb-4 truncate">
+                {formatAdDomain(ad.targetUrl) || ad.targetUrl}
+              </span>
               <button
                 type="button"
                 onClick={() => handleAdClick(ad)}

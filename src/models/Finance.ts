@@ -158,6 +158,7 @@ export interface IAdDocument extends Document {
   mediaId?: Types.ObjectId | null;
   approval: AdApproval;
   viewsCount: number;
+  clicksCount: number;
   startsAt?: Date | null;
   endsAt?: Date | null;
   lastShowAt?: Date | null;
@@ -181,6 +182,7 @@ const AdSchema = new Schema<IAdDocument>(
     mediaId: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
     approval: { type: String, enum: Object.values(AdApproval), default: AdApproval.PENDING, index: true },
     viewsCount: { type: Number, default: 0, min: 0 },
+    clicksCount: { type: Number, default: 0, min: 0 },
     startsAt: { type: Date, default: null },
     endsAt: { type: Date, default: null },
     lastShowAt: { type: Date, default: null },

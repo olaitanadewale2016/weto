@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
@@ -343,11 +344,18 @@ export default function MarketplacePage() {
             description="Try adjusting your search or filters, or publish the first item."
           />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} onToggleBookmark={toggleBookmark} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {products.map((p) => (
+                <ProductCard key={p.id} product={p} onToggleBookmark={toggleBookmark} />
+              ))}
+            </div>
+            {products.length >= 4 && (
+              <div className="lg:hidden mt-6 -mx-4 border-t border-bord-pr">
+                <FeedAdCard slotIndex={401} />
+              </div>
+            )}
+          </>
         )}
       </div>
 

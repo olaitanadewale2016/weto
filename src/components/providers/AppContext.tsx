@@ -104,6 +104,7 @@ export interface BootstrapConfig {
     pricePerView: number;
     minBudget: number;
     defaultBudget: number;
+    refreshIntervalMinutes?: number;
   };
   promotions?: {
     enabled: boolean;

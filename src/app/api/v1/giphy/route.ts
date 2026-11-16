@@ -47,14 +47,14 @@ export async function GET(req: NextRequest) {
       const g = singleJson.data;
       if (!g) return apiSuccess({ configured: true, valid: false, items: [] });
       const preview =
-        g.images?.fixed_width_small?.url ||
         g.images?.fixed_width?.url ||
+        g.images?.fixed_width_small?.url ||
         g.images?.downsized?.url ||
         '';
       const full =
         g.images?.downsized?.url ||
-        g.images?.fixed_width?.url ||
         g.images?.original?.url ||
+        g.images?.fixed_width?.url ||
         preview;
       return apiSuccess({
         configured: true,
@@ -91,14 +91,14 @@ export async function GET(req: NextRequest) {
     const items = (json.data || [])
       .map((item) => {
         const preview =
-          item.images?.fixed_width_small?.url ||
           item.images?.fixed_width?.url ||
+          item.images?.fixed_width_small?.url ||
           item.images?.downsized?.url ||
           '';
         const full =
           item.images?.downsized?.url ||
-          item.images?.fixed_width?.url ||
           item.images?.original?.url ||
+          item.images?.fixed_width?.url ||
           preview;
         return {
           id: item.id,

@@ -277,10 +277,14 @@ export default function BusinessAdsPage() {
                       This campaign creative was rejected by moderation.
                     </p>
                   )}
-                  <div className="grid grid-cols-3 gap-2 rounded-2xl bg-fill-pr p-3 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-2xl bg-fill-pr p-3 text-center">
                     <div>
                       <p className="text-cap-s text-lab-sc">Views</p>
                       <p className="font-bold text-lab-pr">{ad.viewsCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-cap-s text-lab-sc">Clicks</p>
+                      <p className="font-bold text-lab-pr">{ad.clicksCount ?? 0}</p>
                     </div>
                     <div>
                       <p className="text-cap-s text-lab-sc">Spent</p>

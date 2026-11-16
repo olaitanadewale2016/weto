@@ -426,7 +426,7 @@ export function PostCard({
 
   return (
     <article className="bg-bg-pr border-b border-bord-tr transition-colors">
-      <div className="p-4 space-y-3">
+      <div className="px-4 pt-4 space-y-3">
         {(post.globalPinned || pinned) && (
           <div className="flex items-center gap-1.5 text-cap-l text-lab-sc">
             <Pin className="h-3.5 w-3.5 text-lab-sc" />
@@ -561,15 +561,21 @@ export function PostCard({
               {translating && <span className="ml-2 text-cap-l text-lab-tr">Translating...</span>}
             </div>
           )}
+      </div>
 
+      {/* Edge-to-Edge Full-Width Media Section (no horizontal margin) */}
+      {(post.gifUrl || (post.media && post.media.length > 0)) && (
+        <div className="mt-3 space-y-2.5">
           {/* Sensitive Wrapper */}
-          {post.isSensitive && !revealSensitive && (post.media?.length || post.gifUrl) ? (
-            <div className="rounded-2xl border border-bord-pr bg-fill-sc p-6 text-center space-y-2">
-              <p className="text-par-n font-semibold text-lab-pr">Sensitive Media</p>
-              <p className="text-cap-l text-lab-sc">The author marked this media as sensitive.</p>
-              <Button size="sm" variant="outline" onClick={() => setRevealSensitive(true)}>
-                <Eye className="h-3.5 w-3.5" /> View media
-              </Button>
+          {post.isSensitive && !revealSensitive ? (
+            <div className="px-4">
+              <div className="rounded-2xl border border-bord-pr bg-fill-sc p-6 text-center space-y-2">
+                <p className="text-par-n font-semibold text-lab-pr">Sensitive Media</p>
+                <p className="text-cap-l text-lab-sc">The author marked this media as sensitive.</p>
+                <Button size="sm" variant="outline" onClick={() => setRevealSensitive(true)}>
+                  <Eye className="h-3.5 w-3.5" /> View media
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -586,7 +592,7 @@ export function PostCard({
                     alt="GIF attachment"
                     loading="lazy"
                     decoding="async"
-                    className="w-full max-h-[460px] min-h-40 object-cover block"
+                    className="w-full max-h-[540px] min-h-40 object-cover block"
                   />
                   <GiphyAttribution className="absolute bottom-2.5 left-2.5 z-10" />
                 </button>
@@ -603,7 +609,7 @@ export function PostCard({
 
                   return (
                     <div className="space-y-2.5">
-                      {/* Image Collage matching PHP PublicationImage.vue */}
+                      {/* Image Collage matching PHP PublicationImage.vue — full-width edge-to-edge */}
                       {images.length === 1 && (() => {
                         const m = images[0];
                         const src = resolveMediaUrl(m.publicUrl || m.url) || '';
@@ -624,7 +630,7 @@ export function PostCard({
                               alt={m.filename || 'Post image'}
                               loading="eager"
                               decoding="async"
-                              className="w-full max-h-[500px] min-h-40 object-cover block"
+                              className="w-full max-h-[600px] min-h-40 object-cover block"
                             />
                           </button>
                         );
@@ -800,17 +806,13 @@ export function PostCard({
                         </div>
                       )}
 
-                      {/* Video Cards matching PHP PublicationVideo.vue */}
+                      {/* Video Cards — full width edge-to-edge with zero side margin */}
                       {videos.map((m, idx) => {
                         const src = m.publicUrl || m.url || '';
-                        const isPortrait = Boolean(m.height && m.width && m.height > m.width);
                         return (
                           <div
                             key={m.id || `vid-${idx}`}
-                            className={cn(
-                              'overflow-hidden bg-black',
-                              isPortrait ? 'max-w-[320px]' : 'w-full'
-                            )}
+                            className="w-full overflow-hidden bg-black"
                           >
                             <video
                               src={src}
@@ -818,7 +820,7 @@ export function PostCard({
                               controls
                               playsInline
                               preload="metadata"
-                              className="w-full max-h-[500px] block"
+                              className="w-full max-h-[580px] object-contain block"
                             />
                           </div>
                         );
@@ -835,9 +837,9 @@ export function PostCard({
                           formatMediaBytes(m.sizeBytes),
                         ].filter(Boolean);
                         return (
+                          <div key={m.id || `aud-${idx}`} className="px-4">
                           <div
-                            key={m.id || `aud-${idx}`}
-                            className="flex items-center gap-3.5 bg-fill-fv/40 px-3.5 py-3"
+                            className="flex items-center gap-3.5 rounded-2xl bg-fill-fv/40 px-3.5 py-3"
                           >
                             <button
                               type="button"
@@ -892,6 +894,7 @@ export function PostCard({
                               </div>
                             </div>
                           </div>
+                          </div>
                         );
                       })}
 
@@ -906,13 +909,13 @@ export function PostCard({
                         const sizeStr = formatMediaBytes(m.sizeBytes);
                         const subline = [sizeStr, ext].filter(Boolean).join(' · ');
                         return (
+                          <div key={m.id || `doc-${idx}`} className="px-4">
                           <a
-                            key={m.id || `doc-${idx}`}
                             href={src}
                             target="_blank"
                             rel="noopener noreferrer"
                             download={m.filename || true}
-                            className="flex items-center justify-between gap-3 bg-fill-fv/30 p-3 hover:bg-fill-fv/70 transition-colors"
+                            className="flex items-center justify-between gap-3 rounded-2xl bg-fill-fv/30 p-3 hover:bg-fill-fv/70 transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="size-10 bg-bg-pr flex items-center justify-center shrink-0 overflow-hidden p-1.5">
@@ -934,6 +937,7 @@ export function PostCard({
                               <FileDown className="size-4" />
                             </span>
                           </a>
+                          </div>
                         );
                       })}
                     </div>
@@ -941,6 +945,10 @@ export function PostCard({
                 })()}
             </>
           )}
+        </div>
+      )}
+
+      <div className="px-4 pb-3 pt-2.5 space-y-3">
 
           {/* Poll */}
           {pollState && pollState.choices && pollState.choices.length > 0 && (() => {

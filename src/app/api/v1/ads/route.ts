@@ -71,9 +71,17 @@ export async function GET(req: NextRequest) {
 
     const prevAdId = searchParams.get('prevAdId');
     const excludeParam = searchParams.get('excludeIds') || '';
+    const skipHiddenParam = searchParams.get('hiddenIds') || '';
+    const shouldDeferTrack = searchParams.get('track') === 'false';
     const excludedIdSet = new Set(
       [prevAdId, ...excludeParam.split(',')]
         .map((s) => (s || '').trim())
+        .filter((s) => Types.ObjectId.isValid(s))
+    );
+    const hiddenIdSet = new Set(
+      skipHiddenParam
+        .split(',')
+        .map((s) => s.trim())
         .filter((s) => Types.ObjectId.isValid(s))
     );
 
@@ -109,6 +117,7 @@ export async function GET(req: NextRequest) {
     if (!candidates.length) return apiSuccess(null);
 
     const scoredCandidates = candidates
+      .filter((ad) => !hiddenIdSet.has(String(ad._id)))
       .map((ad) => ({
         ad,
         score: scoreAdFacebookAuction({
@@ -120,6 +129,8 @@ export async function GET(req: NextRequest) {
         }),
       }))
       .sort((a, b) => b.score - a.score);
+
+    if (!scoredCandidates.length) return apiSuccess(null);
 
     // Top-2 weighted auction lottery prevents strict determinism while favoring highest-value ad
     const topPool = scoredCandidates.slice(0, Math.min(2, scoredCandidates.length));
@@ -137,8 +148,10 @@ export async function GET(req: NextRequest) {
 
     if (!ad) return apiSuccess(null);
 
-    // Execute PHP AdShowAction charge & lastShowAt update
-    await recordAdShowAndCharge(ad._id).catch(() => undefined);
+    // Execute PHP AdShowAction charge immediately unless client defers to MRC viewport tracking
+    if (!shouldDeferTrack) {
+      await recordAdShowAndCharge(ad._id).catch(() => undefined);
+    }
 
     return apiSuccess({
       id: String(ad._id),
@@ -146,6 +159,8 @@ export async function GET(req: NextRequest) {
       content: ad.content,
       ctaText: ad.ctaText,
       targetUrl: ad.targetUrl,
+      viewsCount: ad.viewsCount || 0,
+      clicksCount: ad.clicksCount || 0,
       advertiser: ad.userId,
       media: ad.mediaId ? serializeMedia(ad.mediaId as never) : null,
     });
@@ -208,7 +223,7 @@ export async function POST(req: NextRequest) {
 
 const patchAdSchema = z.object({
   adId: z.string().min(1),
-  action: z.enum(['impression', 'pause', 'publish', 'delete', 'edit']),
+  action: z.enum(['impression', 'click', 'pause', 'publish', 'delete', 'edit']),
   title: z.string().min(2).max(120).optional(),
   content: z.string().min(2).max(1000).optional(),
   ctaText: z.string().min(1).max(40).optional(),
@@ -225,26 +240,12 @@ export async function PATCH(req: NextRequest) {
     if (!ad) throw new NotFoundError('Ad campaign not found.');
 
     if (body.action === 'impression') {
-      const adsCfg = await getSettingsGroup('ads');
-      const now = new Date();
-      const minChargeGapMs = adsCfg.chargeIntervalMinutes * 60_000;
-      const shouldCharge =
-        !ad.lastChargeAt || now.getTime() - new Date(ad.lastChargeAt).getTime() > minChargeGapMs;
+      await recordAdShowAndCharge(ad._id);
+      return apiSuccess({ recorded: true });
+    }
 
-      ad.lastShowAt = now;
-      if (shouldCharge) {
-        if (ad.spentBudget >= ad.totalBudget) {
-          ad.status = AdStatus.COMPLETED;
-        } else {
-          ad.lastChargeAt = now;
-          ad.viewsCount += 1;
-          ad.spentBudget = Number((ad.spentBudget + ad.pricePerView).toFixed(2));
-          if (ad.spentBudget >= ad.totalBudget) {
-            ad.status = AdStatus.COMPLETED;
-          }
-        }
-      }
-      await ad.save();
+    if (body.action === 'click') {
+      await Ad.updateOne({ _id: ad._id }, { $inc: { clicksCount: 1 } });
       return apiSuccess({ recorded: true });
     }
 

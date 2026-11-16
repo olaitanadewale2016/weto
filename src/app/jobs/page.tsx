@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bookmark, Briefcase, Plus, Search } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -172,9 +173,9 @@ export default function JobsPage() {
         </div>
       ) : (
         <div className="divide-y divide-bord-tr">
-          {jobs.map((job) => (
+          {jobs.map((job, idx) => (
+            <React.Fragment key={job.id}>
             <Link
-              key={job.id}
               href={`/jobs/${job.hashId || job.id}`}
               className="p-4 cursor-pointer smoothing hover:bg-fill-fv flex gap-3 transition-colors"
             >
@@ -207,6 +208,12 @@ export default function JobsPage() {
                 </div>
               </div>
             </Link>
+            {(idx === 3 || (idx > 3 && (idx - 3) % 8 === 0)) && (
+              <div className="lg:hidden">
+                <FeedAdCard slotIndex={500 + idx} />
+              </div>
+            )}
+            </React.Fragment>
           ))}
         </div>
       )}

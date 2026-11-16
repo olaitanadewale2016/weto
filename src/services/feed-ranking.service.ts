@@ -289,12 +289,13 @@ export interface RankableAd {
   totalBudget: number;
   spentBudget: number;
   viewsCount: number;
+  clicksCount?: number;
   lastShowAt?: Date | null;
 }
 
 /**
- * Facebook Ad Auction score:
- *   TotalValue = Bid (pricePerView) * BudgetPacing * EstimatedRelevance(eCTR) * LearningPhaseBoost
+ * Facebook / Instagram / X.com Ad Auction score:
+ *   TotalValue = Bid (pricePerView) * BudgetPacing * Cooldown * LearningBoost * eCTRQuality * Relevance * FrequencyCap
  */
 export function scoreAdFacebookAuction({
   ad,
@@ -327,7 +328,15 @@ export function scoreAdFacebookAuction({
         : 0.25;
 
   // Cold-start exploration boost (Facebook learning phase < 10 impressions)
-  const learningPhaseBoost = Number(ad.viewsCount || 0) < 10 ? 1.3 : 1.0;
+  const views = Math.max(0, Number(ad.viewsCount || 0));
+  const clicks = Math.max(0, Number(ad.clicksCount || 0));
+  const learningPhaseBoost = views < 10 ? 1.3 : 1.0;
+
+  // Empirical CTR quality score once past initial learning phase
+  const ectrMultiplier =
+    views >= 10
+      ? 0.85 + Math.min(0.6, (clicks / views) * 6)
+      : 1.0;
 
   // Relevance match with viewer interests
   let relevance = 1.0;
@@ -340,8 +349,8 @@ export function scoreAdFacebookAuction({
     relevance += Math.min(0.9, matches * 0.3);
   }
 
-  // Frequency cap penalty for ads already rendered in this viewport scroll
+  // Frequency cap penalty for ads already rendered/hidden in this session
   const frequencyPenalty = isExcluded ? 0.05 : 1.0;
 
-  return bid * budgetPacing * cooldownFactor * learningPhaseBoost * relevance * frequencyPenalty;
+  return bid * budgetPacing * cooldownFactor * learningPhaseBoost * ectrMultiplier * relevance * frequencyPenalty;
 }

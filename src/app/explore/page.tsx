@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Users } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { FeedList } from '@/components/feed/FeedList';
+import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { Tabs } from '@/components/ui/tabs';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -125,25 +126,31 @@ function ExploreContent() {
               <EmptyState icon={Users} title="No matching users" description="Try another name or username." />
             </div>
           )}
-          {people.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-fill-qt/40 transition-colors"
-            >
-              <Link href={`/@${p.username}`} className="flex items-center gap-3 min-w-0">
-                <Avatar src={p.avatar} alt={p.username} verified={p.verified} size="sm" />
-                <div className="min-w-0">
-                  <p className="text-par-n font-bold text-lab-pr truncate">
-                    {p.firstName} {p.lastName}
-                  </p>
-                  <p className="text-cap-l text-lab-sc truncate">@{p.username}</p>
-                  {p.bio && <p className="text-cap-l text-lab-sc line-clamp-1 mt-0.5">{p.bio}</p>}
+          {people.map((p, idx) => (
+            <React.Fragment key={p.id}>
+              <div
+                className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-fill-qt/40 transition-colors"
+              >
+                <Link href={`/@${p.username}`} className="flex items-center gap-3 min-w-0">
+                  <Avatar src={p.avatar} alt={p.username} verified={p.verified} size="sm" />
+                  <div className="min-w-0">
+                    <p className="text-par-n font-bold text-lab-pr truncate">
+                      {p.firstName} {p.lastName}
+                    </p>
+                    <p className="text-cap-l text-lab-sc truncate">@{p.username}</p>
+                    {p.bio && <p className="text-cap-l text-lab-sc line-clamp-1 mt-0.5">{p.bio}</p>}
+                  </div>
+                </Link>
+                <Button size="sm" variant="primary" onClick={() => toggleFollow(p.id)}>
+                  Follow
+                </Button>
+              </div>
+              {(idx === 3 || (idx > 3 && (idx - 3) % 8 === 0)) && (
+                <div className="lg:hidden">
+                  <FeedAdCard slotIndex={300 + idx} />
                 </div>
-              </Link>
-              <Button size="sm" variant="primary" onClick={() => toggleFollow(p.id)}>
-                Follow
-              </Button>
-            </div>
+              )}
+            </React.Fragment>
           ))}
         </div>
       ) : (

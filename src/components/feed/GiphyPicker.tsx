@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Film, Search, X } from 'lucide-react';
+import { ArrowLeft, Check, Film, Search, X } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { ActionSheet } from '@/components/mobile/ActionSheet';
 
@@ -64,6 +64,7 @@ export function GiphyPicker({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [manualUrl, setManualUrl] = useState('');
   const [loadedIds, setLoadedIds] = useState<Record<string, boolean>>({});
+  const [previewGif, setPreviewGif] = useState<GiphyItem | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   useEffect(() => {
@@ -105,29 +106,51 @@ export function GiphyPicker({
     };
   }, [query]);
 
+  const confirmSelection = (item: GiphyItem) => {
+    onSelect(item.gifUrl);
+    onSelectGif?.(item);
+    setPreviewGif(null);
+  };
+
   const pickerInner = (
     <div className="space-y-2.5 flex flex-col min-h-0">
       <div className="flex items-center gap-2 shrink-0">
-        <div className="flex-1 flex items-center gap-2 rounded-full bg-fill-qt border border-bord-pr px-3.5 h-10">
-          <Search className="h-4 w-4 text-lab-sc shrink-0" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search GIPHY GIFs..."
-            className="flex-1 min-w-0 bg-transparent text-[16px] md:text-par-s text-lab-pr placeholder:text-lab-tr focus:outline-none"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="text-lab-tr hover:text-lab-pr cursor-pointer shrink-0"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        {previewGif ? (
+          <button
+            type="button"
+            onClick={() => setPreviewGif(null)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-fill-qt border border-bord-pr px-3 h-10 text-par-s font-semibold text-lab-pr hover:bg-fill-tr cursor-pointer shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to GIFs</span>
+          </button>
+        ) : (
+          <div className="flex-1 flex items-center gap-2 rounded-full bg-fill-qt border border-bord-pr px-3.5 h-10">
+            <Search className="h-4 w-4 text-lab-sc shrink-0" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search GIPHY GIFs..."
+              className="flex-1 min-w-0 bg-transparent text-[16px] md:text-par-s text-lab-pr placeholder:text-lab-tr focus:outline-none"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="text-lab-tr hover:text-lab-pr cursor-pointer shrink-0"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+        {previewGif && (
+          <p className="flex-1 min-w-0 truncate text-par-s font-medium text-lab-sc">
+            {previewGif.title || 'GIF Preview'}
+          </p>
+        )}
         {onClose && !isMobileViewport && (
           <button
             type="button"
@@ -140,41 +163,73 @@ export function GiphyPicker({
         )}
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-3 gap-0.5 max-h-80 overflow-hidden rounded-xl">
-          {Array.from({ length: 9 }).map((_, idx) => (
-            <div key={idx} className="aspect-square bg-fill-qt fb-shimmer" />
-          ))}
+      {previewGif ? (
+        <div className="space-y-3">
+          <div className="w-full rounded-xl border border-bord-pr bg-fill-tr overflow-hidden flex items-center justify-center p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewGif.gifUrl || previewGif.previewUrl}
+              alt={previewGif.title || 'GIF preview'}
+              referrerPolicy="no-referrer"
+              className="w-full max-h-60 object-contain rounded-lg block"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setPreviewGif(null)}
+              className="rounded-full border border-bord-pr px-4 py-2 text-par-s font-semibold text-lab-pr2 hover:bg-fill-qt cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => confirmSelection(previewGif)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-900 text-white px-5 py-2 text-par-s font-semibold hover:opacity-90 cursor-pointer"
+            >
+              <Check className="h-4 w-4" />
+              <span>Use GIF</span>
+            </button>
+          </div>
+        </div>
+      ) : loading ? (
+        <div className="max-h-72 overflow-hidden rounded-xl">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div key={idx} className="aspect-square w-full rounded-lg bg-fill-qt fb-shimmer" />
+            ))}
+          </div>
         </div>
       ) : configured && items.length > 0 ? (
-        <div className="grid grid-cols-3 gap-0.5 max-h-[52dvh] md:max-h-72 overflow-y-auto rounded-xl">
-          {items.map((g) => {
-            const loaded = Boolean(loadedIds[g.id]);
-            return (
-              <button
-                key={g.id}
-                type="button"
-                onClick={() => {
-                  onSelect(g.gifUrl);
-                  onSelectGif?.(g);
-                }}
-                className="relative aspect-square overflow-hidden bg-fill-tr group cursor-pointer"
-                title={g.title}
-              >
-                {!loaded && <span className="absolute inset-0 bg-fill-qt fb-shimmer" aria-hidden="true" />}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={g.previewUrl || g.gifUrl}
-                  alt={g.title || 'GIF'}
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  onLoad={() => setLoadedIds((prev) => ({ ...prev, [g.id]: true }))}
-                  className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-105"
-                />
-              </button>
-            );
-          })}
+        <div className="max-h-[52dvh] md:max-h-72 overflow-y-auto overflow-x-hidden rounded-xl pr-0.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {items.map((g) => {
+              const loaded = Boolean(loadedIds[g.id]);
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setPreviewGif(g)}
+                  className="relative block w-full aspect-square rounded-lg border border-bord-tr overflow-hidden bg-fill-tr group cursor-pointer"
+                  title={g.title || 'Preview GIF'}
+                >
+                  {!loaded && (
+                    <span className="absolute inset-0 bg-fill-qt fb-shimmer" aria-hidden="true" />
+                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={g.previewUrl || g.gifUrl}
+                    alt={g.title || 'GIF'}
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    onLoad={() => setLoadedIds((prev) => ({ ...prev, [g.id]: true }))}
+                    className="h-full w-full object-cover block transition-transform duration-150 group-hover:scale-105"
+                  />
+                </button>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="space-y-2.5 py-4">

@@ -396,6 +396,7 @@ export async function getPublicBootstrapConfig() {
       pricePerView: ads.pricePerView,
       minBudget: ads.minBudget,
       defaultBudget: ads.defaultBudget,
+      refreshIntervalMinutes: ads.refreshIntervalMinutes,
     },
     promotions: {
       enabled: promotions.enabled,
