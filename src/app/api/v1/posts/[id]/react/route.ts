@@ -1,13 +1,16 @@
+import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth } from '@/lib/auth/session';
 import { apiError, apiSuccess, NotFoundError, ValidationError } from '@/lib/api-response';
 import { Bookmark, Comment, Post, Reaction } from '@/models/Post';
-import { isObjectIdLike } from '@/lib/hashids';
+import { User } from '@/models/User';
+import { PostStatus, PostType } from '@/types/enums';
+import { encodeId, isObjectIdLike } from '@/lib/hashids';
 import { dispatchNotification } from '@/services/notification.service';
 import { emitToPost } from '@/lib/realtime-emitter';
-import { publishPostRealtimeEvent } from '@/lib/firebase/realtime';
+import { publishFeedRealtimeEvent, publishPostRealtimeEvent } from '@/lib/firebase/realtime';
 
 const interactSchema = z.object({
   action: z.enum(['react', 'bookmark', 'poll_vote', 'repost']),
@@ -48,16 +51,62 @@ export async function POST(
     }
 
     if (body.action === 'repost') {
+      const existingRepost = await Post.findOne({
+        userId: user._id,
+        quotePostId: post._id,
+        isQuoting: true,
+        content: '',
+      });
+
+      if (existingRepost) {
+        await Post.deleteOne({ _id: existingRepost._id });
+        await Post.updateOne(
+          { _id: post._id, repostsCount: { $gt: 0 } },
+          { $inc: { repostsCount: -1 } }
+        );
+        await User.updateOne(
+          { _id: user._id, publicationsCount: { $gt: 0 } },
+          { $inc: { publicationsCount: -1 } }
+        );
+        const refreshed = await Post.findById(post._id).select('repostsCount').lean();
+        const nextCount = Math.max(
+          0,
+          refreshed?.repostsCount ?? Math.max(0, (post.repostsCount || 1) - 1)
+        );
+        await emitToPost(String(post._id), 'post:reaction:update', {
+          postId: String(post._id),
+          repostsCount: nextCount,
+        });
+        publishPostRealtimeEvent(String(post._id), 'repost', { repostsCount: nextCount });
+        return apiSuccess({ reposted: false, repostsCount: nextCount });
+      }
+
+      const repostDoc = await Post.create({
+        hashId: encodeId(crypto.randomInt(100000, 999999999)),
+        userId: user._id,
+        type: PostType.TEXT,
+        status: PostStatus.ACTIVE,
+        content: '',
+        quotePostId: post._id,
+        isQuoting: true,
+        textBgStyle: '',
+        poll: null,
+        linkSnapshot: null,
+      });
+
       const updated = await Post.findByIdAndUpdate(
         post._id,
         { $inc: { repostsCount: 1 } },
         { new: true }
       ).lean();
+      await User.updateOne({ _id: user._id }, { $inc: { publicationsCount: 1 } });
+
       const nextCount = updated?.repostsCount ?? (post.repostsCount || 0) + 1;
       await emitToPost(String(post._id), 'post:reaction:update', {
         postId: String(post._id),
         repostsCount: nextCount,
       });
+      publishFeedRealtimeEvent('post:created', { postId: String(repostDoc._id) });
       publishPostRealtimeEvent(String(post._id), 'repost', { repostsCount: nextCount });
       if (String(post.userId) !== String(user._id)) {
         await dispatchNotification({
@@ -70,7 +119,12 @@ export async function POST(
           actionUrl: `/publication/${post.hashId}`,
         });
       }
-      return apiSuccess({ reposted: true, repostsCount: nextCount });
+      return apiSuccess({
+        reposted: true,
+        repostsCount: nextCount,
+        repostId: String(repostDoc._id),
+        repostHashId: repostDoc.hashId,
+      });
     }
 
     if (body.action === 'poll_vote') {
@@ -78,39 +132,90 @@ export async function POST(
       if (post.poll.expiresAt && new Date(post.poll.expiresAt) < new Date()) {
         throw new ValidationError('This poll has expired.');
       }
+
+      const rawChoices = Array.isArray(post.poll.choices) ? post.poll.choices : [];
+      const plainChoices = rawChoices.map((c, idx) => ({
+        id: String(c.id || `c_${idx}`),
+        text: String(c.text || ''),
+        votesCount: Math.max(0, Number(c.votesCount || 0)),
+      }));
+
       const targetChoiceId =
-        body.choiceId ||
-        (body.choiceIndex !== undefined ? post.poll.choices?.[body.choiceIndex]?.id || `c_${body.choiceIndex}` : undefined);
-      if (!targetChoiceId) throw new ValidationError('choiceId is required.');
+        (body.choiceId && plainChoices.some((c) => c.id === body.choiceId)
+          ? body.choiceId
+          : undefined) ||
+        (body.choiceIndex !== undefined && plainChoices[body.choiceIndex]
+          ? plainChoices[body.choiceIndex].id
+          : body.choiceId);
+
+      if (!targetChoiceId || !plainChoices.some((c) => c.id === targetChoiceId)) {
+        throw new ValidationError('choiceId is required.');
+      }
 
       const uidStr = String(user._id);
-      const prevChoice = post.poll.votesByUser?.[uidStr];
-      if (prevChoice === targetChoiceId && post.poll.isCancellable) {
+      const rawVotesByUser: Record<string, string> =
+        post.poll.votesByUser instanceof Map
+          ? Object.fromEntries(post.poll.votesByUser.entries())
+          : post.poll.votesByUser && typeof post.poll.votesByUser === 'object'
+            ? { ...(post.poll.votesByUser as Record<string, string>) }
+            : {};
+
+      let nextVoterIds = Array.isArray(post.poll.voterIds)
+        ? post.poll.voterIds.map((v) => new Types.ObjectId(String(v)))
+        : [];
+
+      const isCancellable = post.poll.isCancellable !== false;
+      const prevChoice = rawVotesByUser[uidStr];
+      let nextChoices = plainChoices;
+
+      if (prevChoice === targetChoiceId && isCancellable) {
         // Unvote
-        post.poll.choices = post.poll.choices.map((c) =>
+        nextChoices = plainChoices.map((c) =>
           c.id === targetChoiceId ? { ...c, votesCount: Math.max(0, c.votesCount - 1) } : c
         );
-        delete post.poll.votesByUser[uidStr];
-        post.poll.voterIds = post.poll.voterIds.filter((v) => String(v) !== uidStr);
+        delete rawVotesByUser[uidStr];
+        nextVoterIds = nextVoterIds.filter((v) => String(v) !== uidStr);
       } else {
-        if (prevChoice && !post.poll.isCancellable) {
+        if (prevChoice && !isCancellable) {
           throw new ValidationError('Poll vote cannot be changed.');
         }
-        post.poll.choices = post.poll.choices.map((c) => {
+        nextChoices = plainChoices.map((c) => {
           if (c.id === prevChoice) return { ...c, votesCount: Math.max(0, c.votesCount - 1) };
           if (c.id === targetChoiceId) return { ...c, votesCount: c.votesCount + 1 };
           return c;
         });
-        post.poll.votesByUser = { ...(post.poll.votesByUser || {}), [uidStr]: targetChoiceId };
-        if (!post.poll.voterIds.some((v) => String(v) === uidStr)) {
-          post.poll.voterIds.push(user._id);
+        rawVotesByUser[uidStr] = targetChoiceId;
+        if (!nextVoterIds.some((v) => String(v) === uidStr)) {
+          nextVoterIds.push(new Types.ObjectId(uidStr));
         }
       }
+
+      const nextPollDoc = {
+        choices: nextChoices,
+        voterIds: nextVoterIds,
+        votesByUser: rawVotesByUser,
+        isAnonymous: Boolean(post.poll.isAnonymous),
+        isCancellable,
+        expiresAt: post.poll.expiresAt ? new Date(post.poll.expiresAt) : null,
+      };
+
+      post.set('poll', nextPollDoc);
       post.markModified('poll');
       await post.save();
-      const totalVotes = post.poll.choices.reduce((acc, c) => acc + (c.votesCount || 0), 0);
+
+      const totalVotes = nextChoices.reduce((acc, c) => acc + (c.votesCount || 0), 0);
       const pollPayload = {
-        ...post.poll,
+        choices: nextChoices.map((c) => ({
+          id: c.id,
+          text: c.text,
+          votesCount: c.votesCount,
+          percentage: totalVotes > 0 ? Math.round((c.votesCount / totalVotes) * 100) : 0,
+        })),
+        voterIds: nextVoterIds.map((v) => String(v)),
+        votesByUser: rawVotesByUser,
+        isAnonymous: Boolean(nextPollDoc.isAnonymous),
+        isCancellable: Boolean(nextPollDoc.isCancellable),
+        expiresAt: nextPollDoc.expiresAt ? nextPollDoc.expiresAt.toISOString() : null,
         totalVotes,
       };
       await emitToPost(String(post._id), 'post:reaction:update', {
@@ -207,7 +312,22 @@ export async function POST(
       }
     }
 
-    return apiSuccess({ active, reacted: active, reactionsCount, reactionSummary: summary });
+    const userReactionsOnTarget = await Reaction.find({
+      targetType: body.targetType,
+      targetId: targetObjId,
+      userId: user._id,
+    })
+      .select('unifiedId')
+      .lean();
+    const viewerReactions = userReactionsOnTarget.map((r) => r.unifiedId);
+
+    return apiSuccess({
+      active,
+      reacted: active,
+      reactionsCount,
+      reactionSummary: summary,
+      viewerReactions,
+    });
   } catch (err) {
     return apiError(err);
   }

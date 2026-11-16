@@ -28,7 +28,77 @@ interface FeedCacheEntry {
 }
 
 const FEED_CACHE_TTL_MS = 25_000;
+const FEED_STORAGE_PREFIX = 'weto_feed_cache_v1:';
 const feedPostsCache = new Map<string, FeedCacheEntry>();
+
+function readFeedCache(key: string): FeedCacheEntry | undefined {
+  const inMemory = feedPostsCache.get(key);
+  if (inMemory) return inMemory;
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = window.sessionStorage.getItem(`${FEED_STORAGE_PREFIX}${key}`);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as FeedCacheEntry;
+    if (parsed && Array.isArray(parsed.posts) && parsed.posts.length > 0) {
+      feedPostsCache.set(key, parsed);
+      return parsed;
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return undefined;
+}
+
+function writeFeedCache(key: string, entry: FeedCacheEntry): void {
+  feedPostsCache.set(key, entry);
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(`${FEED_STORAGE_PREFIX}${key}`, JSON.stringify(entry));
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+/**
+ * Merges incoming feed posts with existing in-memory posts so that:
+ * 1. Already-decoded media arrays and quotePostId media are preserved if a transient response omits them.
+ * 2. On silent refreshes, posts the user already scrolled past (pages 2+) are retained instead of unmounted.
+ */
+function mergeFeedPostsPreservingMedia(
+  prev: SerializedPost[],
+  incoming: SerializedPost[],
+  keepTrailingPrev: boolean
+): SerializedPost[] {
+  if (prev.length === 0) return incoming;
+  const prevById = new Map(prev.map((p) => [p.id, p]));
+  const mergedTop = incoming.map((nextPost) => {
+    const existing = prevById.get(nextPost.id);
+    if (!existing) return nextPost;
+    return {
+      ...nextPost,
+      media:
+        Array.isArray(nextPost.media) && nextPost.media.length > 0
+          ? nextPost.media
+          : existing.media,
+      gifUrl: nextPost.gifUrl || existing.gifUrl,
+      quotePostId:
+        nextPost.quotePostId && typeof nextPost.quotePostId === 'object'
+          ? {
+            ...nextPost.quotePostId,
+            media:
+              Array.isArray(nextPost.quotePostId.media) && nextPost.quotePostId.media.length > 0
+                ? nextPost.quotePostId.media
+                : existing.quotePostId?.media,
+          }
+          : existing.quotePostId || nextPost.quotePostId,
+    };
+  });
+
+  if (!keepTrailingPrev) return mergedTop;
+  const seenIds = new Set(mergedTop.map((p) => p.id));
+  const trailing = prev.filter((p) => !seenIds.has(p.id));
+  return [...mergedTop, ...trailing];
+}
 
 export function FeedList({
   mode = 'feed',
@@ -46,12 +116,12 @@ export function FeedList({
   const { user, loading: authLoading } = useApp();
   const currentUserId = user?.id;
   const cacheKey = `${mode}:${username || ''}:${hashtag || ''}:${query || ''}`;
-  const cachedEntry = feedPostsCache.get(cacheKey);
+  const cachedEntry = readFeedCache(cacheKey);
   const [posts, setPosts] = useState<SerializedPost[]>(() => cachedEntry?.posts || []);
   const [composerOpen, setComposerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(() => cachedEntry?.hasMore ?? false);
-  const [loading, setLoading] = useState(() => !cachedEntry);
+  const [loading, setLoading] = useState(() => !cachedEntry || cachedEntry.posts.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const [quotePost, setQuotePost] = useState<SerializedPost | null>(null);
@@ -65,8 +135,14 @@ export function FeedList({
 
   const loadPosts = useCallback(
     async (pageNum: number, append: boolean, silent = false) => {
-      if (append) setLoadingMore(true);
-      else if (!silent) setLoading(true);
+      if (append) {
+        setLoadingMore(true);
+      } else if (!silent) {
+        setPosts((prev) => {
+          if (prev.length === 0) setLoading(true);
+          return prev;
+        });
+      }
 
       try {
         const qs = new URLSearchParams({ mode, page: String(pageNum), limit: '15' });
@@ -80,8 +156,12 @@ export function FeedList({
         let mergedRows = rows;
         setPosts((prev) => {
           if (!append) {
-            mergedRows = rows;
-            return rows;
+            if (rows.length === 0 && prev.length > 0 && silent) {
+              mergedRows = prev;
+              return prev;
+            }
+            mergedRows = mergeFeedPostsPreservingMedia(prev, rows, silent);
+            return mergedRows;
           }
           const seen = new Set(prev.map((p) => p.id));
           mergedRows = [...prev, ...rows.filter((p) => !seen.has(p.id))];
@@ -92,16 +172,19 @@ export function FeedList({
             ? metaObj.hasMore
             : mergedRows.length < Number(metaObj.total || rows.length);
         setHasMore(nextHasMore);
-        if (!append) {
-          feedPostsCache.set(cacheKey, {
-            posts: rows,
+        if (!append && mergedRows.length > 0) {
+          writeFeedCache(cacheKey, {
+            posts: mergedRows,
             hasMore: nextHasMore,
             ts: Date.now(),
             userId: currentUserId,
           });
         }
       } catch {
-        if (!append) setPosts([]);
+        // Facebook / Instagram resilience: never clear already-loaded posts & media on network glitch
+        if (!append) {
+          setPosts((prev) => (prev.length > 0 ? prev : []));
+        }
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -111,9 +194,9 @@ export function FeedList({
   );
 
   useEffect(() => {
-    const cached = feedPostsCache.get(cacheKey);
+    const cached = readFeedCache(cacheKey);
     const id = setTimeout(() => {
-      if (cached) {
+      if (cached && cached.posts.length > 0) {
         setPosts(cached.posts);
         setHasMore(cached.hasMore);
         setLoading(false);
@@ -124,7 +207,7 @@ export function FeedList({
         (authLoading || cached.userId === currentUserId);
       if (!isFresh) {
         setPage(1);
-        void loadPosts(1, false, Boolean(cached));
+        void loadPosts(1, false, Boolean(cached && cached.posts.length > 0));
       }
     }, 0);
     return () => clearTimeout(id);
@@ -156,13 +239,11 @@ export function FeedList({
 
   useEffect(() => {
     const onRestored = () => {
-      feedPostsCache.delete(cacheKey);
-      setPage(1);
       void loadPosts(1, false, true);
     };
     window.addEventListener('weto:network-restored', onRestored);
     return () => window.removeEventListener('weto:network-restored', onRestored);
-  }, [cacheKey, loadPosts]);
+  }, [loadPosts]);
 
   // Live feed updates from Firestore system_realtime/feed
   useEffect(() => {

@@ -15,7 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { FeedAdCard } from '@/components/ads/FeedAdCard';
+import { MarketplaceAdCard } from '@/components/ads/FeedAdCard';
+import { computeFeedAdSlotIndices } from '@/lib/ads-client';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
@@ -82,9 +83,15 @@ export default function MarketplacePage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [marketAdSeed] = useState(() => Math.floor(Math.random() * 1000) + 1);
+
+  const marketAdSlots = computeFeedAdSlotIndices(products.length, 'explore', marketAdSeed);
 
   const loadProducts = useCallback(async () => {
-    setLoading(true);
+    setProducts((prev) => {
+      if (prev.length === 0) setLoading(true);
+      return prev;
+    });
     try {
       const qs = new URLSearchParams();
       if (q.trim()) qs.set('q', q.trim());
@@ -112,7 +119,7 @@ export default function MarketplacePage() {
       setProducts(res.products || []);
       setCategories(res.categories || []);
     } catch {
-      setProducts([]);
+      setProducts((prev) => (prev.length > 0 ? prev : []));
     } finally {
       setLoading(false);
     }
@@ -344,25 +351,14 @@ export default function MarketplacePage() {
             description="Try adjusting your search or filters, or publish the first item."
           />
         ) : (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {products.slice(0, 6).map((p) => (
-                <ProductCard key={p.id} product={p} onToggleBookmark={toggleBookmark} />
-              ))}
-            </div>
-            {products.length >= 4 && (
-              <div className="my-6 -mx-4 border-t border-bord-pr">
-                <FeedAdCard slotIndex={401} />
-              </div>
-            )}
-            {products.length > 6 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {products.slice(6).map((p) => (
-                  <ProductCard key={p.id} product={p} onToggleBookmark={toggleBookmark} />
-                ))}
-              </div>
-            )}
-          </>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {products.map((p, idx) => (
+              <React.Fragment key={p.id}>
+                <ProductCard product={p} onToggleBookmark={toggleBookmark} />
+                {marketAdSlots.has(idx) && <MarketplaceAdCard slotIndex={400 + idx} />}
+              </React.Fragment>
+            ))}
+          </div>
         )}
       </div>
 

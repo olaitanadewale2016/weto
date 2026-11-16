@@ -30,7 +30,7 @@ export async function GET(
 
     await Post.updateOne({ _id: post._id }, { $inc: { viewsCount: 1 } });
 
-    const [author, mediaRows, userReactions, bookmarked] = await Promise.all([
+    const [author, mediaRows, userReactions, bookmarked, reposted, rawQuotedPost] = await Promise.all([
       User.findById(post.userId).select('username firstName lastName avatar verified type').lean(),
       Media.find({ targetType: 'post', targetId: post._id }).sort({ order: 1 }).lean(),
       authCtx
@@ -39,25 +39,81 @@ export async function GET(
       authCtx
         ? Bookmark.exists({ userId: authCtx.user._id, targetType: 'post', targetId: post._id })
         : false,
+      authCtx
+        ? Post.exists({
+          userId: authCtx.user._id,
+          quotePostId: post._id,
+          isQuoting: true,
+          content: '',
+        })
+        : false,
+      post.quotePostId
+        ? Post.findById(post.quotePostId)
+          .populate('userId', 'username firstName lastName avatar verified')
+          .lean()
+        : null,
     ]);
+
+    let quotedPostPayload: Record<string, unknown> | null = null;
+    if (rawQuotedPost) {
+      const quotedMediaRows = await Media.find({
+        targetType: 'post',
+        targetId: rawQuotedPost._id,
+      })
+        .sort({ order: 1 })
+        .lean();
+      quotedPostPayload = {
+        ...rawQuotedPost,
+        id: String(rawQuotedPost._id),
+        media: quotedMediaRows.map((m) => serializeMedia(m as never)),
+      };
+    }
 
     const postObj = post.toObject();
     const reactionsCount = Array.isArray(postObj.reactionSummary)
       ? postObj.reactionSummary.reduce((sum, r) => sum + ((r as { count?: number }).count || 0), 0)
       : 0;
-    const pollTotal = postObj.poll?.choices
-      ? postObj.poll.choices.reduce((sum, c) => sum + ((c as { votesCount?: number }).votesCount || 0), 0)
-      : 0;
+    const rawPollChoices = Array.isArray(postObj.poll?.choices) ? postObj.poll.choices : [];
+    const pollTotal = rawPollChoices.reduce(
+      (sum, c) => sum + Number((c as { votesCount?: number }).votesCount || 0),
+      0
+    );
+    const normalizedPoll = postObj.poll
+      ? {
+        choices: rawPollChoices.map((c, idx) => {
+          const votesCount = Number((c as { votesCount?: number }).votesCount || 0);
+          return {
+            id: String((c as { id?: string }).id || `c_${idx}`),
+            text: String((c as { text?: string }).text || ''),
+            votesCount,
+            percentage: pollTotal > 0 ? Math.round((votesCount / pollTotal) * 100) : 0,
+          };
+        }),
+        voterIds: Array.isArray(postObj.poll.voterIds)
+          ? postObj.poll.voterIds.map((v) => String(v))
+          : [],
+        votesByUser:
+          postObj.poll.votesByUser && typeof postObj.poll.votesByUser === 'object'
+            ? { ...(postObj.poll.votesByUser as Record<string, string>) }
+            : {},
+        isAnonymous: Boolean(postObj.poll.isAnonymous),
+        isCancellable: postObj.poll.isCancellable !== false,
+        expiresAt: postObj.poll.expiresAt || null,
+        totalVotes: pollTotal,
+      }
+      : undefined;
 
     return apiSuccess({
       ...postObj,
       id: String(post._id),
       author,
+      quotePostId: quotedPostPayload,
       media: mediaRows.map((m) => serializeMedia(m as never)),
       viewerReactions: userReactions.map((r) => r.unifiedId),
       isBookmarked: Boolean(bookmarked),
+      viewerReposted: Boolean(reposted),
       reactionsCount,
-      ...(postObj.poll ? { poll: { ...postObj.poll, totalVotes: pollTotal } } : {}),
+      ...(normalizedPoll ? { poll: normalizedPoll } : {}),
     });
   } catch (err) {
     return apiError(err);

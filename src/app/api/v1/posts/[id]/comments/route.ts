@@ -27,20 +27,29 @@ export async function GET(
     const authCtx = await getOptionalAuth(req);
     const parentId = new URL(req.url).searchParams.get('parentId');
 
-    const comments = await Comment.find({
+    const queryFilter: Record<string, unknown> = {
       postId: post._id,
-      parentId: parentId ? new Types.ObjectId(parentId) : null,
-    })
+      ...(parentId ? { parentId: new Types.ObjectId(parentId) } : {}),
+    };
+
+    const comments = await Comment.find(queryFilter)
       .sort({ createdAt: -1 })
-      .limit(50)
+      .limit(100)
       .populate('userId', 'username firstName lastName avatar verified')
       .lean();
 
     const commentIds = comments.map((c) => c._id);
-    const [replies, myReactions] = await Promise.all([
-      !parentId && commentIds.length > 0
-        ? Comment.find({ parentId: { $in: commentIds } })
-            .sort({ createdAt: 1 })
+    const parentIds = Array.from(
+      new Set(
+        comments
+          .map((c) => (c.parentId ? String(c.parentId) : null))
+          .filter((pid): pid is string => Boolean(pid))
+      )
+    ).map((pid) => new Types.ObjectId(pid));
+
+    const [parentDocs, myReactions] = await Promise.all([
+      parentIds.length > 0
+        ? Comment.find({ _id: { $in: parentIds } })
             .populate('userId', 'username firstName lastName avatar verified')
             .lean()
         : [],
@@ -53,12 +62,17 @@ export async function GET(
         : [],
     ]);
 
-    const replyMap = new Map<string, unknown[]>();
-    for (const r of replies) {
-      const pid = String(r.parentId);
-      const arr = replyMap.get(pid) || [];
-      arr.push({ ...r, id: String(r._id), author: r.userId });
-      replyMap.set(pid, arr);
+    const parentMap = new Map<
+      string,
+      { id: string; content: string; createdAt?: Date; author: unknown }
+    >();
+    for (const p of parentDocs) {
+      parentMap.set(String(p._id), {
+        id: String(p._id),
+        content: p.content,
+        createdAt: p.createdAt,
+        author: p.userId,
+      });
     }
 
     const reactMap = new Map<string, string[]>();
@@ -69,14 +83,51 @@ export async function GET(
       reactMap.set(k, arr);
     }
 
+    const replyMap = new Map<string, unknown[]>();
+    for (const c of [...comments].reverse()) {
+      if (c.parentId) {
+        const pid = String(c.parentId);
+        const arr = replyMap.get(pid) || [];
+        arr.push({
+          ...c,
+          id: String(c._id),
+          author: c.userId,
+          viewerReactions: reactMap.get(String(c._id)) || [],
+        });
+        replyMap.set(pid, arr);
+      }
+    }
+
+    const viewerIdStr = authCtx ? String(authCtx.user._id) : null;
+    const isAdminViewer =
+      authCtx?.user.role === UserRole.ROOT || authCtx?.user.role === UserRole.ADMIN;
+
     return apiSuccess(
-      comments.map((c) => ({
-        ...c,
-        id: String(c._id),
-        author: c.userId,
-        replies: replyMap.get(String(c._id)) || [],
-        viewerReactions: reactMap.get(String(c._id)) || [],
-      }))
+      comments.map((c) => {
+        const authorObj = c.userId as { _id?: unknown } | null;
+        const commentOwnerId =
+          authorObj && typeof authorObj === 'object' && authorObj._id
+            ? String(authorObj._id)
+            : String(c.userId);
+        const hasParent = Boolean(c.parentId);
+        const parentData = c.parentId ? parentMap.get(String(c.parentId)) || null : null;
+        const canDelete = Boolean(
+          viewerIdStr &&
+            (commentOwnerId === viewerIdStr ||
+              String(post.userId) === viewerIdStr ||
+              isAdminViewer)
+        );
+        return {
+          ...c,
+          id: String(c._id),
+          author: c.userId,
+          hasParent,
+          parent: parentData,
+          replies: replyMap.get(String(c._id)) || [],
+          viewerReactions: reactMap.get(String(c._id)) || [],
+          canDelete,
+        };
+      })
     );
   } catch (err) {
     return apiError(err);
@@ -108,33 +159,69 @@ export async function POST(
       ipAddress: ip,
     });
 
+    const parentObjId =
+      body.parentId && Types.ObjectId.isValid(body.parentId)
+        ? new Types.ObjectId(body.parentId)
+        : null;
+
+    let parentPayload: { id: string; content: string; createdAt?: Date; author: unknown } | null =
+      null;
+    if (parentObjId) {
+      const parentComment = await Comment.findById(parentObjId)
+        .populate('userId', 'username firstName lastName avatar verified')
+        .lean();
+      if (parentComment) {
+        parentPayload = {
+          id: String(parentComment._id),
+          content: parentComment.content,
+          createdAt: parentComment.createdAt,
+          author: parentComment.userId,
+        };
+      }
+    }
+
     const comment = await Comment.create({
       postId: post._id,
       userId: user._id,
-      parentId: body.parentId ? new Types.ObjectId(body.parentId) : null,
+      parentId: parentObjId,
       content: censor.cleanText,
       textLanguage: user.language || 'en',
     });
 
-    await Post.updateOne({ _id: post._id }, { $inc: { commentsCount: 1 } });
-    if (body.parentId) {
-      await Comment.updateOne({ _id: body.parentId }, { $inc: { repliesCount: 1 } });
+    const updatedPost = await Post.findByIdAndUpdate(
+      post._id,
+      { $inc: { commentsCount: 1 } },
+      { new: true }
+    )
+      .select('commentsCount')
+      .lean();
+    if (parentObjId) {
+      await Comment.updateOne({ _id: parentObjId }, { $inc: { repliesCount: 1 } });
     }
+
+    const serializedComment = {
+      ...comment.toObject(),
+      id: String(comment._id),
+      author: {
+        _id: user._id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatar: user.avatar,
+        verified: user.verified,
+      },
+      hasParent: Boolean(parentObjId),
+      parent: parentPayload,
+      replies: [],
+      viewerReactions: [],
+      canDelete: true,
+      commentsCount: updatedPost?.commentsCount ?? (post.commentsCount || 0) + 1,
+    };
 
     await emitToPost(String(post._id), 'post:comment:new', {
       postId: String(post._id),
-      comment: {
-        ...comment.toObject(),
-        id: String(comment._id),
-        author: {
-          _id: user._id,
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          avatar: user.avatar,
-          verified: user.verified,
-        },
-      },
+      comment: serializedComment,
+      commentsCount: serializedComment.commentsCount,
     });
     publishPostRealtimeEvent(String(post._id), 'comment:new', {
       commentId: String(comment._id),
@@ -169,22 +256,7 @@ export async function POST(
       }
     }
 
-    return apiSuccess(
-      {
-        ...comment.toObject(),
-        id: String(comment._id),
-        author: {
-          _id: user._id,
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          avatar: user.avatar,
-          verified: user.verified,
-        },
-      },
-      undefined,
-      201
-    );
+    return apiSuccess(serializedComment, undefined, 201);
   } catch (err) {
     return apiError(err);
   }
@@ -208,19 +280,27 @@ export async function DELETE(req: NextRequest) {
 
     if (!isAllowed) throw new ForbiddenError('Cannot delete this comment.');
 
-    const repliesDeleted = await Comment.deleteMany({ parentId: comment._id });
+    // Match PHP DeleteCommentAction: delete only this comment so child replies remain
+    // and display "Comment was deleted" in their parent preview block.
     await Comment.deleteOne({ _id: comment._id });
     await Reaction.deleteMany({ targetType: 'comment', targetId: comment._id });
-
-    if (post) {
-      await Post.updateOne(
-        { _id: post._id, commentsCount: { $gt: 0 } },
-        { $inc: { commentsCount: -(1 + (repliesDeleted.deletedCount || 0)) } }
+    if (comment.parentId) {
+      await Comment.updateOne(
+        { _id: comment.parentId, repliesCount: { $gt: 0 } },
+        { $inc: { repliesCount: -1 } }
       );
+    }
+
+    let nextCommentsCount = 0;
+    if (post) {
+      const remainingCount = await Comment.countDocuments({ postId: post._id });
+      nextCommentsCount = Math.max(0, remainingCount);
+      await Post.updateOne({ _id: post._id }, { $set: { commentsCount: nextCommentsCount } });
       await Promise.allSettled([
         emitToPost(String(post._id), 'post:comment:deleted', {
           postId: String(post._id),
           commentId: String(comment._id),
+          commentsCount: nextCommentsCount,
         }),
         publishPostRealtimeEvent(String(post._id), 'comment_deleted', {
           actorId: String(user._id),
@@ -228,7 +308,7 @@ export async function DELETE(req: NextRequest) {
       ]);
     }
 
-    return apiSuccess({ deleted: true });
+    return apiSuccess({ deleted: true, commentsCount: nextCommentsCount });
   } catch (err) {
     return apiError(err);
   }

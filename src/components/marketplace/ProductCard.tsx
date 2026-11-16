@@ -63,10 +63,13 @@ export function ProductCard({ product, onToggleBookmark }: ProductCardProps) {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             onLoad={(e) => {
               e.currentTarget.dataset.fallbackApplied = '';
+              e.currentTarget.removeAttribute('data-media-retry-src');
             }}
             onError={(e) => {
+              if (e.currentTarget.naturalWidth > 0) return;
               if (e.currentTarget.dataset.fallbackApplied !== '1') {
                 e.currentTarget.dataset.fallbackApplied = '1';
+                e.currentTarget.dataset.mediaRetrySrc = previewSrc;
                 e.currentTarget.src = '/assets/products/default-preview.png';
               }
             }}

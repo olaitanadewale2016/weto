@@ -108,7 +108,7 @@ function buildMediaHeaders(params: {
   headers.set('Accept-Ranges', 'bytes');
   headers.set(
     'Cache-Control',
-    params.cacheControl || 'public, max-age=86400, stale-while-revalidate=604800'
+    params.cacheControl || 'public, max-age=31536000, stale-while-revalidate=604800, immutable'
   );
   headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
   headers.set('Access-Control-Allow-Origin', '*');

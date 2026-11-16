@@ -246,8 +246,16 @@ export async function GET(req: NextRequest) {
     const total = (page - 1) * limit + posts.length + (hasMore ? 1 : 0);
 
     const postIds = posts.map((p) => p._id);
-    const [mediaRows, userReactions, userBookmarks] = await Promise.all([
-      Media.find({ targetType: 'post', targetId: { $in: postIds } })
+    const quotedPostIds = posts
+      .map((p) => {
+        const q = (p as { quotePostId?: { _id?: Types.ObjectId } | null }).quotePostId;
+        return q && typeof q === 'object' && q._id ? q._id : null;
+      })
+      .filter((qid): qid is Types.ObjectId => Boolean(qid));
+    const allMediaTargetIds = [...postIds, ...quotedPostIds];
+
+    const [mediaRows, userReactions, userBookmarks, userReposts] = await Promise.all([
+      Media.find({ targetType: 'post', targetId: { $in: allMediaTargetIds } })
         .sort({ order: 1 })
         .lean(),
       authCtx
@@ -263,6 +271,16 @@ export async function GET(req: NextRequest) {
           targetType: 'post',
           targetId: { $in: postIds },
         }).lean()
+        : [],
+      authCtx
+        ? Post.find({
+          userId: authCtx.user._id,
+          quotePostId: { $in: postIds },
+          isQuoting: true,
+          content: '',
+        })
+          .select('quotePostId')
+          .lean()
         : [],
     ]);
 
@@ -283,23 +301,61 @@ export async function GET(req: NextRequest) {
     }
 
     const bmSet = new Set(userBookmarks.map((b) => String(b.targetId)));
+    const repostSet = new Set(userReposts.map((rp) => String(rp.quotePostId)));
 
     const items = posts.map((p) => {
       const reactionsCount = Array.isArray(p.reactionSummary)
         ? p.reactionSummary.reduce((sum, r) => sum + ((r as { count?: number }).count || 0), 0)
         : 0;
-      const pollTotal = p.poll?.choices
-        ? p.poll.choices.reduce((sum, c) => sum + ((c as { votesCount?: number }).votesCount || 0), 0)
-        : 0;
+      const rawPollChoices = Array.isArray(p.poll?.choices) ? p.poll.choices : [];
+      const pollTotal = rawPollChoices.reduce(
+        (sum, c) => sum + Number((c as { votesCount?: number }).votesCount || 0),
+        0
+      );
+      const normalizedPoll = p.poll
+        ? {
+          choices: rawPollChoices.map((c, idx) => {
+            const votesCount = Number((c as { votesCount?: number }).votesCount || 0);
+            return {
+              id: String((c as { id?: string }).id || `c_${idx}`),
+              text: String((c as { text?: string }).text || ''),
+              votesCount,
+              percentage: pollTotal > 0 ? Math.round((votesCount / pollTotal) * 100) : 0,
+            };
+          }),
+          voterIds: Array.isArray(p.poll.voterIds) ? p.poll.voterIds.map((v) => String(v)) : [],
+          votesByUser:
+            p.poll.votesByUser && typeof p.poll.votesByUser === 'object'
+              ? { ...(p.poll.votesByUser as Record<string, string>) }
+              : {},
+          isAnonymous: Boolean(p.poll.isAnonymous),
+          isCancellable: p.poll.isCancellable !== false,
+          expiresAt: p.poll.expiresAt || null,
+          totalVotes: pollTotal,
+        }
+        : undefined;
+
+      const rawQuote = (p as { quotePostId?: Record<string, unknown> | null }).quotePostId;
+      const serializedQuote =
+        rawQuote && typeof rawQuote === 'object' && rawQuote._id
+          ? {
+            ...rawQuote,
+            id: String(rawQuote._id),
+            media: mediaMap.get(String(rawQuote._id)) || [],
+          }
+          : rawQuote;
+
       return {
         ...p,
         id: String(p._id),
         author: p.userId,
+        quotePostId: serializedQuote,
         media: mediaMap.get(String(p._id)) || [],
         viewerReactions: reactMap.get(String(p._id)) || [],
         isBookmarked: bmSet.has(String(p._id)),
+        viewerReposted: repostSet.has(String(p._id)),
         reactionsCount,
-        ...(p.poll ? { poll: { ...p.poll, totalVotes: pollTotal } } : {}),
+        ...(normalizedPoll ? { poll: normalizedPoll } : {}),
       };
     });
 
@@ -335,9 +391,21 @@ export async function POST(req: NextRequest) {
     const body = createPostSchema.parse(await req.json());
     const ip = await getClientIp(req);
 
-    const hasMedia = Boolean(body.mediaIds?.length || body.gifUrl || body.poll);
+    const hasMedia = Boolean(body.mediaIds?.length || body.gifUrl || body.poll || body.quotePostId);
     if (!body.content.trim() && !hasMedia) {
       throw new ValidationError('Post must contain text, media, GIF, or a poll.');
+    }
+
+    let resolvedQuotePostId: Types.ObjectId | null = null;
+    if (body.quotePostId) {
+      if (Types.ObjectId.isValid(body.quotePostId)) {
+        resolvedQuotePostId = new Types.ObjectId(body.quotePostId);
+      } else {
+        const quotedDoc = await Post.findOne({ hashId: body.quotePostId }).select('_id').lean();
+        if (quotedDoc?._id) {
+          resolvedQuotePostId = new Types.ObjectId(String(quotedDoc._id));
+        }
+      }
     }
 
     const censor = await enforceCensorForUser({
@@ -373,8 +441,8 @@ export async function POST(req: NextRequest) {
     const post = await Post.create({
       hashId,
       userId: user._id,
-      quotePostId: body.quotePostId ? new Types.ObjectId(body.quotePostId) : null,
-      isQuoting: Boolean(body.quotePostId),
+      quotePostId: resolvedQuotePostId,
+      isQuoting: Boolean(resolvedQuotePostId),
       title: body.title || '',
       content: cleanContent,
       hashtags,
@@ -435,8 +503,8 @@ export async function POST(req: NextRequest) {
     if (!body.isDraft) {
       await User.updateOne({ _id: user._id }, { $inc: { publicationsCount: 1 } });
 
-      if (body.quotePostId) {
-        await Post.updateOne({ _id: body.quotePostId }, { $inc: { quotesCount: 1, repostsCount: 1 } });
+      if (resolvedQuotePostId) {
+        await Post.updateOne({ _id: resolvedQuotePostId }, { $inc: { quotesCount: 1, repostsCount: 1 } });
       }
       publishFeedRealtimeEvent('post:created', { postId: String(post._id) });
 

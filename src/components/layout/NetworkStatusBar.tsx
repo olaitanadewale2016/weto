@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 type NetworkState = 'hidden' | 'offline' | 'reconnecting' | 'online';
@@ -10,15 +9,14 @@ type NetworkState = 'hidden' | 'offline' | 'reconnecting' | 'online';
  * Replicates PHP `NetworkStatusBar.vue` and extends it for Next.js PWA:
  * - Detects browser `offline` / `online` events and iOS PWA foreground wakeups (`visibilitychange`)
  * - Polls `/api/v1/geo` every 5s while offline so mobile PWAs detect recovered connectivity reliably
- * - On reconnection: runs `onReconnect()`, calls `router.refresh()`, and dispatches `weto:network-restored`
- *   so active pages (Feed, Messenger, Notifications, Marketplace) reload fresh data automatically.
+ * - On reconnection: runs `onReconnect()` and dispatches `weto:network-restored`
+ *   so active pages merge fresh data silently without wiping already-loaded media.
  */
 export function NetworkStatusBar({
   onReconnect,
 }: {
   onReconnect?: () => Promise<void> | void;
 }) {
-  const router = useRouter();
   const [networkState, setNetworkState] = useState<NetworkState>('hidden');
   const [checking, setChecking] = useState(false);
   const wasOfflineRef = useRef(false);
@@ -56,7 +54,19 @@ export function NetworkStatusBar({
         // non-blocking bootstrap refresh
       }
 
-      router.refresh();
+      // Retry any images that failed while offline without touching already-decoded media
+      if (typeof document !== 'undefined') {
+        document
+          .querySelectorAll<HTMLImageElement>('img[data-media-retry-src]')
+          .forEach((img) => {
+            const retrySrc = img.dataset.mediaRetrySrc;
+            if (retrySrc && img.naturalWidth === 0) {
+              img.removeAttribute('data-media-retry-src');
+              img.src = retrySrc;
+            }
+          });
+      }
+
       window.dispatchEvent(new CustomEvent('weto:network-restored'));
 
       hideTimerRef.current = setTimeout(() => {
@@ -70,7 +80,7 @@ export function NetworkStatusBar({
     } finally {
       setChecking(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

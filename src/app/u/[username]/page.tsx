@@ -132,12 +132,15 @@ export default function UserProfilePage() {
   }, [menuOpen]);
 
   const loadProfile = useCallback(async () => {
-    setLoading(true);
+    setProfile((prev) => {
+      if (!prev) setLoading(true);
+      return prev;
+    });
     try {
       const data = await apiFetch<ProfileData>(`/users/${encodeURIComponent(cleanUsername)}`);
       setProfile(data);
     } catch {
-      setProfile(null);
+      setProfile((prev) => prev ?? null);
     } finally {
       setLoading(false);
     }
@@ -520,7 +523,7 @@ export default function UserProfilePage() {
               <span>{fullName}</span>
               {profile.verified && <VerifiedBadge />}
             </h1>
-            <p className="text-par-s text-lab-sc mt-0.5">@{profile.username}</p>
+            <p className="text-par-n font-medium text-lab-sc mt-0.5">@{profile.username}</p>
 
             {profile.bio && (
               <p className="mt-4 max-w-[78%] text-par-m text-lab-pr2 whitespace-pre-wrap leading-relaxed">
@@ -609,7 +612,7 @@ export default function UserProfilePage() {
             aria-label="Go back"
           >
             <ChevronLeft className="size-6 shrink-0" />
-            <span className="font-medium text-par-l truncate">{profile.username}</span>
+            <span className="font-medium text-par-l truncate">@{profile.username}</span>
           </button>
 
           <button
@@ -685,9 +688,12 @@ export default function UserProfilePage() {
               <span className="truncate">{fullName}</span>
               {profile.verified && <VerifiedBadge />}
             </h1>
-            <p className="text-par-n text-lab-sc truncate mt-0.5">
-              {profile.caption || `@${profile.username}`}
+            <p className="text-par-n font-medium text-lab-sc truncate mt-0.5">
+              @{profile.username}
             </p>
+            {profile.caption && (
+              <p className="text-par-s text-lab-sc truncate mt-0.5">{profile.caption}</p>
+            )}
           </div>
         </div>
 
@@ -713,8 +719,14 @@ export default function UserProfilePage() {
         )}
 
         {/* mobile/ProfileOverview.vue (stacked vertical icon rows) */}
-        {(locationText || profile.createdAt) && (
+        {(profile.caption || locationText || profile.createdAt) && (
           <div className="px-4 mb-3 flex flex-col gap-2">
+            {profile.caption && (
+              <div className="inline-flex gap-2 text-lab-pr2 items-center text-par-n">
+                <Briefcase className="size-4 text-lab-pr3 shrink-0" />
+                <span>{profile.caption}</span>
+              </div>
+            )}
             {locationText && (
               <div className="inline-flex gap-2 text-lab-pr2 items-center text-par-n">
                 <MapPin className="size-4 text-lab-pr3 shrink-0" />

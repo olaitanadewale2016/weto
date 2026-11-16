@@ -1,4 +1,5 @@
-const CACHE_NAME = 'weto-pwa-v3';
+const CACHE_NAME = 'weto-pwa-v4';
+const MEDIA_CACHE_NAME = 'weto-media-cache-v1';
 const PRECACHE_ASSETS = [
   '/pwa/manifest.json',
   '/pwa/icons/192x192.png',
@@ -25,7 +26,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k !== CACHE_NAME)
+            .filter((k) => k !== CACHE_NAME && k !== MEDIA_CACHE_NAME)
             .map((k) => caches.delete(k))
         )
       )
@@ -45,6 +46,24 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // Cache-First for immutable R2 media proxy assets (non-Range image/GIF/thumbnail GETs)
+  // so previously loaded media never blanks out during network glitches.
+  if (url.pathname === '/api/v1/media/proxy' && !req.headers.get('range')) {
+    event.respondWith(
+      caches.open(MEDIA_CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        const networkRes = await fetch(req);
+        if (networkRes && networkRes.status === 200) {
+          cache.put(req, networkRes.clone()).catch(() => undefined);
+        }
+        return networkRes;
+      })
+    );
+    return;
+  }
+
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/_next/webpack-hmr') ||
