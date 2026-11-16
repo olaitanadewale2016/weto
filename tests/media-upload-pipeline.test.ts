@@ -418,4 +418,31 @@ describe('Server Upload Route, R2 Presign Headers & Client Upload Routing', () =
       globalThis.fetch = prevFetch;
     }
   });
+
+  it('snapshots ProductCreateModal picked files before resetting input.value clears the live FileList', async () => {
+    const { collectPickedFiles } = await import('@/components/marketplace/ProductCreateModal');
+    const photo = new File([new Uint8Array([1, 2, 3])], 'product-hero.jpg', { type: 'image/jpeg' });
+    const liveList: File[] = [photo];
+    let currentValue = 'C:\\fakepath\\product-hero.jpg';
+
+    // Emulate Chromium DOM behavior: assigning input.value = '' wipes the live FileList synchronously
+    const input = {
+      files: liveList as unknown as FileList,
+      get value() {
+        return currentValue;
+      },
+      set value(next: string) {
+        currentValue = next;
+        if (next === '') {
+          liveList.length = 0;
+        }
+      },
+    };
+
+    const picked = collectPickedFiles(input);
+    expect(picked).toHaveLength(1);
+    expect(picked[0].name).toBe('product-hero.jpg');
+    expect(input.value).toBe('');
+    expect(liveList).toHaveLength(0);
+  });
 });

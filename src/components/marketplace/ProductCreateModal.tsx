@@ -40,6 +40,19 @@ interface ProductCreateModalProps {
   onSaved: () => void;
 }
 
+/**
+ * Snapshot picked files BEFORE clearing `<input type="file">.value`, because Chromium
+ * clears the live `FileList` synchronously when `value = ''` is assigned.
+ */
+export function collectPickedFiles(input: {
+  files: ArrayLike<File> | null;
+  value: string;
+}): File[] {
+  const picked = input.files ? Array.from(input.files) : [];
+  input.value = '';
+  return picked;
+}
+
 export function ProductCreateModal({
   open,
   onClose,
@@ -104,9 +117,8 @@ function ProductCreateModalInner({
     .filter((id): id is string => Boolean(id));
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    e.target.value = '';
-    if (!files || files.length === 0) return;
+    const selectedFiles = collectPickedFiles(e.currentTarget);
+    if (selectedFiles.length === 0) return;
 
     const remainingSlots = Math.max(0, 10 - existingPhotos.length - uploadedPhotos.length);
     if (remainingSlots === 0) {
@@ -114,7 +126,7 @@ function ProductCreateModalInner({
       return;
     }
 
-    const picked = Array.from(files).slice(0, remainingSlots);
+    const picked = selectedFiles.slice(0, remainingSlots);
     setUploadingCount((c) => c + picked.length);
 
     let uploadedAny = 0;
@@ -257,12 +269,12 @@ function ProductCreateModalInner({
             {(bootstrap?.currencies?.length
               ? bootstrap.currencies
               : [
-                  {
-                    code: bootstrap?.config?.defaultCurrency || 'NGN',
-                    name: bootstrap?.config?.defaultCurrency || 'NGN',
-                    symbol: '₦',
-                  },
-                ]
+                {
+                  code: bootstrap?.config?.defaultCurrency || 'NGN',
+                  name: bootstrap?.config?.defaultCurrency || 'NGN',
+                  symbol: '₦',
+                },
+              ]
             ).map((c) => (
               <option key={c.code} value={c.code}>
                 {c.code} ({c.symbol})
