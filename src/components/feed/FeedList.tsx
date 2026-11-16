@@ -271,7 +271,7 @@ export function FeedList({
                 onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
                 onQuote={(target) => setQuotePost(target)}
               />
-              {(mode === 'feed' || mode === 'explore' || mode === 'trending') &&
+              {(mode === 'feed' || mode === 'explore' || mode === 'trending' || mode === 'bookmarks') &&
                 (idx === 4 || (idx > 4 && (idx - 4) % 7 === 0)) && (
                   <FeedAdCard slotIndex={idx} />
                 )}

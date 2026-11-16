@@ -16,6 +16,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -508,6 +509,10 @@ export default function ProductDetailPage() {
               </button>
             ) : null}
           </div>
+        </div>
+
+        <div className="lg:hidden border-t border-bord-pr">
+          <FeedAdCard slotIndex={701} />
         </div>
       </div>
 

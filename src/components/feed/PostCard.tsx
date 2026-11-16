@@ -434,9 +434,9 @@ export function PostCard({
           </div>
         )}
 
-        {/* Facebook-style Full-Width Author Header Row */}
+        {/* Single-line Name + Single-line Metadata Header */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="shrink-0">
               <Avatar
                 src={isOwner ? user.avatar : post.author?.avatar}
@@ -446,8 +446,8 @@ export function PostCard({
               />
             </Link>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <Link
                   href={`/@${isOwner ? user.username : post.author?.username}`}
                   className="text-par-m font-bold text-lab-pr hover:underline truncate"
@@ -457,31 +457,33 @@ export function PostCard({
                     : `${post.author?.firstName} ${post.author?.lastName}`}
                 </Link>
                 {post.isAiGenerated && (
-                  <Badge variant="default">
+                  <Badge variant="default" className="shrink-0">
                     <Bot className="h-3 w-3" /> AI
                   </Badge>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-par-s text-lab-sc leading-snug">
+              <div className="flex items-center gap-1 text-par-s text-lab-sc leading-snug whitespace-nowrap overflow-hidden min-w-0">
                 <Link
                   href={`/@${isOwner ? user.username : post.author?.username}`}
-                  className="hover:underline truncate"
+                  className="hover:underline truncate max-w-[44%] shrink"
                 >
                   @{isOwner ? user.username : post.author?.username}
                 </Link>
-                <span className="text-lab-tr">·</span>
+                <span className="text-lab-tr shrink-0">·</span>
                 <Link
                   href={`/publication/${post.hashId}`}
-                  className="text-lab-sc hover:underline"
+                  className="text-lab-sc hover:underline shrink-0"
                 >
                   {formatRelativeTime(post.createdAt, locale)}
                 </Link>
-                <span className="text-lab-tr">·</span>
-                <Globe className="size-3.5 text-lab-tr inline-block shrink-0" />
+                <span className="text-lab-tr shrink-0">·</span>
+                <Globe className="size-3 text-lab-tr shrink-0" />
                 {post.location && (
-                  <span className="inline-flex items-center gap-1 text-cap-l text-lab-sc">
-                    · <MapPin className="h-3 w-3" /> {post.location}
+                  <span className="inline-flex items-center gap-0.5 text-par-s text-lab-sc min-w-0 truncate">
+                    <span className="text-lab-tr shrink-0">·</span>
+                    <MapPin className="size-3 shrink-0" />
+                    <span className="truncate">{post.location}</span>
                   </span>
                 )}
               </div>

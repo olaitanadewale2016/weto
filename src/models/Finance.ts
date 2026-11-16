@@ -152,6 +152,7 @@ export interface IAdDocument extends Document {
   status: AdStatus;
   type?: string | null;
   totalBudget: number;
+  allocatedBudget?: number;
   spentBudget: number;
   pricePerView: number;
   targetUrl?: string | null;
@@ -176,6 +177,7 @@ const AdSchema = new Schema<IAdDocument>(
     status: { type: String, enum: Object.values(AdStatus), default: AdStatus.DRAFT, index: true },
     type: { type: String, default: 'feed' },
     totalBudget: { type: Number, default: 0, min: 0 },
+    allocatedBudget: { type: Number, default: 0, min: 0 },
     spentBudget: { type: Number, default: 0, min: 0 },
     pricePerView: { type: Number, default: 25, min: 0 },
     targetUrl: { type: String, default: null },

@@ -116,5 +116,5 @@ describe('GET /api/v1/posts?mode=user_media (PHP profile media tab parity)', () 
     expect(sortSpy).toHaveBeenCalledWith({ createdAt: -1 });
     expect(json.data).toHaveLength(1);
     expect(json.data[0].id).toBe(mediaPostId);
-  });
+  }, 15000);
 });

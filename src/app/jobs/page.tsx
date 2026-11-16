@@ -209,9 +209,7 @@ export default function JobsPage() {
               </div>
             </Link>
             {(idx === 3 || (idx > 3 && (idx - 3) % 8 === 0)) && (
-              <div className="lg:hidden">
-                <FeedAdCard slotIndex={500 + idx} />
-              </div>
+              <FeedAdCard slotIndex={500 + idx} />
             )}
             </React.Fragment>
           ))}

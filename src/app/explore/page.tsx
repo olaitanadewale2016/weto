@@ -146,9 +146,7 @@ function ExploreContent() {
                 </Button>
               </div>
               {(idx === 3 || (idx > 3 && (idx - 3) % 8 === 0)) && (
-                <div className="lg:hidden">
-                  <FeedAdCard slotIndex={300 + idx} />
-                </div>
+                <FeedAdCard slotIndex={300 + idx} />
               )}
             </React.Fragment>
           ))}

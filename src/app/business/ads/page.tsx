@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Edit3, ExternalLink, Megaphone, Pause, Play, Plus, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { Edit3, ExternalLink, Megaphone, Pause, Play, Plus, Trash2, Wallet } from 'lucide-react';
 import { BusinessPortalHeader } from '@/components/business/BusinessPortalHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,8 @@ export default function BusinessAdsPage() {
   const pricePerAdView = Number(bootstrap?.config?.ads?.pricePerView ?? 25);
   const { error, success } = useToast();
   const [ads, setAds] = useState<AdCampaign[]>([]);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletCurrency, setWalletCurrency] = useState<string>(defaultCurrency);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'paused' | 'pending'>('all');
   const [createOpen, setCreateOpen] = useState(false);
@@ -57,8 +60,15 @@ export default function BusinessAdsPage() {
   const loadAds = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await apiFetch<AdCampaign[]>('/ads?mine=true');
+      const [rows, walletRes] = await Promise.all([
+        apiFetch<AdCampaign[]>('/ads?mine=true'),
+        apiFetch<{ wallet?: { balance?: number; currency?: string } }>('/wallet').catch(() => null),
+      ]);
       setAds(Array.isArray(rows) ? rows : []);
+      if (walletRes?.wallet && typeof walletRes.wallet.balance === 'number') {
+        setWalletBalance(walletRes.wallet.balance);
+        if (walletRes.wallet.currency) setWalletCurrency(walletRes.wallet.currency);
+      }
     } catch {
       setAds([]);
     } finally {
@@ -169,10 +179,19 @@ export default function BusinessAdsPage() {
   }
 
   async function adAction(adId: string, action: 'pause' | 'publish' | 'delete') {
-    if (action === 'delete' && !window.confirm('Delete this ad campaign permanently?')) return;
+    if (action === 'delete' && !window.confirm('Delete this ad campaign? Any unspent budget will be refunded to your wallet.')) return;
     try {
-      await apiFetch('/ads', { method: 'PATCH', json: { adId, action } });
-      success(`Campaign ${action === 'delete' ? 'deleted' : `${action}d`}`);
+      const res = await apiFetch<{ updated?: boolean; refundedAmount?: number }>('/ads', {
+        method: 'PATCH',
+        json: { adId, action },
+      });
+      if (action === 'delete' && res?.refundedAmount && res.refundedAmount > 0) {
+        success(
+          `Campaign deleted · ${formatCurrency(res.refundedAmount, walletCurrency, bootstrap?.currencies, locale)} refunded to wallet`
+        );
+      } else {
+        success(`Campaign ${action === 'delete' ? 'deleted' : `${action}d`}`);
+      }
       await loadAds();
     } catch (err) {
       error('Action failed', err instanceof Error ? err.message : undefined);
@@ -212,9 +231,23 @@ export default function BusinessAdsPage() {
               </button>
             ))}
           </div>
-          <Button variant="primary" size="sm" onClick={openNewModal}>
-            <Plus className="h-4 w-4" /> New Campaign
-          </Button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {walletBalance !== null && (
+              <Link
+                href="/business/wallet"
+                className="inline-flex items-center gap-2 rounded-full border border-bord-pr bg-fill-qt/60 hover:bg-fill-qt px-3.5 py-1.5 text-cap-l text-lab-pr transition-colors"
+              >
+                <Wallet className="h-3.5 w-3.5 text-brand-900" />
+                <span>
+                  Ad Credit:{' '}
+                  <strong>{formatCurrency(walletBalance, walletCurrency, bootstrap?.currencies, locale)}</strong>
+                </span>
+              </Link>
+            )}
+            <Button variant="primary" size="sm" onClick={openNewModal}>
+              <Plus className="h-4 w-4" /> New Campaign
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -343,6 +376,19 @@ export default function BusinessAdsPage() {
         title={editingAdId ? 'Edit Ad Campaign' : 'Create Ad Campaign'}
       >
         <form onSubmit={handleCreateOrEdit} className="space-y-4">
+          {walletBalance !== null && (
+            <div className="rounded-xl border border-bord-pr bg-fill-qt/50 px-3.5 py-2.5 text-cap-l text-lab-sc flex items-center justify-between gap-2">
+              <span>
+                Wallet Balance:{' '}
+                <strong className="text-lab-pr">
+                  {formatCurrency(walletBalance, walletCurrency, bootstrap?.currencies, locale)}
+                </strong>
+              </span>
+              <Link href="/business/wallet" className="font-semibold text-brand-900 hover:underline shrink-0">
+                Top up
+              </Link>
+            </div>
+          )}
           <Input label="Headline" value={title} onChange={(e) => setTitle(e.target.value)} required />
           <Textarea label="Ad Copy" value={content} onChange={(e) => setContent(e.target.value)} required />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

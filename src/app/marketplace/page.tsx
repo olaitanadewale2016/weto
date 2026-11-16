@@ -346,13 +346,20 @@ export default function MarketplacePage() {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {products.map((p) => (
+              {products.slice(0, 6).map((p) => (
                 <ProductCard key={p.id} product={p} onToggleBookmark={toggleBookmark} />
               ))}
             </div>
             {products.length >= 4 && (
-              <div className="lg:hidden mt-6 -mx-4 border-t border-bord-pr">
+              <div className="my-6 -mx-4 border-t border-bord-pr">
                 <FeedAdCard slotIndex={401} />
+              </div>
+            )}
+            {products.length > 6 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {products.slice(6).map((p) => (
+                  <ProductCard key={p.id} product={p} onToggleBookmark={toggleBookmark} />
+                ))}
               </div>
             )}
           </>

@@ -7,10 +7,20 @@ import { DEFAULT_SETTINGS } from '@/services/settings.service';
 const mockRequireAuth = vi.fn();
 const mockGetSettingsGroup = vi.fn();
 const mockAdCreate = vi.fn();
+const mockWalletFindOneAndUpdate = vi.fn();
+const mockWalletTransactionCreate = vi.fn();
 
 vi.mock('@/lib/db', () => ({
   connectDB: vi.fn().mockResolvedValue(undefined),
-  withMongoTransaction: vi.fn(),
+  withMongoTransaction: vi.fn(async (fn: (s: unknown) => Promise<unknown>) => fn(null)),
+}));
+
+vi.mock('@/services/wallet.service', () => ({
+  ensureWallet: vi.fn().mockResolvedValue({
+    _id: new Types.ObjectId(),
+    balance: 100000,
+    currency: 'NGN',
+  }),
 }));
 
 vi.mock('@/lib/auth/session', async (importOriginal) => {
@@ -38,6 +48,13 @@ vi.mock('@/models/Finance', async (importOriginal) => {
     ...actual,
     Ad: {
       create: (...args: unknown[]) => mockAdCreate(...args),
+    },
+    Wallet: {
+      findOneAndUpdate: (...args: unknown[]) => mockWalletFindOneAndUpdate(...args),
+      findOne: vi.fn().mockReturnValue({ session: vi.fn().mockResolvedValue({ balance: 100000, currency: 'NGN' }) }),
+    },
+    WalletTransaction: {
+      create: (...args: unknown[]) => mockWalletTransactionCreate(...args),
     },
   };
 });
@@ -110,10 +127,19 @@ describe('Standard Naira (NGN) Pricing & DB Limit Synchronization', () => {
     expect(lowRes.status).toBe(422);
     expect(mockAdCreate).not.toHaveBeenCalled();
 
-    mockAdCreate.mockResolvedValue({
+    mockWalletFindOneAndUpdate.mockResolvedValue({
       _id: new Types.ObjectId(),
-      approval: 'pending',
+      balance: 75000,
+      currency: 'NGN',
     });
+    mockWalletTransactionCreate.mockResolvedValue([{ _id: new Types.ObjectId() }]);
+    mockAdCreate.mockResolvedValue([
+      {
+        _id: new Types.ObjectId(),
+        approval: 'pending',
+        mediaId: null,
+      },
+    ]);
 
     const validReq = new NextRequest('https://app.example.com/api/v1/ads', {
       method: 'POST',
@@ -128,10 +154,14 @@ describe('Standard Naira (NGN) Pricing & DB Limit Synchronization', () => {
     const validRes = await POST(validReq);
     expect(validRes.status).toBe(201);
     expect(mockAdCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        totalBudget: 25000,
-        pricePerView: 25,
-      })
+      [
+        expect.objectContaining({
+          totalBudget: 25000,
+          allocatedBudget: 25000,
+          pricePerView: 25,
+        }),
+      ],
+      expect.anything()
     );
   });
 

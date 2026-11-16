@@ -7,6 +7,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { ArrowLeft, CornerDownRight, Languages, Send, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PostCard, SerializedPost } from '@/components/feed/PostCard';
+import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FeedSkeleton } from '@/components/ui/skeleton';
@@ -202,6 +203,8 @@ export default function PublicationDetailPage() {
       ) : (
         <>
           <PostCard post={post} />
+
+          <FeedAdCard slotIndex={601} />
 
           {/* Comment Composer */}
           {user && (
