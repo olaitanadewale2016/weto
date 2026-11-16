@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { apiFetch } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
-import { LISTING_PROMOTION_PLANS } from '@/lib/promotions';
+import { getListingPromotionPlans } from '@/lib/promotions';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 import { cn } from '@/lib/utils';
@@ -36,7 +36,7 @@ export function ProductPromoteModal({
   const [selectedPlan, setSelectedPlan] = useState<'3d' | '7d' | '14d'>('7d');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletCurrency, setWalletCurrency] = useState<string>(
-    bootstrap?.config?.defaultCurrency || 'USD'
+    bootstrap?.config?.defaultCurrency || 'NGN'
   );
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,7 +48,7 @@ export function ProductPromoteModal({
         .then((res) => {
           if (!active || !res.wallet) return;
           setWalletBalance(res.wallet.balance);
-          setWalletCurrency(res.wallet.currency || 'USD');
+          setWalletCurrency(res.wallet.currency || 'NGN');
         })
         .catch(() => {
           if (!active) return;
@@ -63,8 +63,8 @@ export function ProductPromoteModal({
 
   if (!product) return null;
 
-  const currentPlan =
-    LISTING_PROMOTION_PLANS.find((p) => p.id === selectedPlan) || LISTING_PROMOTION_PLANS[1];
+  const plans = getListingPromotionPlans(bootstrap?.config?.promotions);
+  const currentPlan = plans.find((p) => p.id === selectedPlan) || plans[1];
   const insufficient = walletBalance !== null && walletBalance < currentPlan.price;
 
   async function handlePromote() {
@@ -121,7 +121,7 @@ export function ProductPromoteModal({
         ) : null}
 
         <div className="space-y-2.5">
-          {LISTING_PROMOTION_PLANS.map((plan) => {
+          {plans.map((plan) => {
             const active = selectedPlan === plan.id;
             return (
               <button

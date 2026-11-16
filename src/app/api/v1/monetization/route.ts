@@ -170,12 +170,12 @@ export async function GET(req: NextRequest) {
           .lean(),
       ]);
 
-    const monthlyPrice = Number(user.monetization?.monthlyPrice ?? 5);
+    const monthlyPrice = Number(user.monetization?.monthlyPrice ?? 5000);
     const monetization = {
       tipsEnabled: Boolean(user.monetization?.tipsEnabled),
       subscriptionsEnabled: Boolean(user.monetization?.subscriptionsEnabled),
       monthlyPrice,
-      currency: user.monetization?.currency || appCfg.defaultCurrency || 'USD',
+      currency: user.monetization?.currency || appCfg.defaultCurrency || 'NGN',
       description: user.monetization?.description || '',
       totalEarnings: Number(user.monetization?.totalEarnings ?? 0),
     };
@@ -249,7 +249,7 @@ const patchMonetizationSchema = z.discriminatedUnion('action', [
     action: z.literal('update_settings'),
     tipsEnabled: z.boolean(),
     subscriptionsEnabled: z.boolean(),
-    monthlyPrice: z.number().min(1).max(5000),
+    monthlyPrice: z.number().min(100).max(500000),
     currency: z.string().min(3).max(6).optional(),
     description: z.string().max(400).optional(),
   }),
@@ -302,7 +302,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const appCfg = await getSettingsGroup('app');
-    const currency = (body.currency || appCfg.defaultCurrency || 'USD').toUpperCase();
+    const currency = (body.currency || appCfg.defaultCurrency || 'NGN').toUpperCase();
 
     user.monetization = {
       tipsEnabled: body.tipsEnabled,
@@ -324,7 +324,7 @@ const supportActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('tip'),
     creatorId: z.string().min(1),
-    amount: z.number().min(1).max(10000),
+    amount: z.number().min(50).max(1000000),
     message: z.string().max(180).optional(),
   }),
   z.object({

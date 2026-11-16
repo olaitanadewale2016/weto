@@ -35,7 +35,7 @@ export async function ensureDefaultCurrenciesAndLocales(force = false): Promise<
   ]);
 
   if (currencyCount === 0) {
-    const defCur = (appCfg.defaultCurrency || 'USD').toUpperCase();
+    const defCur = (appCfg.defaultCurrency || 'NGN').toUpperCase();
     for (const c of DEFAULT_CURRENCIES) {
       await Currency.updateOne(
         { alpha3Code: c.alpha3Code },
@@ -52,7 +52,7 @@ export async function ensureDefaultCurrenciesAndLocales(force = false): Promise<
     }
     const hasDef = await Currency.exists({ isDefault: true });
     if (!hasDef) {
-      await Currency.updateOne({ alpha3Code: 'USD' }, { $set: { isDefault: true, status: true } });
+      await Currency.updateOne({ alpha3Code: 'NGN' }, { $set: { isDefault: true, status: true } });
     }
   }
 

@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
       type: body.type,
       income: body.income ?? null,
       isStartIncome: body.isStartIncome,
-      currency: (body.currency || appCfg.defaultCurrency || 'USD').toUpperCase(),
+      currency: (body.currency || appCfg.defaultCurrency || 'NGN').toUpperCase(),
       location: body.location?.trim() || null,
       isRemote: body.isRemote,
       isUrgent: body.isUrgent,

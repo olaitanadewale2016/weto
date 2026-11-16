@@ -15,7 +15,7 @@ import { getSettingsGroup } from './settings.service';
 import { writeAuditLog } from '@/lib/audit';
 import { dispatchNotification } from './notification.service';
 
-export async function generateWalletNumber(prefix = 'CW'): Promise<string> {
+export async function generateWalletNumber(prefix = 'W'): Promise<string> {
   const rand = crypto.randomInt(10000000, 99999999);
   const suffix = crypto.randomInt(1000, 9999);
   return `${prefix}-${rand}-${suffix}`;
@@ -32,12 +32,12 @@ export async function ensureWallet(userId: string | Types.ObjectId): Promise<IWa
     getSettingsGroup('app'),
   ]);
 
-  const walletNumber = await generateWalletNumber(walletCfg.walletNumberPrefix || 'CW');
+  const walletNumber = await generateWalletNumber(walletCfg.walletNumberPrefix || 'W');
   return Wallet.create({
     userId: uid,
     walletNumber,
     balance: walletCfg.defaultBalance || 0,
-    currency: appCfg.defaultCurrency || 'USD',
+    currency: appCfg.defaultCurrency || 'NGN',
   });
 }
 
@@ -66,14 +66,14 @@ export async function creditWalletIdempotent(params: {
         getSettingsGroup('wallet'),
         getSettingsGroup('app'),
       ]);
-      const walletNumber = await generateWalletNumber(walletCfg.walletNumberPrefix || 'CW');
+      const walletNumber = await generateWalletNumber(walletCfg.walletNumberPrefix || 'W');
       const created = await Wallet.create(
         [
           {
             userId: uid,
             walletNumber,
             balance: 0,
-            currency: params.currency || appCfg.defaultCurrency || 'USD',
+            currency: params.currency || appCfg.defaultCurrency || 'NGN',
           },
         ],
         { session }

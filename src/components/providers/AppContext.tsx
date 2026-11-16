@@ -98,6 +98,17 @@ export interface BootstrapConfig {
   verification?: {
     serviceUrl: string;
   };
+  ads?: {
+    pricePerView: number;
+    minBudget: number;
+    defaultBudget: number;
+  };
+  promotions?: {
+    enabled: boolean;
+    price3d: number;
+    price7d: number;
+    price14d: number;
+  };
   giphyEnabled?: boolean;
   translationEnabled?: boolean;
   ipGeoEnabled?: boolean;

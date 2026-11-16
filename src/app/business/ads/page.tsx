@@ -34,6 +34,9 @@ interface AdCampaign {
 export default function BusinessAdsPage() {
   const { bootstrap, locale } = useApp();
   const defaultCurrency = bootstrap?.config?.defaultCurrency || 'NGN';
+  const minAdBudget = Number(bootstrap?.config?.ads?.minBudget ?? 5000);
+  const defaultAdBudget = Number(bootstrap?.config?.ads?.defaultBudget ?? 25000);
+  const pricePerAdView = Number(bootstrap?.config?.ads?.pricePerView ?? 25);
   const { error, success } = useToast();
   const [ads, setAds] = useState<AdCampaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +48,7 @@ export default function BusinessAdsPage() {
   const [content, setContent] = useState('');
   const [ctaText, setCtaText] = useState('Learn More');
   const [targetUrl, setTargetUrl] = useState('https://');
-  const [totalBudget, setTotalBudget] = useState('50');
+  const [totalBudget, setTotalBudget] = useState(String(defaultAdBudget));
   const [mediaId, setMediaId] = useState<string | undefined>();
   const [creativePreview, setCreativePreview] = useState<{ url: string; type: string } | null>(null);
   const [uploadingCreative, setUploadingCreative] = useState(false);
@@ -98,7 +101,7 @@ export default function BusinessAdsPage() {
     setContent('');
     setCtaText('Learn More');
     setTargetUrl('https://');
-    setTotalBudget('50');
+    setTotalBudget(String(defaultAdBudget));
     setMediaId(undefined);
     setCreativePreview(null);
     setCreateOpen(true);
@@ -110,7 +113,7 @@ export default function BusinessAdsPage() {
     setContent(ad.content || '');
     setCtaText(ad.ctaText || 'Learn More');
     setTargetUrl(ad.targetUrl || 'https://');
-    setTotalBudget(String(ad.totalBudget || 50));
+    setTotalBudget(String(ad.totalBudget || defaultAdBudget));
     setMediaId(undefined);
     const existingUrl = ad.media?.publicUrl || ad.media?.url;
     setCreativePreview(existingUrl ? { url: existingUrl, type: ad.media?.type || 'image' } : null);
@@ -131,7 +134,7 @@ export default function BusinessAdsPage() {
             content: content.trim(),
             ctaText: ctaText.trim() || 'Learn More',
             targetUrl: targetUrl.trim(),
-            totalBudget: Number(totalBudget) || 10,
+            totalBudget: Number(totalBudget) || minAdBudget,
             ...(mediaId ? { mediaId } : {}),
           },
         });
@@ -144,7 +147,7 @@ export default function BusinessAdsPage() {
             content: content.trim(),
             ctaText: ctaText.trim() || 'Learn More',
             targetUrl: targetUrl.trim(),
-            totalBudget: Number(totalBudget) || 10,
+            totalBudget: Number(totalBudget) || minAdBudget,
             mediaId,
             publishNow: true,
           },
@@ -200,11 +203,10 @@ export default function BusinessAdsPage() {
                 key={tab.key}
                 type="button"
                 onClick={() => setStatusFilter(tab.key as 'all' | 'published' | 'paused' | 'pending')}
-                className={`rounded-full px-3.5 py-1.5 text-cap-l font-semibold transition-colors cursor-pointer ${
-                  statusFilter === tab.key
-                    ? 'bg-lab-pr text-bg-pr'
-                    : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
-                }`}
+                className={`rounded-full px-3.5 py-1.5 text-cap-l font-semibold transition-colors cursor-pointer ${statusFilter === tab.key
+                  ? 'bg-lab-pr text-bg-pr'
+                  : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -341,7 +343,16 @@ export default function BusinessAdsPage() {
           <Textarea label="Ad Copy" value={content} onChange={(e) => setContent(e.target.value)} required />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="CTA Button Text" value={ctaText} onChange={(e) => setCtaText(e.target.value)} required />
-            <Input label={`Total Budget (${defaultCurrency})`} type="number" min="1" step="1" value={totalBudget} onChange={(e) => setTotalBudget(e.target.value)} required />
+            <Input
+              label={`Total Budget (${defaultCurrency})`}
+              type="number"
+              min={minAdBudget}
+              step="100"
+              value={totalBudget}
+              onChange={(e) => setTotalBudget(e.target.value)}
+              hint={`Min: ${formatCurrency(minAdBudget, defaultCurrency, bootstrap?.currencies, locale)} · Rate: ${formatCurrency(pricePerAdView, defaultCurrency, bootstrap?.currencies, locale)}/view`}
+              required
+            />
           </div>
           <Input label="Destination URL" type="url" value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)} required />
           <div className="space-y-2">

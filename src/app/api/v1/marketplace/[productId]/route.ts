@@ -29,6 +29,7 @@ import { deleteMediaRecord, serializeMedia } from '@/services/media.service';
 import { ensureWallet } from '@/services/wallet.service';
 import { dispatchNotification } from '@/services/notification.service';
 import { getListingPromotionPlan } from '@/lib/promotions';
+import { getSettingsGroup } from '@/services/settings.service';
 import { resolveMediaUrl } from '@/lib/media-url';
 
 async function findProduct(idOrHash: string) {
@@ -159,7 +160,11 @@ export async function PATCH(
     }
 
     if (body.action === 'promote') {
-      const plan = getListingPromotionPlan(body.promotionPlan);
+      const promoCfg = await getSettingsGroup('promotions');
+      if (promoCfg.enabled === false) {
+        throw new ValidationError('Marketplace listing promotions are currently disabled.');
+      }
+      const plan = getListingPromotionPlan(body.promotionPlan, promoCfg);
       const wallet = await ensureWallet(user._id);
 
       const baseStart =

@@ -4,7 +4,13 @@ import { Types } from 'mongoose';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import { getOptionalAuth, requireAuth } from '@/lib/auth/session';
-import { apiError, apiSuccess, ForbiddenError, NotFoundError } from '@/lib/api-response';
+import {
+  apiError,
+  apiSuccess,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '@/lib/api-response';
 import { Ad, IAdDocument } from '@/models/Finance';
 import { Media } from '@/models/Media';
 import { AdApproval, AdStatus, UserRole } from '@/types/enums';
@@ -162,7 +168,17 @@ export async function POST(req: NextRequest) {
   try {
     const { user } = await requireAuth(req);
     const body = createAdSchema.parse(await req.json());
-    const adsCfg = await getSettingsGroup('ads');
+    const [adsCfg, appCfg] = await Promise.all([
+      getSettingsGroup('ads'),
+      getSettingsGroup('app'),
+    ]);
+
+    const minBudget = Math.max(1, Number(adsCfg.minBudget || 5000));
+    if (body.totalBudget < minBudget) {
+      throw new ValidationError(
+        `Minimum ad campaign budget is ${minBudget} ${appCfg.defaultCurrency || 'NGN'}.`
+      );
+    }
 
     const ad = await Ad.create({
       userId: user._id,
@@ -171,7 +187,7 @@ export async function POST(req: NextRequest) {
       ctaText: body.ctaText.trim(),
       targetUrl: body.targetUrl,
       totalBudget: body.totalBudget,
-      pricePerView: adsCfg.pricePerView,
+      pricePerView: Number(adsCfg.pricePerView || 25),
       mediaId: body.mediaId && Types.ObjectId.isValid(body.mediaId) ? new Types.ObjectId(body.mediaId) : null,
       status: body.publishNow ? AdStatus.PUBLISHED : AdStatus.DRAFT,
       approval: adsCfg.defaultApproval ? AdApproval.APPROVED : AdApproval.PENDING,
@@ -243,6 +259,16 @@ export async function PATCH(req: NextRequest) {
       if (body.ctaText !== undefined) ad.ctaText = body.ctaText.trim();
       if (body.targetUrl !== undefined) ad.targetUrl = body.targetUrl;
       if (body.totalBudget !== undefined) {
+        const [adsCfg, appCfg] = await Promise.all([
+          getSettingsGroup('ads'),
+          getSettingsGroup('app'),
+        ]);
+        const minBudget = Math.max(1, Number(adsCfg.minBudget || 5000));
+        if (body.totalBudget < minBudget) {
+          throw new ValidationError(
+            `Minimum ad campaign budget is ${minBudget} ${appCfg.defaultCurrency || 'NGN'}.`
+          );
+        }
         ad.totalBudget = Math.max(ad.spentBudget, body.totalBudget);
         if (ad.status === AdStatus.COMPLETED && ad.totalBudget > ad.spentBudget) {
           ad.status = AdStatus.PUBLISHED;

@@ -187,6 +187,67 @@ async function main() {
     { upsert: true }
   );
 
+  await Setting.updateOne(
+    { group: 'wallet' },
+    {
+      $setOnInsert: {
+        group: 'wallet',
+        payload: {
+          enabled: true,
+          name: 'Weto Wallet',
+          aboutLink: '/document/help-center',
+          walletNumberPrefix: 'W',
+          cashoutMethods: ['PayPal', 'Bank Transfer', 'Stripe'],
+          defaultBalance: 0,
+          depositMinAmount: 2000,
+          depositMaxAmount: 1000000,
+          transferMinAmount: 1000,
+          transferMaxAmount: 500000,
+          withdrawMinAmount: 10000,
+          withdrawMaxAmount: 500000,
+          commissionDeposit: 0,
+          commissionTransfer: 1.5,
+          commissionWithdraw: 2.5,
+        },
+      },
+    },
+    { upsert: true }
+  );
+
+  await Setting.updateOne(
+    { group: 'ads' },
+    {
+      $setOnInsert: {
+        group: 'ads',
+        payload: {
+          defaultApproval: false,
+          pricePerView: 25,
+          minBudget: 5000,
+          defaultBudget: 25000,
+          refreshIntervalMinutes: 5,
+          chargeIntervalMinutes: 10,
+        },
+      },
+    },
+    { upsert: true }
+  );
+
+  await Setting.updateOne(
+    { group: 'promotions' },
+    {
+      $setOnInsert: {
+        group: 'promotions',
+        payload: {
+          enabled: true,
+          price3d: 2500,
+          price7d: 5000,
+          price14d: 8500,
+        },
+      },
+    },
+    { upsert: true }
+  );
+
   const ngStats = await seedNigerianEcosystem();
 
   console.log(

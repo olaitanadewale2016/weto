@@ -85,7 +85,7 @@ function ProductCreateModalInner({
 
   const [title, setTitle] = useState(editProduct?.title || '');
   const [description, setDescription] = useState(editProduct?.description || '');
-  const [price, setPrice] = useState(editProduct ? String(editProduct.price) : '49.99');
+  const [price, setPrice] = useState(editProduct ? String(editProduct.price) : '15000');
   const [discount, setDiscount] = useState(editProduct ? String(editProduct.discount ?? 0) : '0');
   const [stockQuantity, setStockQuantity] = useState(
     editProduct?.stockQuantity !== undefined ? String(editProduct.stockQuantity) : '1'

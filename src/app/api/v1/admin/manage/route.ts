@@ -642,6 +642,7 @@ export async function GET(req: NextRequest) {
         'brand',
         'wallet',
         'ads',
+        'promotions',
         'acquiring',
         'mail',
         'code',
@@ -1449,6 +1450,23 @@ export async function POST(req: NextRequest) {
     } else if (action === 'settings.update') {
       const group = payload.group as keyof AppSettingsMap;
       const values = (payload.values as Record<string, unknown>) || {};
+      if (group === 'wallet') {
+        const dMin = Number(values.depositMinAmount);
+        const dMax = Number(values.depositMaxAmount);
+        const tMin = Number(values.transferMinAmount);
+        const tMax = Number(values.transferMaxAmount);
+        const wMin = Number(values.withdrawMinAmount);
+        const wMax = Number(values.withdrawMaxAmount);
+        if (Number.isFinite(dMin) && Number.isFinite(dMax) && dMin > dMax) {
+          throw new ValidationError('Minimum deposit cannot exceed maximum deposit.');
+        }
+        if (Number.isFinite(tMin) && Number.isFinite(tMax) && tMin > tMax) {
+          throw new ValidationError('Minimum transfer cannot exceed maximum transfer.');
+        }
+        if (Number.isFinite(wMin) && Number.isFinite(wMax) && wMin > wMax) {
+          throw new ValidationError('Minimum withdrawal cannot exceed maximum withdrawal.');
+        }
+      }
       await updateSettingsGroup(group, values);
       if (group === 'app') {
         if (typeof values.defaultCurrency === 'string' && values.defaultCurrency.trim()) {

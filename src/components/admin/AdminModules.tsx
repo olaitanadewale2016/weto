@@ -1903,6 +1903,7 @@ export function AdminConfigSection({
       acquiring?: Record<string, unknown>;
       wallet?: Record<string, unknown>;
     };
+    const appCurrency = bootstrap?.config?.defaultCurrency || 'NGN';
     return (
       <div className="space-y-4">
         <div className="rounded-2xl border border-bord-card bg-fill-pr/30 p-4 flex flex-wrap items-center justify-between gap-3">
@@ -1911,7 +1912,7 @@ export function AdminConfigSection({
             <div>
               <p className="font-bold text-par-n text-lab-pr">Wallet & Acquiring Overview</p>
               <p className="text-cap-s text-lab-sc">
-                Min deposit: {String(d.wallet?.depositMinAmount ?? 1)} · Max deposit: {String(d.wallet?.depositMaxAmount ?? 10000)} · Cashout commission: {String(d.wallet?.cashoutCommissionPercent ?? 0)}%
+                Min deposit: {formatCurrency(Number(d.wallet?.depositMinAmount ?? 2000), appCurrency, bootstrap?.currencies, locale)} · Max deposit: {formatCurrency(Number(d.wallet?.depositMaxAmount ?? 1000000), appCurrency, bootstrap?.currencies, locale)} · Min withdrawal: {formatCurrency(Number(d.wallet?.withdrawMinAmount ?? 10000), appCurrency, bootstrap?.currencies, locale)} · Max withdrawal: {formatCurrency(Number(d.wallet?.withdrawMaxAmount ?? 500000), appCurrency, bootstrap?.currencies, locale)} · Withdrawal fee: {String(d.wallet?.commissionWithdraw ?? 2.5)}%
               </p>
             </div>
           </div>

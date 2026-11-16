@@ -176,7 +176,7 @@ const AdSchema = new Schema<IAdDocument>(
     type: { type: String, default: 'feed' },
     totalBudget: { type: Number, default: 0, min: 0 },
     spentBudget: { type: Number, default: 0, min: 0 },
-    pricePerView: { type: Number, default: 0.05, min: 0 },
+    pricePerView: { type: Number, default: 25, min: 0 },
     targetUrl: { type: String, default: null },
     mediaId: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
     approval: { type: String, enum: Object.values(AdApproval), default: AdApproval.PENDING, index: true },

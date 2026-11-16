@@ -95,7 +95,7 @@ export const publicEnv = {
   appUrl: defaultAppUrl.replace(/\/+$/, ''),
   appVersion: process.env.NEXT_PUBLIC_APP_VERSION || '2.1.0',
   defaultLocale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE || 'en',
-  defaultCurrency: process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'USD',
+  defaultCurrency: process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'NGN',
   hideAuthorAttribution: process.env.NEXT_PUBLIC_HIDE_AUTHOR_ATTRIBUTION === 'true',
   realtimeUrl: defaultRealtimeUrl,
   r2PublicUrl: process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '',

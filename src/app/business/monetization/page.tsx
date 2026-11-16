@@ -95,11 +95,11 @@ export default function BusinessMonetizationPage() {
 
   const [tipsEnabled, setTipsEnabled] = useState(false);
   const [subscriptionsEnabled, setSubscriptionsEnabled] = useState(false);
-  const [monthlyPrice, setMonthlyPrice] = useState('5');
-  const [currency, setCurrency] = useState('USD');
+  const [monthlyPrice, setMonthlyPrice] = useState('5000');
+  const [currency, setCurrency] = useState('NGN');
   const [description, setDescription] = useState('');
 
-  const defaultCurrency = bootstrap?.config?.defaultCurrency || 'USD';
+  const defaultCurrency = bootstrap?.config?.defaultCurrency || 'NGN';
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -108,7 +108,7 @@ export default function BusinessMonetizationPage() {
       setData(res);
       setTipsEnabled(res.monetization.tipsEnabled);
       setSubscriptionsEnabled(res.monetization.subscriptionsEnabled);
-      setMonthlyPrice(String(res.monetization.monthlyPrice || 5));
+      setMonthlyPrice(String(res.monetization.monthlyPrice || 5000));
       setCurrency(res.monetization.currency || defaultCurrency);
       setDescription(res.monetization.description || '');
     } catch {
@@ -391,8 +391,8 @@ export default function BusinessMonetizationPage() {
               <Input
                 label="Monthly membership price"
                 type="number"
-                min={1}
-                step="0.5"
+                min={100}
+                step="100"
                 value={monthlyPrice}
                 disabled={!data.isAuthor}
                 onChange={(e) => setMonthlyPrice(e.target.value)}

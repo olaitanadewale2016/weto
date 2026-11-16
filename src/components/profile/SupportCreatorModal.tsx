@@ -34,7 +34,7 @@ interface SupportCreatorModalProps {
   onCompleted?: () => void;
 }
 
-const TIP_PRESETS = [2, 5, 10, 25];
+const TIP_PRESETS = [500, 1000, 2500, 5000];
 
 export function SupportCreatorModal({
   open,
@@ -51,11 +51,11 @@ export function SupportCreatorModal({
   const [mode, setMode] = useState<'tip' | 'subscribe'>(
     initialTab === 'subscribe' && subsEnabled ? 'subscribe' : tipsEnabled ? 'tip' : 'subscribe'
   );
-  const [tipAmount, setTipAmount] = useState<string>('5');
+  const [tipAmount, setTipAmount] = useState<string>('1000');
   const [note, setNote] = useState('');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletCurrency, setWalletCurrency] = useState(
-    creator.monetization?.currency || bootstrap?.config?.defaultCurrency || 'USD'
+    creator.monetization?.currency || bootstrap?.config?.defaultCurrency || 'NGN'
   );
   const [viewerSubscribed, setViewerSubscribed] = useState(false);
   const [subscriptionPeriodEnd, setSubscriptionPeriodEnd] = useState<string | null>(null);
@@ -81,7 +81,7 @@ export function SupportCreatorModal({
         if (!active) return;
         if (walletRes?.wallet) {
           setWalletBalance(walletRes.wallet.balance);
-          setWalletCurrency(walletRes.wallet.currency || 'USD');
+          setWalletCurrency(walletRes.wallet.currency || 'NGN');
         }
         if (monoRes) {
           setViewerSubscribed(Boolean(monoRes.viewerSubscribed));
@@ -96,15 +96,15 @@ export function SupportCreatorModal({
   }, [open, creator.id, initialTab, tipsEnabled, subsEnabled]);
 
   const creatorName = `${creator.firstName} ${creator.lastName}`.trim() || `@${creator.username}`;
-  const monthlyPrice = Number(creator.monetization?.monthlyPrice ?? 5);
+  const monthlyPrice = Number(creator.monetization?.monthlyPrice ?? 5000);
   const parsedTip = Number(tipAmount);
   const activeCost = mode === 'tip' ? (Number.isFinite(parsedTip) ? parsedTip : 0) : monthlyPrice;
   const insufficient = walletBalance !== null && activeCost > 0 && walletBalance < activeCost;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (mode === 'tip' && (!Number.isFinite(parsedTip) || parsedTip < 1)) {
-      error('Enter a valid tip amount (minimum 1).');
+    if (mode === 'tip' && (!Number.isFinite(parsedTip) || parsedTip < 50)) {
+      error('Enter a valid tip amount (minimum 50).');
       return;
     }
 
@@ -204,8 +204,8 @@ export function SupportCreatorModal({
             <Input
               label={`Custom amount (${walletCurrency})`}
               type="number"
-              min={1}
-              step="0.5"
+              min={50}
+              step="50"
               value={tipAmount}
               onChange={(e) => setTipAmount(e.target.value)}
             />

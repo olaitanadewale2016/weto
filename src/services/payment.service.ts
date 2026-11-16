@@ -82,7 +82,7 @@ export async function initiateWalletDeposit(params: {
 
   await connectDB();
   const baseUrl = getAppBaseUrl();
-  const currency = (params.currency || appCfg.defaultCurrency || 'USD').toUpperCase();
+  const currency = (params.currency || appCfg.defaultCurrency || 'NGN').toUpperCase();
   const paymentUuid: string = crypto.randomUUID();
 
   let referenceId: string = paymentUuid;

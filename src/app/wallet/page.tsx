@@ -93,7 +93,18 @@ export default function WalletPage() {
   const [txFilter, setTxFilter] = useState<'all' | 'deposit' | 'transfer' | 'withdrawal'>('all');
   const [selectedTx, setSelectedTx] = useState<WalletTransactionItem | null>(null);
 
-  const [amount, setAmount] = useState('1000');
+  const [amount, setAmount] = useState('2000');
+
+  function openWalletModal(mode: 'deposit' | 'transfer' | 'cashout') {
+    setModalMode(mode);
+    const minAmount =
+      mode === 'deposit'
+        ? data?.limits?.depositMin ?? 2000
+        : mode === 'transfer'
+          ? data?.limits?.transferMin ?? 1000
+          : data?.limits?.withdrawMin ?? 10000;
+    setAmount(String(minAmount));
+  }
   const [provider, setProvider] = useState<'paystack' | 'stripe' | 'paypal' | 'yoo_kassa' | 'robokassa'>('paystack');
   const [recipient, setRecipient] = useState('');
   const [recipientPreview, setRecipientPreview] = useState<WalletRecipientItem | null>(null);
@@ -309,7 +320,7 @@ export default function WalletPage() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setModalMode('deposit')}
+                onClick={() => openWalletModal('deposit')}
                 className="h-32 sm:h-40 bg-fill-qt rounded-xl px-3 sm:px-4 py-3 relative cursor-pointer hover:bg-fill-tr transition-all ease-linear text-left flex flex-col justify-between"
               >
                 <div>
@@ -325,7 +336,7 @@ export default function WalletPage() {
 
               <button
                 type="button"
-                onClick={() => setModalMode('transfer')}
+                onClick={() => openWalletModal('transfer')}
                 className="h-32 sm:h-40 bg-fill-qt rounded-xl px-3 sm:px-4 py-3 relative cursor-pointer hover:bg-fill-tr transition-all ease-linear text-left flex flex-col justify-between"
               >
                 <div>
@@ -341,7 +352,7 @@ export default function WalletPage() {
 
               <button
                 type="button"
-                onClick={() => setModalMode('cashout')}
+                onClick={() => openWalletModal('cashout')}
                 className="h-32 sm:h-40 bg-fill-qt rounded-xl px-3 sm:px-4 py-3 relative cursor-pointer hover:bg-fill-tr transition-all ease-linear text-left flex flex-col justify-between"
               >
                 <div>
@@ -582,18 +593,46 @@ export default function WalletPage() {
           <Input
             label={`Amount (${data?.wallet.currency || bootstrap?.config?.defaultCurrency || 'NGN'})`}
             type="number"
-            step="0.01"
-            min="1"
+            step="any"
+            min={
+              data?.limits
+                ? modalMode === 'deposit'
+                  ? data.limits.depositMin
+                  : modalMode === 'transfer'
+                    ? data.limits.transferMin
+                    : data.limits.withdrawMin
+                : 1
+            }
+            max={
+              data?.limits
+                ? modalMode === 'deposit'
+                  ? data.limits.depositMax
+                  : modalMode === 'transfer'
+                    ? data.limits.transferMax
+                    : data.limits.withdrawMax
+                : undefined
+            }
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             required
             hint={
               data?.limits
-                ? modalMode === 'deposit'
-                  ? `Min: ${data.limits.depositMin} · Max: ${data.limits.depositMax}`
-                  : modalMode === 'transfer'
-                    ? `Min: ${data.limits.transferMin} · Max: ${data.limits.transferMax}`
-                    : `Min: ${data.limits.withdrawMin} · Max: ${data.limits.withdrawMax}`
+                ? (() => {
+                    const cur = data?.wallet.currency || bootstrap?.config?.defaultCurrency || 'NGN';
+                    const minVal =
+                      modalMode === 'deposit'
+                        ? data.limits.depositMin
+                        : modalMode === 'transfer'
+                          ? data.limits.transferMin
+                          : data.limits.withdrawMin;
+                    const maxVal =
+                      modalMode === 'deposit'
+                        ? data.limits.depositMax
+                        : modalMode === 'transfer'
+                          ? data.limits.transferMax
+                          : data.limits.withdrawMax;
+                    return `Min: ${formatCurrency(minVal, cur, bootstrap?.currencies, locale)} · Max: ${formatCurrency(maxVal, cur, bootstrap?.currencies, locale)}`;
+                  })()
                 : undefined
             }
           />

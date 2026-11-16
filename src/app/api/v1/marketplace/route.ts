@@ -155,11 +155,11 @@ export async function GET(req: NextRequest) {
           const normalizedSeller =
             sellerObj && typeof sellerObj === 'object'
               ? {
-                  ...sellerObj,
-                  avatar:
-                    resolveMediaUrl(String(sellerObj.avatar || '')) ||
-                    '/assets/avatars/default-avatar.png',
-                }
+                ...sellerObj,
+                avatar:
+                  resolveMediaUrl(String(sellerObj.avatar || '')) ||
+                  '/assets/avatars/default-avatar.png',
+              }
               : p.userId;
           return {
             ...p,
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
       description: body.description?.trim() || '',
       condition: body.condition,
       type: body.type,
-      currency: (body.currency || appCfg.defaultCurrency || 'USD').toUpperCase(),
+      currency: (body.currency || appCfg.defaultCurrency || 'NGN').toUpperCase(),
       stockQuantity: body.stockQuantity,
       price: body.price,
       discount: body.discount,

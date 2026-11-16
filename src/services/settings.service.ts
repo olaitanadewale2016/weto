@@ -66,8 +66,16 @@ export interface AppSettingsMap {
   ads: {
     defaultApproval: boolean;
     pricePerView: number;
+    minBudget: number;
+    defaultBudget: number;
     refreshIntervalMinutes: number;
     chargeIntervalMinutes: number;
+  };
+  promotions: {
+    enabled: boolean;
+    price3d: number;
+    price7d: number;
+    price14d: number;
   };
   acquiring: {
     paystackStatus: boolean;
@@ -127,7 +135,7 @@ export const DEFAULT_SETTINGS: AppSettingsMap = {
     documentationUrl: 'https://docs.weto.app',
     timezone: 'UTC',
     locale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE || 'en',
-    defaultCurrency: process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'USD',
+    defaultCurrency: process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || 'NGN',
     pwaEnabled: true,
     hideSensitiveData: true,
     apiKey: process.env.SYSTEM_API_KEY || '',
@@ -168,24 +176,32 @@ export const DEFAULT_SETTINGS: AppSettingsMap = {
     enabled: true,
     name: 'Weto Wallet',
     aboutLink: '/document/help-center',
-    walletNumberPrefix: 'CW',
+    walletNumberPrefix: 'W',
     cashoutMethods: ['PayPal', 'Bank Transfer', 'Stripe'],
     defaultBalance: 0,
-    depositMinAmount: 5,
-    depositMaxAmount: 10000,
-    transferMinAmount: 1,
-    transferMaxAmount: 5000,
-    withdrawMinAmount: 10,
-    withdrawMaxAmount: 5000,
+    depositMinAmount: 2000,
+    depositMaxAmount: 1000000,
+    transferMinAmount: 1000,
+    transferMaxAmount: 500000,
+    withdrawMinAmount: 10000,
+    withdrawMaxAmount: 500000,
     commissionDeposit: 0,
     commissionTransfer: 1.5,
     commissionWithdraw: 2.5,
   },
   ads: {
     defaultApproval: false,
-    pricePerView: 0.05,
+    pricePerView: 25,
+    minBudget: 5000,
+    defaultBudget: 25000,
     refreshIntervalMinutes: 5,
     chargeIntervalMinutes: 10,
+  },
+  promotions: {
+    enabled: true,
+    price3d: 2500,
+    price7d: 5000,
+    price14d: 8500,
   },
   acquiring: {
     paystackStatus: Boolean(process.env.PAYSTACK_SECRET_KEY),
@@ -301,12 +317,14 @@ export async function updateSettingsGroup<K extends keyof AppSettingsMap>(
 }
 
 export async function getPublicBootstrapConfig() {
-  const [app, features, auth, brand, wallet, verification] = await Promise.all([
+  const [app, features, auth, brand, wallet, ads, promotions, verification] = await Promise.all([
     getSettingsGroup('app'),
     getSettingsGroup('features'),
     getSettingsGroup('auth'),
     getSettingsGroup('brand'),
     getSettingsGroup('wallet'),
+    getSettingsGroup('ads'),
+    getSettingsGroup('promotions'),
     getSettingsGroup('verification'),
   ]);
 
@@ -371,6 +389,17 @@ export async function getPublicBootstrapConfig() {
       commissionTransfer: wallet.commissionTransfer,
       commissionWithdraw: wallet.commissionWithdraw,
       cashoutMethods: wallet.cashoutMethods,
+    },
+    ads: {
+      pricePerView: ads.pricePerView,
+      minBudget: ads.minBudget,
+      defaultBudget: ads.defaultBudget,
+    },
+    promotions: {
+      enabled: promotions.enabled,
+      price3d: promotions.price3d,
+      price7d: promotions.price7d,
+      price14d: promotions.price14d,
     },
   };
 }

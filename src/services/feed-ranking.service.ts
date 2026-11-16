@@ -309,7 +309,7 @@ export function scoreAdFacebookAuction({
   viewerSignals: ViewerSignalProfile | null;
   isExcluded: boolean;
 }): number {
-  const bid = Math.max(0.01, Number(ad.pricePerView || 0.05));
+  const bid = Math.max(0.01, Number(ad.pricePerView || 25));
   const totalBudget = Math.max(0.01, Number(ad.totalBudget || 1));
   const remainingRatio = Math.max(0, (totalBudget - Number(ad.spentBudget || 0)) / totalBudget);
 

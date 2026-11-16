@@ -153,7 +153,10 @@ export default function BusinessWalletPage() {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setWithdrawOpen(true)}
+            onClick={() => {
+              setWithdrawAmount(String(data?.limits?.withdrawMin ?? 10000));
+              setWithdrawOpen(true);
+            }}
             disabled={!data || (data.wallet.balance || 0) <= 0}
           >
             <ArrowUpRight className="h-4 w-4" /> Request Withdrawal
@@ -316,11 +319,16 @@ export default function BusinessWalletPage() {
           <Input
             label={`Amount (${data?.wallet.currency || 'NGN'})`}
             type="number"
-            min={data?.limits.withdrawMin || 1}
+            min={data?.limits.withdrawMin || 10000}
             max={data?.limits.withdrawMax || undefined}
             step="any"
             value={withdrawAmount}
             onChange={(e) => setWithdrawAmount(e.target.value)}
+            hint={
+              data?.limits
+                ? `Min: ${formatCurrency(data.limits.withdrawMin, data.wallet.currency || 'NGN', bootstrap?.currencies, locale)} · Max: ${formatCurrency(data.limits.withdrawMax, data.wallet.currency || 'NGN', bootstrap?.currencies, locale)}`
+                : undefined
+            }
             required
           />
           <Select
