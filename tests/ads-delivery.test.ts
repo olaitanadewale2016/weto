@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { computeFeedAdSlotIndices } from '@/lib/ads-client';
 import { scoreAdFacebookAuction } from '@/services/feed-ranking.service';
 import { AdApproval, AdStatus, TransactionDirection, TransactionType } from '@/types/enums';
 
@@ -341,5 +342,64 @@ describe('Facebook / Instagram / X + PHP Ad Delivery & Credit Billing Engine', (
 
     expect(highCtrScore).toBeGreaterThan(lowCtrScore);
     expect(excludedScore).toBeLessThan(highCtrScore * 0.1);
+  });
+
+  it('computes dynamic Facebook-style ad slot positions for both short and long feeds', () => {
+    // Short feeds (>= 2 posts) still receive 1 organic ad slot
+    const shortSlots = computeFeedAdSlotIndices(3, 'feed', 7);
+    expect(shortSlots.size).toBe(1);
+
+    // Long feeds vary start positions across seeds and maintain 4..7 post spacing
+    const s1 = Array.from(computeFeedAdSlotIndices(24, 'feed', 1));
+    const s2 = Array.from(computeFeedAdSlotIndices(24, 'feed', 2));
+    expect(s1).not.toEqual(s2);
+    for (let i = 1; i < s1.length; i++) {
+      const gap = s1[i] - s1[i - 1];
+      expect(gap).toBeGreaterThanOrEqual(4);
+      expect(gap).toBeLessThanOrEqual(7);
+    }
+  });
+
+  it('deducts pricePerClick cleanly in CPC billingModel while counting views without spending budget', async () => {
+    const adId = new Types.ObjectId('507f1f77bcf86cd799439066');
+    mockGetSettingsGroup.mockResolvedValue({
+      billingModel: 'cpc',
+      pricePerView: 25,
+      pricePerClick: 120,
+      chargeIntervalMinutes: 10,
+      maxDailySpendPerAd: 0,
+    });
+
+    mockAdFindById
+      .mockResolvedValueOnce({ _id: adId }) // PATCH lookup
+      .mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue({
+          _id: adId,
+          status: AdStatus.PUBLISHED,
+          approval: AdApproval.APPROVED,
+          totalBudget: 5000,
+          spentBudget: 100,
+          dailySpent: 0,
+          dailySpentDate: null,
+        }),
+      });
+    mockAdUpdateOne.mockResolvedValue({ acknowledged: true });
+    mockAdFindOneAndUpdate.mockResolvedValue({ _id: adId });
+
+    const { PATCH } = await import('@/app/api/v1/ads/route');
+    const req = new NextRequest('https://app.example.com/api/v1/ads', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'click', adId: adId.toHexString() }),
+    });
+    const res = await PATCH(req);
+
+    expect(res.status).toBe(200);
+    expect(mockAdFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: adId }),
+      expect.objectContaining({
+        $inc: { spentBudget: 120 },
+      })
+    );
   });
 });

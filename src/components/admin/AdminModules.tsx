@@ -287,8 +287,8 @@ export function AdminUsersSection({
               type="button"
               onClick={() => onUserFilterChange?.(ft.key)}
               className={`rounded-full px-3 py-1 text-cap-s font-medium transition-colors cursor-pointer ${userFilter === ft.key
-                  ? 'bg-lab-pr text-bg-pr'
-                  : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                ? 'bg-lab-pr text-bg-pr'
+                : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
                 }`}
             >
               {ft.label}
@@ -852,6 +852,7 @@ export function AdminConfigSection({
   onNavigateTab?: (tab: string) => void;
 }) {
   const { bootstrap, locale } = useApp();
+  const defaultCurrency = bootstrap?.config?.defaultCurrency || 'NGN';
   const { success, error } = useToast();
   const [catName, setCatName] = useState('');
   const [catType, setCatType] = useState('product');
@@ -1797,6 +1798,27 @@ export function AdminConfigSection({
                 />
               );
             }
+            if (group === 'ads' && k === 'billingModel' && typeof v === 'string') {
+              return (
+                <Select
+                  key={k}
+                  label="Credit Deduction Model"
+                  value={v}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setDraftGroups((prev) => ({
+                      ...prev,
+                      [group]: { ...(prev[group] || {}), [k]: nextVal },
+                    }));
+                  }}
+                >
+                  <option value="viewable_cpm">Viewable Impressions (Cooldown Throttled)</option>
+                  <option value="every_impression">Every Viewable Impression (No Cooldown)</option>
+                  <option value="cpc">Pay Per Click Only (CPC)</option>
+                  <option value="hybrid">Hybrid (Viewable Impression + Click)</option>
+                </Select>
+              );
+            }
             if (group === 'app' && k === 'defaultCurrency' && typeof v === 'string') {
               const currencyOpts =
                 bootstrap?.currencies && bootstrap.currencies.length > 0
@@ -1903,7 +1925,6 @@ export function AdminConfigSection({
       acquiring?: Record<string, unknown>;
       wallet?: Record<string, unknown>;
     };
-    const appCurrency = bootstrap?.config?.defaultCurrency || 'NGN';
     return (
       <div className="space-y-4">
         <div className="rounded-2xl border border-bord-card bg-fill-pr/30 p-4 flex flex-wrap items-center justify-between gap-3">
@@ -1912,7 +1933,7 @@ export function AdminConfigSection({
             <div>
               <p className="font-bold text-par-n text-lab-pr">Wallet & Acquiring Overview</p>
               <p className="text-cap-s text-lab-sc">
-                Min deposit: {formatCurrency(Number(d.wallet?.depositMinAmount ?? 2000), appCurrency, bootstrap?.currencies, locale)} · Max deposit: {formatCurrency(Number(d.wallet?.depositMaxAmount ?? 1000000), appCurrency, bootstrap?.currencies, locale)} · Min withdrawal: {formatCurrency(Number(d.wallet?.withdrawMinAmount ?? 10000), appCurrency, bootstrap?.currencies, locale)} · Max withdrawal: {formatCurrency(Number(d.wallet?.withdrawMaxAmount ?? 500000), appCurrency, bootstrap?.currencies, locale)} · Withdrawal fee: {String(d.wallet?.commissionWithdraw ?? 2.5)}%
+                Min deposit: {formatCurrency(Number(d.wallet?.depositMinAmount ?? 2000), defaultCurrency, bootstrap?.currencies, locale)} · Max deposit: {formatCurrency(Number(d.wallet?.depositMaxAmount ?? 1000000), defaultCurrency, bootstrap?.currencies, locale)} · Min withdrawal: {formatCurrency(Number(d.wallet?.withdrawMinAmount ?? 10000), defaultCurrency, bootstrap?.currencies, locale)} · Max withdrawal: {formatCurrency(Number(d.wallet?.withdrawMaxAmount ?? 500000), defaultCurrency, bootstrap?.currencies, locale)} · Withdrawal fee: {String(d.wallet?.commissionWithdraw ?? 2.5)}%
               </p>
             </div>
           </div>
@@ -2289,8 +2310,8 @@ export function AdminConfigSection({
               type="button"
               onClick={() => setSettingsSubTab(st.key)}
               className={`rounded-full px-3 py-1 text-cap-s font-medium transition-colors cursor-pointer ${settingsSubTab === st.key
-                  ? 'bg-lab-pr text-bg-pr'
-                  : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                ? 'bg-lab-pr text-bg-pr'
+                : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
                 }`}
             >
               {st.label}

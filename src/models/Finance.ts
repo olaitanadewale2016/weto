@@ -160,6 +160,8 @@ export interface IAdDocument extends Document {
   approval: AdApproval;
   viewsCount: number;
   clicksCount: number;
+  dailySpent?: number;
+  dailySpentDate?: string | null;
   startsAt?: Date | null;
   endsAt?: Date | null;
   lastShowAt?: Date | null;
@@ -185,6 +187,8 @@ const AdSchema = new Schema<IAdDocument>(
     approval: { type: String, enum: Object.values(AdApproval), default: AdApproval.PENDING, index: true },
     viewsCount: { type: Number, default: 0, min: 0 },
     clicksCount: { type: Number, default: 0, min: 0 },
+    dailySpent: { type: Number, default: 0, min: 0 },
+    dailySpentDate: { type: String, default: null },
     startsAt: { type: Date, default: null },
     endsAt: { type: Date, default: null },
     lastShowAt: { type: Date, default: null },
@@ -192,6 +196,12 @@ const AdSchema = new Schema<IAdDocument>(
   },
   { timestamps: true }
 );
+
+// Compound indexes for multi-bucket O(log N) ad auction retrieval at 10,000+ campaigns scale
+AdSchema.index({ status: 1, approval: 1, lastShowAt: 1, pricePerView: -1 });
+AdSchema.index({ status: 1, approval: 1, pricePerView: -1, clicksCount: -1 });
+AdSchema.index({ status: 1, approval: 1, viewsCount: 1, createdAt: -1 });
+AdSchema.index({ status: 1, approval: 1, createdAt: -1 });
 
 export const Ad: Model<IAdDocument> =
   mongoose.models.Ad || mongoose.model<IAdDocument>('Ad', AdSchema);

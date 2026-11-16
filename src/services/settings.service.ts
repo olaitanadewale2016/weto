@@ -65,12 +65,16 @@ export interface AppSettingsMap {
     commissionWithdraw: number;
   };
   ads: {
+    billingModel: 'viewable_cpm' | 'every_impression' | 'cpc' | 'hybrid';
     defaultApproval: boolean;
     pricePerView: number;
+    pricePerClick: number;
     minBudget: number;
     defaultBudget: number;
+    maxDailySpendPerAd: number;
     refreshIntervalMinutes: number;
     chargeIntervalMinutes: number;
+    refundUnspentOnDelete: boolean;
   };
   promotions: {
     enabled: boolean;
@@ -191,12 +195,16 @@ export const DEFAULT_SETTINGS: AppSettingsMap = {
     commissionWithdraw: 2.5,
   },
   ads: {
+    billingModel: 'viewable_cpm',
     defaultApproval: false,
     pricePerView: 25,
+    pricePerClick: 75,
     minBudget: 5000,
     defaultBudget: 25000,
+    maxDailySpendPerAd: 0,
     refreshIntervalMinutes: 5,
     chargeIntervalMinutes: 10,
+    refundUnspentOnDelete: true,
   },
   promotions: {
     enabled: true,
@@ -393,7 +401,9 @@ export async function getPublicBootstrapConfig() {
       cashoutMethods: wallet.cashoutMethods,
     },
     ads: {
+      billingModel: ads.billingModel,
       pricePerView: ads.pricePerView,
+      pricePerClick: ads.pricePerClick,
       minBudget: ads.minBudget,
       defaultBudget: ads.defaultBudget,
       refreshIntervalMinutes: ads.refreshIntervalMinutes,

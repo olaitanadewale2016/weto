@@ -29,7 +29,7 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
+import { apiFetch, apiFetchWithMeta, uploadFileToR2 } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 import { resolveMediaUrl } from '@/lib/media-url';
 import {
@@ -167,6 +167,7 @@ const ADMIN_TAB_META: Record<
       { key: 'rejected', label: 'Rejected' },
       { key: 'published', label: 'Published' },
       { key: 'paused', label: 'Paused' },
+      { key: 'completed', label: 'Completed' },
     ],
   },
   reports: {
@@ -298,6 +299,7 @@ type EditState =
   | { kind: 'post'; id: string; title: string; content: string; status: string; globalPinned: boolean }
   | { kind: 'product'; id: string; title: string; price: string; discount: string; currency: string; status: string; approval: string; isPromoted: boolean }
   | { kind: 'job'; id: string; title: string; income: string; currency: string; location: string; status: string; approval: string; isUrgent: boolean; isRemote: boolean }
+  | { kind: 'ad'; id: string; title: string; pricePerView: string; totalBudget: string; spentBudget: number; resetDailyCap: boolean }
   | null;
 
 export default function AdminDashboardPage() {
@@ -380,6 +382,9 @@ function AdminDashboardContent() {
     recentPayments: Array<{ _id: string; amount: number; currency: string; status: string; provider?: string; paymentMethod?: string; userId?: { username: string } }>;
   } | null>(null);
   const [resourceData, setResourceData] = useState<unknown>(null);
+  const [resourceMeta, setResourceMeta] = useState<Record<string, unknown> | null>(null);
+  const [adBillingControlsOpen, setAdBillingControlsOpen] = useState(false);
+  const [adBillingDraft, setAdBillingDraft] = useState<Record<string, unknown>>({});
   const [resourceLoadedAt, setResourceLoadedAt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [adminLogin, setAdminLogin] = useState('');
@@ -505,9 +510,13 @@ function AdminDashboardContent() {
         if (searchQuery.trim() && SEARCHABLE_TABS.has(activeTab)) {
           qs.set('q', searchQuery.trim());
         }
-        const res = await apiFetch(`/admin/manage?${qs.toString()}`);
+        const res = await apiFetchWithMeta(`/admin/manage?${qs.toString()}`);
         setResourceLoadedAt(Date.now());
-        setResourceData(res);
+        setResourceData(res.data);
+        setResourceMeta(res.meta || null);
+        if (activeTab === 'ads' && res.meta?.adBillingConfig) {
+          setAdBillingDraft(res.meta.adBillingConfig as Record<string, unknown>);
+        }
       }
     } catch (err) {
       if (!silent) {
@@ -1135,6 +1144,168 @@ const portalHeaderControls = (
                     </div>
                     ) : (
                     <div className="space-y-2">
+                      {activeTab === 'ads' && Boolean(resourceMeta?.adSummary) && (() => {
+                        const summary = resourceMeta?.adSummary as {
+                          total?: number;
+                          published?: number;
+                          pending?: number;
+                          paused?: number;
+                          completed?: number;
+                          totalBudget?: number;
+                          totalSpent?: number;
+                          totalViews?: number;
+                          totalClicks?: number;
+                        };
+                        const totalViews = Number(summary.totalViews || 0);
+                        const totalClicks = Number(summary.totalClicks || 0);
+                        const avgCtr = totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(2) : '0.00';
+                        const cfg = adBillingDraft;
+                        return (
+                          <div className="mb-4 space-y-3">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                              <div className="rounded-2xl border border-bord-pr bg-fill-qt/40 p-3">
+                                <p className="text-cap-s text-lab-sc">Campaigns</p>
+                                <p className="text-par-l font-bold text-lab-pr">{Number(summary.total || 0)}</p>
+                                <p className="text-cap-s text-lab-sc">
+                                  {Number(summary.published || 0)} live · {Number(summary.pending || 0)} pending · {Number(summary.completed || 0)} done
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-bord-pr bg-fill-qt/40 p-3">
+                                <p className="text-cap-s text-lab-sc">Credits Spent / Escrow</p>
+                                <p className="text-par-l font-bold text-brand-900">
+                                  {formatCurrency(Number(summary.totalSpent || 0), defaultCurrency, bootstrap?.currencies, locale)}
+                                </p>
+                                <p className="text-cap-s text-lab-sc">
+                                  of {formatCurrency(Number(summary.totalBudget || 0), defaultCurrency, bootstrap?.currencies, locale)} budget
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-bord-pr bg-fill-qt/40 p-3">
+                                <p className="text-cap-s text-lab-sc">Delivery & CTR</p>
+                                <p className="text-par-l font-bold text-lab-pr">
+                                  {totalViews.toLocaleString()} views · {totalClicks.toLocaleString()} clicks
+                                </p>
+                                <p className="text-cap-s text-lab-sc">Platform CTR: {avgCtr}%</p>
+                              </div>
+                              <div className="rounded-2xl border border-bord-pr bg-fill-qt/40 p-3 flex flex-col justify-between gap-2">
+                                <div>
+                                  <p className="text-cap-s text-lab-sc">Deduction Rule</p>
+                                  <p className="text-par-s font-bold text-lab-pr">
+                                    {String(cfg.billingModel || 'viewable_cpm').toUpperCase()} · {formatCurrency(Number(cfg.pricePerView || 25), defaultCurrency, bootstrap?.currencies, locale)}/view
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setAdBillingControlsOpen((v) => !v)}
+                                >
+                                  {adBillingControlsOpen ? 'Hide Deduction Controls' : 'Control Credit Rules'}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {adBillingControlsOpen && (
+                              <form
+                                onSubmit={async (e) => {
+                                  e.preventDefault();
+                                  await handleAction('settings.update', undefined, {
+                                    group: 'ads',
+                                    values: adBillingDraft,
+                                  });
+                                  await refreshBootstrap();
+                                }}
+                                className="rounded-2xl border border-bord-pr bg-bg-pr p-4 space-y-3"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div>
+                                    <h3 className="text-par-n font-bold text-lab-pr">Ad Credit Deduction & Delivery Controls</h3>
+                                    <p className="text-cap-l text-lab-sc">
+                                      Control how advertiser wallet credits are charged across impressions, clicks, and daily spend caps.
+                                    </p>
+                                  </div>
+                                  <Button type="submit" size="sm" variant="primary">
+                                    Save Deduction Rules
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  <Select
+                                    label="Credit Deduction Model"
+                                    value={String(adBillingDraft.billingModel || 'viewable_cpm')}
+                                    onChange={(e) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, billingModel: e.target.value }))
+                                    }
+                                  >
+                                    <option value="viewable_cpm">Viewable CPM (charge per view + cooldown)</option>
+                                    <option value="every_impression">Every Viewable Impression (no cooldown)</option>
+                                    <option value="cpc">CPC Only (deduct only on click)</option>
+                                    <option value="hybrid">Hybrid (deduct per view + per click)</option>
+                                  </Select>
+                                  <Input
+                                    label={`Charge Per View (${defaultCurrency})`}
+                                    type="number"
+                                    min="1"
+                                    value={String(adBillingDraft.pricePerView ?? 25)}
+                                    onChange={(e) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, pricePerView: Number(e.target.value) }))
+                                    }
+                                  />
+                                  <Input
+                                    label={`Charge Per Click (${defaultCurrency})`}
+                                    type="number"
+                                    min="0"
+                                    value={String(adBillingDraft.pricePerClick ?? 75)}
+                                    onChange={(e) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, pricePerClick: Number(e.target.value) }))
+                                    }
+                                  />
+                                  <Input
+                                    label="Charge Cooldown (minutes)"
+                                    type="number"
+                                    min="0"
+                                    value={String(adBillingDraft.chargeIntervalMinutes ?? 10)}
+                                    onChange={(e) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, chargeIntervalMinutes: Number(e.target.value) }))
+                                    }
+                                  />
+                                  <Input
+                                    label={`Daily Spend Cap / Ad (${defaultCurrency}, 0 = unlimited)`}
+                                    type="number"
+                                    min="0"
+                                    value={String(adBillingDraft.maxDailySpendPerAd ?? 0)}
+                                    onChange={(e) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, maxDailySpendPerAd: Number(e.target.value) }))
+                                    }
+                                  />
+                                  <Input
+                                    label={`Minimum Budget (${defaultCurrency})`}
+                                    type="number"
+                                    min="100"
+                                    value={String(adBillingDraft.minBudget ?? 5000)}
+                                    onChange={(e) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, minBudget: Number(e.target.value) }))
+                                    }
+                                  />
+                                </div>
+                                <div className="flex flex-wrap gap-5 pt-1">
+                                  <Switch
+                                    label="Auto-approve new ad campaigns"
+                                    checked={Boolean(adBillingDraft.defaultApproval)}
+                                    onCheckedChange={(v) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, defaultApproval: v }))
+                                    }
+                                  />
+                                  <Switch
+                                    label="Refund unspent wallet credits when deleted"
+                                    checked={adBillingDraft.refundUnspentOnDelete !== false}
+                                    onCheckedChange={(v) =>
+                                      setAdBillingDraft((prev) => ({ ...prev, refundUnspentOnDelete: v }))
+                                    }
+                                  />
+                                </div>
+                              </form>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {list.length === 0 ? (
                         <p className="text-center text-lab-sc py-8">No records found in {activeMeta.title}.</p>
                       ) : (
@@ -1207,16 +1378,21 @@ const portalHeaderControls = (
                               .filter(Boolean)
                               .join(' · ');
                           } else if (activeTab === 'ads') {
+                            const adBudget = Number(row.totalBudget || 0);
+                            const adSpent = Number(row.spentBudget || 0);
+                            const adRemaining = Math.max(0, adBudget - adSpent);
+                            const adViews = Number(row.viewsCount || 0);
+                            const adClicks = Number(row.clicksCount || 0);
+                            const ctrPct = adViews > 0 ? ((adClicks / adViews) * 100).toFixed(1) : '0.0';
                             primaryLine = String(row.title || row.content || `Campaign ${id}`);
                             secondaryLine = [
                               authorUsername ? `@${authorUsername}` : '',
-                              row.totalBudget !== undefined
-                                ? `Budget: ${formatCurrency(Number(row.totalBudget), String(row.currency || defaultCurrency), bootstrap?.currencies, locale)}`
+                              `Spent: ${formatCurrency(adSpent, String(row.currency || defaultCurrency), bootstrap?.currencies, locale)} / ${formatCurrency(adBudget, String(row.currency || defaultCurrency), bootstrap?.currencies, locale)}`,
+                              `Rem: ${formatCurrency(adRemaining, String(row.currency || defaultCurrency), bootstrap?.currencies, locale)}`,
+                              `${adViews} views · ${adClicks} clicks (${ctrPct}% CTR)`,
+                              row.pricePerView !== undefined
+                                ? `${formatCurrency(Number(row.pricePerView), String(row.currency || defaultCurrency), bootstrap?.currencies, locale)}/view`
                                 : '',
-                              row.viewsCount !== undefined ? `${Number(row.viewsCount)} views` : '',
-                              row.clicksCount !== undefined ? `${Number(row.clicksCount)} clicks` : '',
-                              row.approval ? `Approval: ${String(row.approval)}` : '',
-                              row.status ? `Status: ${String(row.status)}` : '',
                             ]
                               .filter(Boolean)
                               .join(' · ');
@@ -1581,6 +1757,23 @@ const portalHeaderControls = (
                                                         <Button size="sm" variant="ghost" onClick={() => setDetailModal({ kind: 'ad', row })}>
                                                           <Eye className="h-3.5 w-3.5" /> Inspect
                                                         </Button>
+                                                        <Button
+                                                          size="sm"
+                                                          variant="outline"
+                                                          onClick={() =>
+                                                            setEditModal({
+                                                              kind: 'ad',
+                                                              id,
+                                                              title: String(row.title || 'Campaign'),
+                                                              pricePerView: String(row.pricePerView ?? 25),
+                                                              totalBudget: String(row.totalBudget ?? 5000),
+                                                              spentBudget: Number(row.spentBudget || 0),
+                                                              resetDailyCap: false,
+                                                            })
+                                                          }
+                                                        >
+                                                          <Edit3 className="h-3.5 w-3.5" /> Billing
+                                                        </Button>
                                                         <AdminApprovalControl
                                                           status={String(row.approval || 'pending')}
                                                           onApprove={() => handleAction('ad.set_approval', id, { approval: 'approved' })}
@@ -1764,9 +1957,58 @@ const portalHeaderControls = (
                                                           ? 'Edit Publication'
                                                           : editModal?.kind === 'product'
                                                             ? 'Edit Product Listing'
-                                                            : 'Edit Job Listing'
+                                                            : editModal?.kind === 'ad'
+                                                              ? 'Adjust Campaign Credit Billing'
+                                                              : 'Edit Job Listing'
                                                       }
                                                     >
+                                                      {editModal?.kind === 'ad' && (
+                                                        <form
+                                                          onSubmit={async (e) => {
+                                                            e.preventDefault();
+                                                            await handleAction('ad.adjust_billing', editModal.id, {
+                                                              pricePerView: Number(editModal.pricePerView || 25),
+                                                              totalBudget: Number(editModal.totalBudget || 5000),
+                                                              resetDailyCap: editModal.resetDailyCap,
+                                                            });
+                                                            setEditModal(null);
+                                                          }}
+                                                          className="space-y-3"
+                                                        >
+                                                          <p className="text-par-n font-semibold text-lab-pr">{editModal.title}</p>
+                                                          <p className="text-cap-l text-lab-sc">
+                                                            Spent so far: {formatCurrency(editModal.spentBudget, defaultCurrency, bootstrap?.currencies, locale)}
+                                                          </p>
+                                                          <div className="grid grid-cols-2 gap-2">
+                                                            <Input
+                                                              label={`Rate / View (${defaultCurrency})`}
+                                                              type="number"
+                                                              min="1"
+                                                              step="1"
+                                                              value={editModal.pricePerView}
+                                                              onChange={(e) => setEditModal({ ...editModal, pricePerView: e.target.value })}
+                                                              required
+                                                            />
+                                                            <Input
+                                                              label={`Total Budget (${defaultCurrency})`}
+                                                              type="number"
+                                                              min={editModal.spentBudget}
+                                                              step="100"
+                                                              value={editModal.totalBudget}
+                                                              onChange={(e) => setEditModal({ ...editModal, totalBudget: e.target.value })}
+                                                              required
+                                                            />
+                                                          </div>
+                                                          <Switch
+                                                            checked={editModal.resetDailyCap}
+                                                            onCheckedChange={(v) => setEditModal({ ...editModal, resetDailyCap: v })}
+                                                            label="Reset daily spend cap & charge cooldown"
+                                                          />
+                                                          <Button type="submit" variant="primary" className="w-full">
+                                                            Save Campaign Billing
+                                                          </Button>
+                                                        </form>
+                                                      )}
                                                       {editModal?.kind === 'post' && (
                                                         <form
                                                           onSubmit={async (e) => {

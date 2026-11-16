@@ -243,14 +243,26 @@ export default function PublicationDetailPage() {
               comments.map((c) => (
                 <div key={c.id} className="p-4 space-y-3">
                   <div className="flex gap-3">
-                    <Avatar src={c.author?.avatar} alt={c.author?.username} size="sm" verified={c.author?.verified} />
+                    {c.author?.username ? (
+                      <Link href={`/@${encodeURIComponent(c.author.username)}`} className="shrink-0 cursor-pointer">
+                        <Avatar src={c.author?.avatar} alt={c.author?.username} size="sm" verified={c.author?.verified} />
+                      </Link>
+                    ) : (
+                      <Avatar src={c.author?.avatar} alt={c.author?.username} size="sm" verified={c.author?.verified} />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-cap-l">
-                          <Link href={`/@${c.author?.username}`} className="font-bold text-lab-pr hover:underline">
-                            {c.author?.firstName} {c.author?.lastName}
-                          </Link>
-                          <span className="text-lab-tr">· {formatRelativeTime(c.createdAt, locale)}</span>
+                        <div className="flex items-center gap-1.5 text-cap-l min-w-0">
+                          {c.author?.username ? (
+                            <Link href={`/@${encodeURIComponent(c.author.username)}`} className="font-bold text-lab-pr hover:underline truncate">
+                              {c.author?.firstName} {c.author?.lastName}
+                            </Link>
+                          ) : (
+                            <span className="font-bold text-lab-pr truncate">
+                              {c.author?.firstName} {c.author?.lastName}
+                            </span>
+                          )}
+                          <span className="text-lab-tr shrink-0">· {formatRelativeTime(c.createdAt, locale)}</span>
                         </div>
                         {user && String(c.author?._id) === user.id && (
                           <button
@@ -301,12 +313,24 @@ export default function PublicationDetailPage() {
                     <div className="ml-9 pl-4 border-l-2 border-bord-pr space-y-3">
                       {c.replies.map((r) => (
                         <div key={r.id} className="flex gap-2.5">
-                          <Avatar src={r.author?.avatar} alt={r.author?.username} size="xs" />
+                          {r.author?.username ? (
+                            <Link href={`/@${encodeURIComponent(r.author.username)}`} className="shrink-0 cursor-pointer">
+                              <Avatar src={r.author?.avatar} alt={r.author?.username} size="xs" />
+                            </Link>
+                          ) : (
+                            <Avatar src={r.author?.avatar} alt={r.author?.username} size="xs" />
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <span className="text-cap-l font-bold text-lab-pr">
-                                {r.author?.firstName} {r.author?.lastName}
-                              </span>
+                              {r.author?.username ? (
+                                <Link href={`/@${encodeURIComponent(r.author.username)}`} className="text-cap-l font-bold text-lab-pr hover:underline truncate">
+                                  {r.author?.firstName} {r.author?.lastName}
+                                </Link>
+                              ) : (
+                                <span className="text-cap-l font-bold text-lab-pr truncate">
+                                  {r.author?.firstName} {r.author?.lastName}
+                                </span>
+                              )}
                               {user && String(r.author?._id) === user.id && (
                                 <button
                                   type="button"

@@ -22,6 +22,18 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async rewrites() {
+    return [
+      {
+        source: "/@:username",
+        destination: "/u/:username",
+      },
+      {
+        source: "/%40:username",
+        destination: "/u/:username",
+      },
+    ];
+  },
   async headers() {
     return [
       {

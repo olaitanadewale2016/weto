@@ -39,6 +39,7 @@ import {
   UserType,
 } from '@/types/enums';
 import { creditWalletIdempotent, reviewCashout } from '@/services/wallet.service';
+import { adjustAdBudgetInWallet, deleteAdAndRefundUnspent } from '@/services/ad-billing.service';
 import { deleteMediaRecord, serializeMedia } from '@/services/media.service';
 import {
   clearSettingsCache,
@@ -291,20 +292,71 @@ export async function GET(req: NextRequest) {
         : {};
       if (['pending', 'approved', 'rejected'].includes(filterParam)) {
         filter.approval = filterParam;
-      } else if (['published', 'paused', 'draft'].includes(filterParam)) {
+      } else if (['published', 'paused', 'completed', 'draft'].includes(filterParam)) {
         filter.status = filterParam;
       }
-      const ads = await Ad.find(filter)
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .populate('userId', 'username firstName lastName avatar')
-        .populate('mediaId')
-        .lean();
+      const [ads, summaryAgg, statusBreakdown, adsCfg] = await Promise.all([
+        Ad.find(filter)
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .populate('userId', 'username firstName lastName avatar')
+          .populate('mediaId')
+          .lean(),
+        Ad.aggregate([
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              totalBudget: { $sum: '$totalBudget' },
+              totalAllocated: { $sum: { $ifNull: ['$allocatedBudget', 0] } },
+              totalSpent: { $sum: '$spentBudget' },
+              totalViews: { $sum: '$viewsCount' },
+              totalClicks: { $sum: { $ifNull: ['$clicksCount', 0] } },
+            },
+          },
+        ]),
+        Ad.aggregate([
+          {
+            $group: {
+              _id: { status: '$status', approval: '$approval' },
+              count: { $sum: 1 },
+            },
+          },
+        ]),
+        getSettingsGroup('ads'),
+      ]);
+
+      let published = 0;
+      let pending = 0;
+      let paused = 0;
+      let completed = 0;
+      for (const s of statusBreakdown as Array<{ _id?: { status?: string; approval?: string }; count: number }>) {
+        if (s._id?.approval === AdApproval.PENDING) pending += s.count;
+        if (s._id?.status === AdStatus.PUBLISHED && s._id?.approval === AdApproval.APPROVED) published += s.count;
+        if (s._id?.status === AdStatus.PAUSED) paused += s.count;
+        if (s._id?.status === AdStatus.COMPLETED) completed += s.count;
+      }
+
+      const agg = summaryAgg[0] || {};
+      const adSummary = {
+        total: Number(agg.total || 0),
+        published,
+        pending,
+        paused,
+        completed,
+        totalBudget: Number(agg.totalBudget || 0),
+        totalAllocated: Number(agg.totalAllocated || 0),
+        totalSpent: Number(agg.totalSpent || 0),
+        totalViews: Number(agg.totalViews || 0),
+        totalClicks: Number(agg.totalClicks || 0),
+      };
+
       return apiSuccess(
         ads.map((a) => ({
           ...a,
           media: a.mediaId ? serializeMedia(a.mediaId as never) : null,
-        }))
+        })),
+        { adSummary, adBillingConfig: adsCfg }
       );
     }
 
@@ -1116,8 +1168,66 @@ export async function POST(req: NextRequest) {
           reason: String(payload.notes || ''),
         });
       }
+    } else if (action === 'ad.adjust_billing' && targetId) {
+      const adDoc = await Ad.findById(targetId);
+      if (!adDoc) throw new NotFoundError('Ad campaign not found.');
+      const appCfg = await getSettingsGroup('app');
+      const currency = appCfg.defaultCurrency || 'NGN';
+
+      if (payload.pricePerView !== undefined) {
+        const rate = Number(payload.pricePerView);
+        if (!Number.isFinite(rate) || rate < 0.01) {
+          throw new ValidationError('Price per view must be greater than 0.');
+        }
+        adDoc.pricePerView = Number(rate.toFixed(2));
+      }
+      if (payload.totalBudget !== undefined) {
+        const nextBudget = Number(payload.totalBudget);
+        if (!Number.isFinite(nextBudget) || nextBudget < adDoc.spentBudget) {
+          throw new ValidationError('Total budget cannot be less than spent budget.');
+        }
+        const { nextAllocated } = await adjustAdBudgetInWallet({
+          ad: adDoc,
+          nextBudget,
+          currency,
+        });
+        adDoc.totalBudget = Number(nextBudget.toFixed(2));
+        adDoc.allocatedBudget = nextAllocated;
+        if (adDoc.status === AdStatus.COMPLETED && adDoc.totalBudget > adDoc.spentBudget) {
+          adDoc.status = AdStatus.PUBLISHED;
+        }
+      }
+      if (payload.resetDailyCap) {
+        adDoc.dailySpent = 0;
+        adDoc.dailySpentDate = null;
+        adDoc.lastChargeAt = null;
+      }
+      await adDoc.save();
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetUserId: adDoc.userId,
+        targetType: 'ad',
+        targetId: String(adDoc._id),
+        action: 'adjust_ad_billing',
+        reason: String(payload.notes || 'Adjusted ad credit billing parameters'),
+      });
     } else if (action === 'ad.delete' && targetId) {
-      await Ad.deleteOne({ _id: targetId });
+      const adDoc = await Ad.findById(targetId);
+      if (adDoc) {
+        const appCfg = await getSettingsGroup('app');
+        await deleteAdAndRefundUnspent({
+          ad: adDoc,
+          currency: appCfg.defaultCurrency || 'NGN',
+        });
+        await ModerationAction.create({
+          moderatorId: admin._id,
+          targetUserId: adDoc.userId,
+          targetType: 'ad',
+          targetId: String(adDoc._id),
+          action: 'delete_ad',
+          reason: String(payload.notes || 'Deleted ad campaign via admin panel'),
+        });
+      }
     } else if (action === 'media.delete' && targetId) {
       await deleteMediaRecord(targetId);
     } else if (action === 'report.delete' && targetId) {

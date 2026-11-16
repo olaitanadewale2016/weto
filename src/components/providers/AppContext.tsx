@@ -101,7 +101,9 @@ export interface BootstrapConfig {
     serviceUrl: string;
   };
   ads?: {
+    billingModel?: string;
     pricePerView: number;
+    pricePerClick?: number;
     minBudget: number;
     defaultBudget: number;
     refreshIntervalMinutes?: number;

@@ -14,6 +14,7 @@ import { useApp } from '@/components/providers/AppContext';
 import { PostCard, SerializedPost } from './PostCard';
 import { PostComposer } from './PostComposer';
 import { FeedAdCard } from '@/components/ads/FeedAdCard';
+import { computeFeedAdSlotIndices } from '@/lib/ads-client';
 import { FeedSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
@@ -54,7 +55,13 @@ export function FeedList({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const [quotePost, setQuotePost] = useState<SerializedPost | null>(null);
+  const [feedAdSeed] = useState(() => Math.floor(Math.random() * 1000) + 1);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const adSlotSet =
+    mode === 'feed' || mode === 'explore' || mode === 'trending' || mode === 'bookmarks'
+      ? computeFeedAdSlotIndices(posts.length, mode, feedAdSeed)
+      : null;
 
   const loadPosts = useCallback(
     async (pageNum: number, append: boolean, silent = false) => {
@@ -271,10 +278,7 @@ export function FeedList({
                 onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
                 onQuote={(target) => setQuotePost(target)}
               />
-              {(mode === 'feed' || mode === 'explore' || mode === 'trending' || mode === 'bookmarks') &&
-                (idx === 4 || (idx > 4 && (idx - 4) % 7 === 0)) && (
-                  <FeedAdCard slotIndex={idx} />
-                )}
+              {adSlotSet?.has(idx) && <FeedAdCard slotIndex={idx} />}
             </React.Fragment>
           ))}
 

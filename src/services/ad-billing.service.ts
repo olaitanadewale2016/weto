@@ -182,17 +182,20 @@ export async function adjustAdBudgetInWallet(params: {
 }
 
 /**
- * Refunds any remaining unspent escrowed credits back to the advertiser's wallet when deleting an ad.
+ * Refunds any remaining unspent escrowed credits back to the advertiser's wallet when deleting an ad
+ * (when platform ads.refundUnspentOnDelete is enabled).
  */
 export async function deleteAdAndRefundUnspent(params: {
   ad: IAdDocument;
   currency: string;
 }): Promise<number> {
+  const adsCfg = await getSettingsGroup('ads');
+  const shouldRefund = adsCfg.refundUnspentOnDelete !== false;
   const allocated = Number(params.ad.allocatedBudget || 0);
   const spent = Number(params.ad.spentBudget || 0);
   const unspentAllocated = Math.max(0, Number((allocated - spent).toFixed(2)));
   const remainingTotal = Math.max(0, Number((Number(params.ad.totalBudget || 0) - spent).toFixed(2)));
-  const refundAmount = Number(Math.min(unspentAllocated, remainingTotal).toFixed(2));
+  const refundAmount = shouldRefund ? Number(Math.min(unspentAllocated, remainingTotal).toFixed(2)) : 0;
 
   await withMongoTransaction(async (session) => {
     if (refundAmount > 0) {
@@ -218,21 +221,113 @@ export async function deleteAdAndRefundUnspent(params: {
 }
 
 /**
- * Atomic pay-as-you-go impression deduction & auto-completion guard (Meta/Instagram auction ledger).
- * Prevents concurrent race overspend and automatically completes campaigns when budget hits 100%.
+ * Atomic pay-as-you-go impression deduction honoring Admin billing controls:
+ *   - billingModel ('viewable_cpm' | 'every_impression' | 'cpc' | 'hybrid')
+ *   - chargeIntervalMinutes cooldown (0 for every_impression)
+ *   - maxDailySpendPerAd daily cap (0 = unlimited)
+ *   - auto-completes campaign when spentBudget >= totalBudget
  */
 export async function recordAdShowAndCharge(adId: Types.ObjectId) {
   const adsCfg = await getSettingsGroup('ads');
   const now = new Date();
-  const minChargeGapMs = Math.max(0, Number(adsCfg.chargeIntervalMinutes || 10)) * 60_000;
+  const todayUtc = now.toISOString().slice(0, 10);
+  const billingModel = adsCfg.billingModel || 'viewable_cpm';
+  const minChargeGapMs =
+    billingModel === 'every_impression'
+      ? 0
+      : Math.max(0, Number(adsCfg.chargeIntervalMinutes || 10)) * 60_000;
   const chargeCutoff = new Date(now.getTime() - minChargeGapMs);
 
   const current = await Ad.findById(adId).lean();
   if (!current) return;
 
+  if (
+    current.status !== AdStatus.PUBLISHED ||
+    current.approval !== AdApproval.APPROVED
+  ) {
+    await Ad.updateOne({ _id: adId }, { $set: { lastShowAt: now } });
+    return;
+  }
+
+  // In CPC-only model, impressions increment viewsCount & lastShowAt without spending wallet credits
+  if (billingModel === 'cpc') {
+    await Ad.updateOne(
+      { _id: adId },
+      { $set: { lastShowAt: now }, $inc: { viewsCount: 1 } }
+    );
+    return;
+  }
+
   await Ad.updateOne({ _id: adId }, { $set: { lastShowAt: now } });
 
+  const remaining = Number((Number(current.totalBudget || 0) - Number(current.spentBudget || 0)).toFixed(2));
+  if (remaining <= 0) {
+    await Ad.updateOne({ _id: adId }, { $set: { status: AdStatus.COMPLETED } });
+    return;
+  }
+
+  const maxDaily = Number(adsCfg.maxDailySpendPerAd || 0);
+  const sameDay = current.dailySpentDate === todayUtc;
+  const spentToday = sameDay ? Number(current.dailySpent || 0) : 0;
+  if (maxDaily > 0 && spentToday >= maxDaily) {
+    return;
+  }
+
+  const unitCost = Math.max(0.01, Number(current.pricePerView || adsCfg.pricePerView || 25));
+  const dailyHeadroom = maxDaily > 0 ? Math.max(0, maxDaily - spentToday) : unitCost;
+  const charge = Number(Math.min(unitCost, remaining, dailyHeadroom).toFixed(2));
+  if (charge <= 0) return;
+
+  const completesAfterCharge =
+    Number((Number(current.spentBudget || 0) + charge).toFixed(2)) >= Number(current.totalBudget || 0);
+
+  await Ad.findOneAndUpdate(
+    {
+      _id: adId,
+      status: AdStatus.PUBLISHED,
+      approval: AdApproval.APPROVED,
+      $expr: { $lt: ['$spentBudget', '$totalBudget'] },
+      ...(minChargeGapMs > 0
+        ? {
+            $or: [
+              { lastChargeAt: null },
+              { lastChargeAt: { $lte: chargeCutoff } },
+            ],
+          }
+        : {}),
+    },
+    {
+      $set: {
+        lastShowAt: now,
+        lastChargeAt: now,
+        dailySpentDate: todayUtc,
+        dailySpent: Number((spentToday + charge).toFixed(2)),
+        ...(completesAfterCharge ? { status: AdStatus.COMPLETED } : {}),
+      },
+      $inc: {
+        viewsCount: 1,
+        spentBudget: charge,
+      },
+    }
+  );
+}
+
+/**
+ * Atomic click recording & optional CPC / Hybrid ad credit deduction.
+ */
+export async function recordAdClickAndCharge(adId: Types.ObjectId) {
+  const adsCfg = await getSettingsGroup('ads');
+  const billingModel = adsCfg.billingModel || 'viewable_cpm';
+
+  await Ad.updateOne({ _id: adId }, { $inc: { clicksCount: 1 } });
+
+  if (billingModel !== 'cpc' && billingModel !== 'hybrid') {
+    return;
+  }
+
+  const current = await Ad.findById(adId).lean();
   if (
+    !current ||
     current.status !== AdStatus.PUBLISHED ||
     current.approval !== AdApproval.APPROVED
   ) {
@@ -245,9 +340,22 @@ export async function recordAdShowAndCharge(adId: Types.ObjectId) {
     return;
   }
 
-  const unitCost = Math.max(0.01, Number(current.pricePerView || adsCfg.pricePerView || 25));
-  const charge = Number(Math.min(unitCost, remaining).toFixed(2));
-  const completesAfterCharge = Number((Number(current.spentBudget || 0) + charge).toFixed(2)) >= Number(current.totalBudget || 0);
+  const now = new Date();
+  const todayUtc = now.toISOString().slice(0, 10);
+  const maxDaily = Number(adsCfg.maxDailySpendPerAd || 0);
+  const sameDay = current.dailySpentDate === todayUtc;
+  const spentToday = sameDay ? Number(current.dailySpent || 0) : 0;
+  if (maxDaily > 0 && spentToday >= maxDaily) {
+    return;
+  }
+
+  const clickCost = Math.max(0.01, Number(adsCfg.pricePerClick || 75));
+  const dailyHeadroom = maxDaily > 0 ? Math.max(0, maxDaily - spentToday) : clickCost;
+  const charge = Number(Math.min(clickCost, remaining, dailyHeadroom).toFixed(2));
+  if (charge <= 0) return;
+
+  const completesAfterCharge =
+    Number((Number(current.spentBudget || 0) + charge).toFixed(2)) >= Number(current.totalBudget || 0);
 
   await Ad.findOneAndUpdate(
     {
@@ -255,21 +363,15 @@ export async function recordAdShowAndCharge(adId: Types.ObjectId) {
       status: AdStatus.PUBLISHED,
       approval: AdApproval.APPROVED,
       $expr: { $lt: ['$spentBudget', '$totalBudget'] },
-      $or: [
-        { lastChargeAt: null },
-        { lastChargeAt: { $lte: chargeCutoff } },
-      ],
     },
     {
       $set: {
-        lastShowAt: now,
         lastChargeAt: now,
+        dailySpentDate: todayUtc,
+        dailySpent: Number((spentToday + charge).toFixed(2)),
         ...(completesAfterCharge ? { status: AdStatus.COMPLETED } : {}),
       },
-      $inc: {
-        viewsCount: 1,
-        spentBudget: charge,
-      },
+      $inc: { spentBudget: charge },
     }
   );
 }

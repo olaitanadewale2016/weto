@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Bookmark,
   Bot,
@@ -169,6 +170,7 @@ export function PostCard({
   onDeleted?: (id: string) => void;
   onQuote?: (post: SerializedPost) => void;
 }) {
+  const router = useRouter();
   const { user, locale, playAudio, soundbarTrack, isAudioPlaying, togglePlayAudio, socket } =
     useApp();
   const { error, success } = useToast();
@@ -199,7 +201,20 @@ export function PostCard({
     })),
   ];
 
-  const isOwner = user && String(post.author?._id) === user.id;
+  const isOwner = Boolean(user && post.author?._id && String(post.author._id) === user.id);
+  const authorHandle = (
+    (isOwner ? user?.username : post.author?.username) ||
+    post.author?.username ||
+    (post.author?._id ? String(post.author._id) : '')
+  ).trim();
+  const authorHref = authorHandle ? `/@${encodeURIComponent(authorHandle).replace(/%40/g, '@')}` : null;
+  const authorAvatarSrc = isOwner && user ? user.avatar : post.author?.avatar;
+  const authorVerified = Boolean(isOwner && user ? user.verified : post.author?.verified);
+  const authorDisplayName = isOwner && user
+    ? `${user.firstName} ${user.lastName}`.trim() || user.username
+    : `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
+      post.author?.username ||
+      'User';
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -437,25 +452,46 @@ export function PostCard({
         {/* Single-line Name + Single-line Metadata Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <Link href={`/@${isOwner ? user.username : post.author?.username}`} className="shrink-0">
-              <Avatar
-                src={isOwner ? user.avatar : post.author?.avatar}
-                alt={isOwner ? user.username : post.author?.username}
-                verified={isOwner ? user.verified : post.author?.verified}
-                size="md"
-              />
-            </Link>
+            {authorHref ? (
+              <Link
+                href={authorHref}
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0 cursor-pointer block rounded-full hover:opacity-90 transition-opacity"
+                aria-label={`View ${authorDisplayName}'s profile`}
+              >
+                <Avatar
+                  src={authorAvatarSrc}
+                  alt={authorHandle || authorDisplayName}
+                  verified={authorVerified}
+                  size="md"
+                />
+              </Link>
+            ) : (
+              <div className="shrink-0">
+                <Avatar
+                  src={authorAvatarSrc}
+                  alt={authorDisplayName}
+                  verified={authorVerified}
+                  size="md"
+                />
+              </div>
+            )}
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0">
-                <Link
-                  href={`/@${isOwner ? user.username : post.author?.username}`}
-                  className="text-par-m font-bold text-lab-pr hover:underline truncate"
-                >
-                  {isOwner
-                    ? `${user.firstName} ${user.lastName}`
-                    : `${post.author?.firstName} ${post.author?.lastName}`}
-                </Link>
+                {authorHref ? (
+                  <Link
+                    href={authorHref}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-par-m font-bold text-lab-pr hover:underline truncate cursor-pointer"
+                  >
+                    {authorDisplayName}
+                  </Link>
+                ) : (
+                  <span className="text-par-m font-bold text-lab-pr truncate">
+                    {authorDisplayName}
+                  </span>
+                )}
                 {post.isAiGenerated && (
                   <Badge variant="default" className="shrink-0">
                     <Bot className="h-3 w-3" /> AI
@@ -464,12 +500,17 @@ export function PostCard({
               </div>
 
               <div className="flex items-center gap-1 text-par-s text-lab-sc leading-snug whitespace-nowrap overflow-hidden min-w-0">
-                <Link
-                  href={`/@${isOwner ? user.username : post.author?.username}`}
-                  className="hover:underline truncate max-w-[44%] shrink"
-                >
-                  @{isOwner ? user.username : post.author?.username}
-                </Link>
+                {authorHref ? (
+                  <Link
+                    href={authorHref}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:underline truncate max-w-[44%] shrink cursor-pointer"
+                  >
+                    @{post.author?.username || (isOwner ? user?.username : '') || authorHandle}
+                  </Link>
+                ) : (
+                  <span className="truncate max-w-[44%] shrink">@{authorDisplayName}</span>
+                )}
                 <span className="text-lab-tr shrink-0">·</span>
                 <Link
                   href={`/publication/${post.hashId}`}
@@ -1034,26 +1075,55 @@ export function PostCard({
 
           {/* Quoted Post matching PHP PublicationQuote.vue */}
           {quoteData && quoteData.hashId && (
-            <Link
-              href={`/publication/${quoteData.hashId}`}
-              className="block rounded-2xl border border-bord-card bg-fill-fv/30 p-3.5 space-y-1.5 hover:bg-fill-fv/60 transition-colors"
+            <div
+              role="link"
+              tabIndex={0}
+              onClick={() => router.push(`/publication/${quoteData.hashId}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  router.push(`/publication/${quoteData.hashId}`);
+                }
+              }}
+              className="block rounded-2xl border border-bord-card bg-fill-fv/30 p-3.5 space-y-1.5 hover:bg-fill-fv/60 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-2 text-cap-l text-lab-sc">
-                <Avatar
-                  src={quoteAuthor?.avatar}
-                  alt={quoteAuthor?.username}
-                  verified={quoteAuthor?.verified}
-                  size="xs"
-                />
-                <span className="font-semibold text-lab-pr flex items-center gap-1 truncate">
-                  {quoteAuthor?.firstName} {quoteAuthor?.lastName}
-                </span>
-                <span className="truncate">@{quoteAuthor?.username}</span>
+              <div className="flex items-center gap-2 text-cap-l text-lab-sc min-w-0">
+                {quoteAuthor?.username ? (
+                  <Link
+                    href={`/@${encodeURIComponent(quoteAuthor.username)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-2 min-w-0 hover:underline"
+                  >
+                    <Avatar
+                      src={quoteAuthor?.avatar}
+                      alt={quoteAuthor?.username}
+                      verified={quoteAuthor?.verified}
+                      size="xs"
+                    />
+                    <span className="font-semibold text-lab-pr flex items-center gap-1 truncate">
+                      {quoteAuthor?.firstName} {quoteAuthor?.lastName}
+                    </span>
+                    <span className="truncate text-lab-sc">@{quoteAuthor?.username}</span>
+                  </Link>
+                ) : (
+                  <>
+                    <Avatar
+                      src={quoteAuthor?.avatar}
+                      alt={quoteAuthor?.username}
+                      verified={quoteAuthor?.verified}
+                      size="xs"
+                    />
+                    <span className="font-semibold text-lab-pr flex items-center gap-1 truncate">
+                      {quoteAuthor?.firstName} {quoteAuthor?.lastName}
+                    </span>
+                    <span className="truncate">@{quoteAuthor?.username}</span>
+                  </>
+                )}
               </div>
               {quoteData.content && (
                 <p className="text-par-n text-lab-pr line-clamp-3 leading-snug">{quoteData.content}</p>
               )}
-            </Link>
+            </div>
           )}
 
           {/* Engagement Bar matching PHP TimelinePublication.vue + PrimaryIconButton.vue */}

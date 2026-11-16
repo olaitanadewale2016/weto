@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { ExternalLink, EyeOff, Info, MoreHorizontal } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { resolveMediaUrl } from '@/lib/media-url';
@@ -107,14 +108,34 @@ export function FeedAdCard({ slotIndex = 0 }: { slotIndex?: number }) {
       {/* Advertiser Attribution Header (Meta / X / Instagram native pattern) */}
       <div className="px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <Avatar
-            src={ad.advertiser?.avatar}
-            alt={ad.advertiser?.username || advertiserName}
-            verified={ad.advertiser?.verified}
-            size="md"
-          />
+          {ad.advertiser?.username ? (
+            <Link href={`/@${encodeURIComponent(ad.advertiser.username)}`} className="shrink-0">
+              <Avatar
+                src={ad.advertiser?.avatar}
+                alt={ad.advertiser?.username || advertiserName}
+                verified={ad.advertiser?.verified}
+                size="md"
+              />
+            </Link>
+          ) : (
+            <Avatar
+              src={ad.advertiser?.avatar}
+              alt={ad.advertiser?.username || advertiserName}
+              verified={ad.advertiser?.verified}
+              size="md"
+            />
+          )}
           <div className="min-w-0">
-            <p className="text-par-m font-bold text-lab-pr truncate">{advertiserName}</p>
+            {ad.advertiser?.username ? (
+              <Link
+                href={`/@${encodeURIComponent(ad.advertiser.username)}`}
+                className="block text-par-m font-bold text-lab-pr hover:underline truncate"
+              >
+                {advertiserName}
+              </Link>
+            ) : (
+              <p className="text-par-m font-bold text-lab-pr truncate">{advertiserName}</p>
+            )}
             <p className="text-cap-l text-lab-sc leading-tight">
               Sponsored &middot; 16+
             </p>

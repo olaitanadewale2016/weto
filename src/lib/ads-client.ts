@@ -28,6 +28,7 @@ export interface ServedAd {
 
 const HIDDEN_ADS_STORAGE_KEY = 'weto_hidden_ads_v1';
 const sessionShownAdIds: string[] = [];
+const sessionShownAdvertiserIds: string[] = [];
 const sessionHiddenAdIds = new Set<string>();
 let storageHydrated = false;
 
@@ -64,14 +65,59 @@ export function hideAdInSession(adId: string) {
   }
 }
 
-export function markAdShownInSession(adId: string) {
-  if (!adId) return;
-  const idx = sessionShownAdIds.indexOf(adId);
-  if (idx !== -1) sessionShownAdIds.splice(idx, 1);
-  sessionShownAdIds.push(adId);
-  if (sessionShownAdIds.length > 12) {
-    sessionShownAdIds.shift();
+export function markAdShownInSession(adId: string, advertiserId?: string) {
+  if (adId) {
+    const idx = sessionShownAdIds.indexOf(adId);
+    if (idx !== -1) sessionShownAdIds.splice(idx, 1);
+    sessionShownAdIds.push(adId);
+    if (sessionShownAdIds.length > 24) {
+      sessionShownAdIds.shift();
+    }
   }
+  if (advertiserId) {
+    const idx = sessionShownAdvertiserIds.indexOf(advertiserId);
+    if (idx !== -1) sessionShownAdvertiserIds.splice(idx, 1);
+    sessionShownAdvertiserIds.push(advertiserId);
+    if (sessionShownAdvertiserIds.length > 10) {
+      sessionShownAdvertiserIds.shift();
+    }
+  }
+}
+
+/**
+ * Facebook/Instagram-style dynamic ad slot insertion:
+ * Computes varied, natural post positions across a feed (including short feeds >= 2 posts)
+ * so ads can appear at any natural position without clustering back-to-back or jittering on scroll.
+ */
+export function computeFeedAdSlotIndices(
+  postCount: number,
+  mode: string,
+  feedSeed: number
+): Set<number> {
+  const slots = new Set<number>();
+  if (postCount < 2) return slots;
+
+  const normalizedSeed = Math.abs(Math.floor(feedSeed)) || 1;
+  // Short feed (< 5 posts): place 1 ad after post 1 or the end so active ads still deliver
+  if (postCount < 5) {
+    slots.add(Math.min(postCount - 1, 1 + (normalizedSeed % 2)));
+    return slots;
+  }
+
+  // Initial position can fall anywhere in top 1..5 posts (mode-aware)
+  const initialMin = mode === 'explore' || mode === 'trending' ? 0 : 1;
+  let pos = initialMin + (normalizedSeed % 4);
+  let step = 0;
+
+  while (pos < postCount) {
+    slots.add(pos);
+    step += 1;
+    // Dynamic spacing between 4 and 7 organic posts (like Meta/X variable ad load pacing)
+    const gap = 4 + ((normalizedSeed + step * 3) % 4);
+    pos += gap;
+  }
+
+  return slots;
 }
 
 export function formatAdDomain(targetUrl?: string | null): string {
@@ -90,9 +136,13 @@ export function formatAdDomain(targetUrl?: string | null): string {
 export async function fetchAuctionAd(prevAdId?: string): Promise<ServedAd | null> {
   hydrateHiddenAds();
   const params = new URLSearchParams({ track: 'false' });
-  const recentIds = sessionShownAdIds.slice(-6);
+  const recentIds = sessionShownAdIds.slice(-12);
   if (recentIds.length > 0) {
     params.set('excludeIds', recentIds.join(','));
+  }
+  const recentAdvs = sessionShownAdvertiserIds.slice(-6);
+  if (recentAdvs.length > 0) {
+    params.set('excludeAdvertisers', recentAdvs.join(','));
   }
   const effectivePrev = prevAdId || recentIds[recentIds.length - 1];
   if (effectivePrev) {
@@ -104,7 +154,8 @@ export async function fetchAuctionAd(prevAdId?: string): Promise<ServedAd | null
 
   const res = await apiFetch<ServedAd | null>(`/ads?${params.toString()}`);
   if (res && res.id) {
-    markAdShownInSession(res.id);
+    const advId = res.advertiser?._id ? String(res.advertiser._id) : undefined;
+    markAdShownInSession(res.id, advId);
     return res;
   }
   return null;
