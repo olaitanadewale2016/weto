@@ -1581,32 +1581,41 @@ export function AdminConfigSection({
         hint: string;
         defaultUrl: string;
         darkPreviewBg?: boolean;
+        pngOnly?: boolean;
+        maxKilobytes?: number;
       }> = [
           {
             key: 'logoLightUrl',
-            label: 'Light Theme Logo',
-            hint: 'Displayed when light mode is active (stored in Cloudflare R2).',
+            label: 'Upload light theme logo',
+            hint: 'Displayed when light mode is active (PNG format, max 1024 KB).',
             defaultUrl: '/assets/logos/light.png',
+            pngOnly: true,
+            maxKilobytes: 1024,
           },
           {
             key: 'logoDarkUrl',
-            label: 'Dark Theme Logo',
-            hint: 'Displayed when dark mode is active (stored in Cloudflare R2).',
+            label: 'Upload dark theme logo',
+            hint: 'Displayed when dark mode is active (PNG format, max 1024 KB).',
             defaultUrl: '/assets/logos/dark.png',
             darkPreviewBg: true,
+            pngOnly: true,
+            maxKilobytes: 1024,
           },
           {
             key: 'faviconUrl',
-            label: 'Browser Favicon',
-            hint: 'Square PNG/ICO/SVG icon used in browser tabs.',
+            label: 'Upload favicon',
+            hint: 'Square PNG/ICO/SVG icon used in browser tabs (max 1024 KB).',
             defaultUrl: '/assets/logos/favicon.png',
+            maxKilobytes: 1024,
           },
           {
             key: 'watermarkUrl',
-            label: 'Media Watermark Image',
-            hint: 'Transparent PNG overlay applied when image/video watermarking is enabled.',
+            label: 'Upload watermark image. Only PNG format is supported.',
+            hint: 'Bottom-right (30px padding) on images; top-left (30px, 30px) on videos.',
             defaultUrl: '/assets/watermarks/default.png',
             darkPreviewBg: true,
+            pngOnly: true,
+            maxKilobytes: 1024,
           },
         ];
 
@@ -1614,9 +1623,9 @@ export function AdminConfigSection({
         <div key={group} className="rounded-2xl border border-bord-card p-4 space-y-5">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h4 className="font-bold text-par-m uppercase text-lab-pr">Branding & Theme Assets</h4>
+              <h4 className="font-bold text-par-m uppercase text-lab-pr">Branding & Design</h4>
               <p className="text-cap-s text-lab-sc">
-                Upload local logos, favicon, and watermark assets to Cloudflare R2 or adjust theme defaults.
+                Upload your logo, favicons, and brand watermark.
               </p>
             </div>
             {hasEdits && (
@@ -1626,16 +1635,23 @@ export function AdminConfigSection({
             )}
           </div>
 
+          <div className="rounded-xl border border-bord-pr bg-fill-fv/40 px-3.5 py-2.5">
+            <p className="font-semibold text-par-s text-lab-pr">Video & Image Watermark</p>
+            <p className="text-cap-s text-lab-sc">
+              Your brand watermark will be added to all videos and images uploaded to the platform.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Switch
-              label="Dark Theme Enabled"
+              label="Users can switch to the dark theme?"
               checked={Boolean(merged.darkThemeEnabled)}
               onCheckedChange={(next) =>
                 onAction('settings.update', undefined, { group, values: { ...merged, darkThemeEnabled: next } })
               }
             />
             <Select
-              label="Default Theme"
+              label="Default theme"
               value={String(merged.defaultTheme || 'light')}
               onChange={(e) => {
                 const nextVal = e.target.value;
@@ -1645,11 +1661,11 @@ export function AdminConfigSection({
                 }));
               }}
             >
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="light">Light theme</option>
+              <option value="dark">Dark theme</option>
             </Select>
             <Switch
-              label="Images Watermark Enabled"
+              label="Add watermark to images?"
               checked={Boolean(merged.imagesWatermarkEnabled)}
               onCheckedChange={(next) =>
                 onAction('settings.update', undefined, {
@@ -1659,7 +1675,7 @@ export function AdminConfigSection({
               }
             />
             <Switch
-              label="Videos Watermark Enabled"
+              label="Add watermark to videos?"
               checked={Boolean(merged.videosWatermarkEnabled)}
               onCheckedChange={(next) =>
                 onAction('settings.update', undefined, {
@@ -1696,13 +1712,30 @@ export function AdminConfigSection({
                       {isUploading ? 'Uploading...' : 'Upload Image'}
                       <input
                         type="file"
-                        accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,.ico"
+                        accept={
+                          asset.pngOnly
+                            ? 'image/png,.png'
+                            : 'image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,.ico'
+                        }
                         className="hidden"
                         disabled={isUploading}
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           e.target.value = '';
                           if (!file) return;
+                          if (
+                            asset.pngOnly &&
+                            file.type !== 'image/png' &&
+                            file.type !== 'image/x-png' &&
+                            !file.name.toLowerCase().endsWith('.png')
+                          ) {
+                            error('Invalid format', 'Only PNG format is supported.');
+                            return;
+                          }
+                          if (asset.maxKilobytes && file.size > asset.maxKilobytes * 1024) {
+                            error('File too large', `Maximum file size is ${asset.maxKilobytes} KB.`);
+                            return;
+                          }
                           setUploadingBrandKey(asset.key);
                           try {
                             const uploaded = await uploadFileToR2(file, 'system', 'system_asset');

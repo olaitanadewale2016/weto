@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Eye, Pause, Play, Send, Trash2, Volume2, Vol
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { VideoWatermarkOverlay } from '@/components/ui/video-watermark';
 import { apiFetch } from '@/lib/api-client';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -20,7 +21,11 @@ interface StoryFrame {
   durationSeconds: number;
   viewsCount: number;
   isViewed?: boolean;
-  media?: { publicUrl?: string; url?: string } | null;
+  media?: {
+    publicUrl?: string;
+    url?: string;
+    metadata?: { watermarked?: boolean; [key: string]: unknown };
+  } | null;
   meta?: { bgColor?: string };
   createdAt: string;
 }
@@ -522,24 +527,27 @@ export default function StoryViewerPage() {
               <img src={mediaSrc} alt="Story" className="h-full w-full object-contain" />
             )}
             {activeFrame.type === 'video' && mediaSrc && (
-              <video
-                ref={videoRef}
-                key={activeFrame.id}
-                src={mediaSrc}
-                autoPlay
-                playsInline
-                muted={muted}
-                onTimeUpdate={(e) => {
-                  const v = e.currentTarget;
-                  if (v.duration && Number.isFinite(v.duration)) {
-                    const pct = Math.min(100, (v.currentTime / v.duration) * 100);
-                    progressRef.current = pct;
-                    setProgress(pct);
-                  }
-                }}
-                onEnded={goNext}
-                className="h-full w-full object-contain"
-              />
+              <div className="relative h-full w-full flex items-center justify-center">
+                <video
+                  ref={videoRef}
+                  key={activeFrame.id}
+                  src={mediaSrc}
+                  autoPlay
+                  playsInline
+                  muted={muted}
+                  onTimeUpdate={(e) => {
+                    const v = e.currentTarget;
+                    if (v.duration && Number.isFinite(v.duration)) {
+                      const pct = Math.min(100, (v.currentTime / v.duration) * 100);
+                      progressRef.current = pct;
+                      setProgress(pct);
+                    }
+                  }}
+                  onEnded={goNext}
+                  className="h-full w-full object-contain"
+                />
+                <VideoWatermarkOverlay watermarked={Boolean(activeFrame.media?.metadata?.watermarked)} />
+              </div>
             )}
 
             {activeFrame.type !== 'text' && activeFrame.content && (

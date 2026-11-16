@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { VideoWatermarkOverlay } from '@/components/ui/video-watermark';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -161,7 +162,10 @@ export default function NewStoryPage() {
             />
             {previewUrl ? (
               type === 'video' ? (
-                <video src={previewUrl} controls className="mx-auto max-h-80 rounded-2xl" />
+                <div className="relative inline-block mx-auto max-w-full">
+                  <video src={previewUrl} controls className="mx-auto max-h-80 rounded-2xl" />
+                  <VideoWatermarkOverlay />
+                </div>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={previewUrl} alt="Story preview" className="mx-auto max-h-80 rounded-2xl object-contain" />

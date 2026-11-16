@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { MediaLightbox } from '@/components/ui/media-lightbox';
+import { VideoWatermarkOverlay } from '@/components/ui/video-watermark';
 import { ReportModal } from '@/components/modals/ReportModal';
 import { PublicationCommentsSection } from '@/components/feed/PublicationCommentsSection';
 import { useApp } from '@/components/providers/AppContext';
@@ -55,6 +56,10 @@ export interface SerializedMedia {
   filename?: string;
   width?: number;
   height?: number;
+  metadata?: {
+    watermarked?: boolean;
+    [key: string]: unknown;
+  };
 }
 
 const KNOWN_FILE_FORMAT_ICONS = new Set([
@@ -1002,7 +1007,7 @@ export function PostCard({
                         return (
                           <div
                             key={m.id || `vid-${idx}`}
-                            className="w-full overflow-hidden bg-black"
+                            className="relative w-full overflow-hidden bg-black"
                           >
                             <video
                               src={src}
@@ -1012,6 +1017,7 @@ export function PostCard({
                               preload="metadata"
                               className="w-full max-h-[580px] object-contain block"
                             />
+                            <VideoWatermarkOverlay watermarked={Boolean(m.metadata?.watermarked)} />
                           </div>
                         );
                       })}
@@ -1363,7 +1369,7 @@ export function PostCard({
                   </div>
                 ) : quotedVideos.length > 0 ? (
                   <div
-                    className="border-t border-bord-card bg-black max-h-72 overflow-hidden"
+                    className="relative border-t border-bord-card bg-black max-h-72 overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <video
@@ -1372,6 +1378,7 @@ export function PostCard({
                       preload="metadata"
                       className="w-full max-h-72 object-contain block"
                     />
+                    <VideoWatermarkOverlay watermarked={Boolean(quotedVideos[0].metadata?.watermarked)} />
                   </div>
                 ) : null}
               </div>

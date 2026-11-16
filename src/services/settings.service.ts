@@ -169,8 +169,8 @@ export const DEFAULT_SETTINGS: AppSettingsMap = {
   },
   brand: {
     darkThemeEnabled: true,
-    imagesWatermarkEnabled: false,
-    videosWatermarkEnabled: false,
+    imagesWatermarkEnabled: true,
+    videosWatermarkEnabled: true,
     defaultTheme: 'light',
     logoLightUrl: '/assets/logos/light.png',
     logoDarkUrl: '/assets/logos/dark.png',

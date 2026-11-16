@@ -40,7 +40,7 @@ import {
 } from '@/types/enums';
 import { creditWalletIdempotent, reviewCashout } from '@/services/wallet.service';
 import { adjustAdBudgetInWallet, deleteAdAndRefundUnspent } from '@/services/ad-billing.service';
-import { deleteMediaRecord, serializeMedia } from '@/services/media.service';
+import { clearWatermarkCache, deleteMediaRecord, serializeMedia } from '@/services/media.service';
 import {
   clearSettingsCache,
   getSettingsGroup,
@@ -1578,6 +1578,9 @@ export async function POST(req: NextRequest) {
         }
       }
       await updateSettingsGroup(group, values);
+      if (group === 'brand') {
+        clearWatermarkCache();
+      }
       if (group === 'app') {
         if (typeof values.defaultCurrency === 'string' && values.defaultCurrency.trim()) {
           const code = values.defaultCurrency.trim().toUpperCase();
@@ -1594,6 +1597,7 @@ export async function POST(req: NextRequest) {
       revalidatePath('/', 'layout');
     } else if (action === 'cache.reset') {
       clearSettingsCache();
+      clearWatermarkCache();
       revalidatePath('/', 'layout');
       revalidatePath('/admin', 'page');
     } else if (action === 'mail.test') {

@@ -97,6 +97,16 @@ export interface BootstrapConfig {
     favicon?: string;
     watermark?: string;
   };
+  brand?: {
+    darkThemeEnabled: boolean;
+    imagesWatermarkEnabled: boolean;
+    videosWatermarkEnabled: boolean;
+    defaultTheme: 'light' | 'dark';
+    logoLightUrl: string;
+    logoDarkUrl: string;
+    faviconUrl: string;
+    watermarkUrl: string;
+  };
   verification?: {
     serviceUrl: string;
   };

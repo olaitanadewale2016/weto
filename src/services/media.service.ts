@@ -1,3 +1,5 @@
+import fs from 'fs/promises';
+import path from 'path';
 import sharp from 'sharp';
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
@@ -8,6 +10,7 @@ import {
   createPresignedUploadUrl,
   deleteR2Object,
   getPublicR2Url,
+  getR2Object,
   headR2Object,
   isR2Configured,
   MediaNamespace,
@@ -17,6 +20,282 @@ import { MediaStatus, MediaType } from '@/types/enums';
 import { ValidationError } from '@/lib/api-response';
 import { getRedis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
+import { getSettingsGroup } from './settings.service';
+
+/**
+ * Exact PHP ColibriPlus watermark configuration parity (`Source/config/assets.php`).
+ */
+export const WATERMARK_CONFIG = {
+  localPath: 'assets/watermarks/default.png',
+  video: {
+    position: 'absolute' as const,
+    y: 30,
+    x: 30,
+  },
+  image: {
+    position: 'bottom-right' as const,
+    padding: 30,
+  },
+} as const;
+
+const WATERMARKABLE_IMAGE_TARGETS: ReadonlySet<MediaTargetType> = new Set<MediaTargetType>([
+  'post',
+  'story_frame',
+  'message',
+  'product',
+]);
+
+const WATERMARKABLE_IMAGE_NAMESPACES: ReadonlySet<MediaNamespace> = new Set<MediaNamespace>([
+  'posts',
+  'stories',
+  'chats',
+  'marketplace',
+]);
+
+const WATERMARKABLE_VIDEO_TARGETS: ReadonlySet<MediaTargetType> = new Set<MediaTargetType>([
+  'post',
+  'story_frame',
+]);
+
+export function shouldWatermarkImage(params: {
+  targetType?: MediaTargetType;
+  namespace?: MediaNamespace;
+  mimeType: string;
+}): boolean {
+  const cleanMime = params.mimeType.split(';')[0].trim().toLowerCase();
+  if (
+    !cleanMime.startsWith('image/') ||
+    cleanMime === 'image/gif' ||
+    cleanMime.includes('svg') ||
+    cleanMime.includes('icon')
+  ) {
+    return false;
+  }
+  if (params.targetType) {
+    return WATERMARKABLE_IMAGE_TARGETS.has(params.targetType);
+  }
+  if (params.namespace) {
+    return WATERMARKABLE_IMAGE_NAMESPACES.has(params.namespace);
+  }
+  return false;
+}
+
+export function shouldWatermarkVideo(params: {
+  targetType?: MediaTargetType;
+  mediaType?: MediaType;
+}): boolean {
+  if (params.mediaType && params.mediaType !== MediaType.VIDEO) {
+    return false;
+  }
+  if (params.targetType) {
+    return WATERMARKABLE_VIDEO_TARGETS.has(params.targetType);
+  }
+  return true;
+}
+
+const WATERMARK_CACHE_TTL_MS = 30_000;
+
+let cachedWatermark: {
+  sourceKey: string;
+  buffer: Buffer;
+  expiresAt: number;
+} | null = null;
+
+export function clearWatermarkCache(): void {
+  cachedWatermark = null;
+}
+
+export async function resolveWatermarkBuffer(watermarkUrl?: string | null): Promise<Buffer | null> {
+  const normalizedUrl = (watermarkUrl || `/${WATERMARK_CONFIG.localPath}`).trim();
+  if (
+    cachedWatermark &&
+    cachedWatermark.sourceKey === normalizedUrl &&
+    cachedWatermark.expiresAt > Date.now()
+  ) {
+    return cachedWatermark.buffer;
+  }
+
+  let loaded: Buffer | null = null;
+
+  try {
+    if (normalizedUrl.startsWith('/api/v1/media/proxy')) {
+      const parsed = new URL(normalizedUrl, 'http://localhost');
+      const r2Key = parsed.searchParams.get('key')?.trim();
+      if (r2Key && !r2Key.startsWith('assets/') && isR2Configured()) {
+        const obj = await getR2Object(r2Key);
+        const bytes = await obj.Body?.transformToByteArray();
+        if (bytes && bytes.length > 0) {
+          loaded = Buffer.from(bytes);
+        }
+      } else if (r2Key && r2Key.startsWith('assets/')) {
+        const localAssetPath = path.join(process.cwd(), 'public', r2Key.replace(/^\/+/, ''));
+        loaded = await fs.readFile(localAssetPath);
+      }
+    } else if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
+      const res = await fetch(normalizedUrl);
+      if (res.ok) {
+        const arr = await res.arrayBuffer();
+        if (arr.byteLength > 0) {
+          loaded = Buffer.from(arr);
+        }
+      }
+    } else if (
+      normalizedUrl.startsWith('/assets/') ||
+      normalizedUrl.startsWith('assets/')
+    ) {
+      const cleanRel = normalizedUrl.replace(/^\/+/, '');
+      const absPath = path.join(process.cwd(), 'public', cleanRel);
+      loaded = await fs.readFile(absPath);
+    } else if (normalizedUrl && isR2Configured()) {
+      const obj = await getR2Object(normalizedUrl.replace(/^\/+/, ''));
+      const bytes = await obj.Body?.transformToByteArray();
+      if (bytes && bytes.length > 0) {
+        loaded = Buffer.from(bytes);
+      }
+    }
+  } catch (err) {
+    logger.warn({ err, watermarkUrl: normalizedUrl }, 'Custom watermark load failed; falling back to default.png');
+  }
+
+  if (!loaded) {
+    try {
+      const defaultPath = path.join(process.cwd(), 'public', WATERMARK_CONFIG.localPath);
+      loaded = await fs.readFile(defaultPath);
+    } catch (err) {
+      logger.warn({ err }, 'Default watermark asset could not be read from disk');
+      return null;
+    }
+  }
+
+  cachedWatermark = {
+    sourceKey: normalizedUrl,
+    buffer: loaded,
+    expiresAt: Date.now() + WATERMARK_CACHE_TTL_MS,
+  };
+  return loaded;
+}
+
+/**
+ * Matches PHP `ImageUploadService::scaleTo1080x1920()` for story images (`StoryMediaController.php:129`).
+ */
+export async function scaleStoryImageTo1080x1920(
+  inputBuffer: Buffer,
+  mimeType = 'image/webp'
+): Promise<Buffer> {
+  try {
+    const pipeline = sharp(inputBuffer, { failOn: 'none' })
+      .rotate()
+      .resize(1080, 1920, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 1 },
+      });
+
+    if (mimeType === 'image/png') {
+      return await pipeline.png({ compressionLevel: 8 }).toBuffer();
+    }
+    if (mimeType === 'image/webp') {
+      return await pipeline.webp({ quality: 82 }).toBuffer();
+    }
+    if (mimeType === 'image/avif') {
+      return await pipeline.avif({ quality: 75 }).toBuffer();
+    }
+    return await pipeline.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+  } catch {
+    return inputBuffer;
+  }
+}
+
+/**
+ * Matches PHP `ImageUploadService::watermark()`:
+ * Places watermark at `bottom-right` with `30px` x/y padding when `brand.images_watermark_enabled` is true.
+ */
+export async function applyImageWatermarkBuffer(
+  inputBuffer: Buffer,
+  mimeType = 'image/webp',
+  customWatermarkBuffer?: Buffer | null
+): Promise<Buffer> {
+  try {
+    const wmBuf = customWatermarkBuffer ?? (await resolveWatermarkBuffer());
+    if (!wmBuf || wmBuf.length === 0) {
+      return inputBuffer;
+    }
+
+    const oriented = await sharp(inputBuffer, { failOn: 'none' })
+      .rotate()
+      .toBuffer({ resolveWithObject: true });
+    const imgWidth = oriented.info.width;
+    const imgHeight = oriented.info.height;
+    const format = oriented.info.format;
+
+    if (!imgWidth || !imgHeight || imgWidth < 16 || imgHeight < 16) {
+      return inputBuffer;
+    }
+
+    const wmMeta = await sharp(wmBuf, { failOn: 'none' }).metadata();
+    const rawWmW = wmMeta.width || 64;
+    const rawWmH = wmMeta.height || 64;
+
+    const basePadding = WATERMARK_CONFIG.image.padding; // 30
+    let padding: number = basePadding;
+    let finalWmBuf = wmBuf;
+    let finalWmW = rawWmW;
+    let finalWmH = rawWmH;
+
+    const fitsDefault =
+      imgWidth >= rawWmW + basePadding * 2 &&
+      imgHeight >= rawWmH + basePadding * 2 &&
+      rawWmW <= Math.max(64, Math.round(imgWidth * 0.25)) &&
+      rawWmH <= Math.max(64, Math.round(imgHeight * 0.25));
+
+    if (!fitsDefault) {
+      padding = Math.min(
+        basePadding,
+        Math.max(2, Math.floor(Math.min(imgWidth, imgHeight) * 0.08))
+      );
+      const maxW = Math.max(8, Math.min(Math.floor(imgWidth * 0.25), imgWidth - padding * 2));
+      const maxH = Math.max(8, Math.min(Math.floor(imgHeight * 0.25), imgHeight - padding * 2));
+      const resized = await sharp(wmBuf, { failOn: 'none' })
+        .resize({
+          width: maxW,
+          height: maxH,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .png()
+        .toBuffer({ resolveWithObject: true });
+      finalWmBuf = resized.data;
+      finalWmW = resized.info.width;
+      finalWmH = resized.info.height;
+    }
+
+    // PHP `config('assets.watermark.image.position')` === 'bottom-right' with padding = 30
+    const left = Math.max(0, imgWidth - finalWmW - padding);
+    const top = Math.max(0, imgHeight - finalWmH - padding);
+
+    const composited = sharp(oriented.data, { failOn: 'none' }).composite([
+      {
+        input: finalWmBuf,
+        left,
+        top,
+      },
+    ]);
+
+    const cleanMime = mimeType.split(';')[0].trim().toLowerCase();
+    if (cleanMime === 'image/png' || format === 'png') {
+      return await composited.png({ compressionLevel: 8 }).toBuffer();
+    }
+    if (cleanMime === 'image/webp' || format === 'webp') {
+      return await composited.webp({ quality: 82 }).toBuffer();
+    }
+    if (cleanMime === 'image/avif' || format === 'avif') {
+      return await composited.avif({ quality: 75 }).toBuffer();
+    }
+    return await composited.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+  } catch (err) {
+    logger.warn({ err }, 'Image watermark composite skipped due to image format error');
+    return inputBuffer;
+  }
+}
 
 const ALLOWED_MIMES: Record<MediaType, string[]> = {
   [MediaType.IMAGE]: [
@@ -278,9 +557,33 @@ export async function uploadMediaBufferDirectly(params: {
     existingPending && existingPending.extension === ext
       ? existingPending.r2Key
       : buildR2Key(params.namespace, params.ownerId, ext);
+
+  let workingBuffer = params.buffer;
+  let watermarked = false;
+
+  if (params.mediaType === MediaType.IMAGE && !normalizedMime.includes('svg') && !normalizedMime.includes('icon')) {
+    if (params.targetType === 'story_frame' || params.namespace === 'stories') {
+      workingBuffer = await scaleStoryImageTo1080x1920(workingBuffer, normalizedMime);
+    }
+    if (
+      shouldWatermarkImage({
+        targetType: params.targetType,
+        namespace: params.namespace,
+        mimeType: normalizedMime,
+      })
+    ) {
+      const brandSettings = await getSettingsGroup('brand');
+      if (brandSettings?.imagesWatermarkEnabled) {
+        const wmBuffer = await resolveWatermarkBuffer(brandSettings.watermarkUrl);
+        workingBuffer = await applyImageWatermarkBuffer(workingBuffer, normalizedMime, wmBuffer);
+        watermarked = true;
+      }
+    }
+  }
+
   await putR2Buffer({
     key: r2Key,
-    body: params.buffer,
+    body: workingBuffer,
     contentType: normalizedMime,
   });
 
@@ -288,9 +591,9 @@ export async function uploadMediaBufferDirectly(params: {
   let width: number | undefined;
   let height: number | undefined;
   if (params.mediaType === MediaType.IMAGE && !normalizedMime.includes('svg') && !normalizedMime.includes('icon')) {
-    lqipBase64 = await generateLqipBase64(params.buffer);
+    lqipBase64 = await generateLqipBase64(workingBuffer);
     try {
-      const meta = await sharp(params.buffer).metadata();
+      const meta = await sharp(workingBuffer).metadata();
       width = meta.width;
       height = meta.height;
     } catch {
@@ -303,7 +606,7 @@ export async function uploadMediaBufferDirectly(params: {
     existingPending.r2Key = r2Key;
     existingPending.extension = ext;
     existingPending.mime = normalizedMime;
-    existingPending.sizeBytes = params.buffer.length;
+    existingPending.sizeBytes = workingBuffer.length;
     existingPending.lqipBase64 = lqipBase64 || null;
     existingPending.status = MediaStatus.PROCESSED;
     existingPending.metadata = {
@@ -311,6 +614,7 @@ export async function uploadMediaBufferDirectly(params: {
       originalFilename: params.filename,
       ...(width ? { width } : {}),
       ...(height ? { height } : {}),
+      ...(watermarked ? { watermarked: true } : {}),
       ...(params.durationSeconds !== undefined ? { durationSeconds: params.durationSeconds } : {}),
     };
     await existingPending.save();
@@ -325,21 +629,41 @@ export async function uploadMediaBufferDirectly(params: {
       storageProvider: 'r2',
       extension: ext,
       mime: normalizedMime,
-      sizeBytes: params.buffer.length,
+      sizeBytes: workingBuffer.length,
       lqipBase64: lqipBase64 || null,
       order: params.order ?? 0,
       metadata: {
         originalFilename: params.filename,
         ...(width ? { width } : {}),
         ...(height ? { height } : {}),
+        ...(watermarked ? { watermarked: true } : {}),
         ...(params.durationSeconds !== undefined ? { durationSeconds: params.durationSeconds } : {}),
       },
     });
   }
 
+  const needsAsyncTranscode =
+    media.type === MediaType.VIDEO ||
+    media.type === MediaType.VIDEO_CIRCLE ||
+    media.type === MediaType.AUDIO;
+  if (needsAsyncTranscode) {
+    const q = getMediaQueue();
+    if (q) {
+      await q
+        .add('transcode-media', {
+          mediaId: String(media._id),
+          ownerId: String(media.ownerId),
+          targetType: media.targetType,
+          mediaType: media.type,
+          r2Key: media.r2Key,
+        })
+        .catch((err) => logger.warn({ err }, 'Failed to enqueue media transcode after direct upload'));
+    }
+  }
+
   await DataStat.updateOne(
     { mediaType: media.type, storageProvider: 'r2' },
-    { $inc: { contentSizeBytes: params.buffer.length, contentItems: 1 } },
+    { $inc: { contentSizeBytes: workingBuffer.length, contentItems: 1 } },
     { upsert: true }
   ).catch((err) => logger.warn({ err }, 'DataStat update failed after upload'));
 
@@ -362,9 +686,62 @@ export async function completeMediaUpload(params: {
   if (!media) throw new ValidationError('Media upload record not found.');
 
   let verifiedSize = media.sizeBytes;
+  let updatedLqip = params.lqipBase64;
+  let updatedWidth = params.width;
+  let updatedHeight = params.height;
+  let watermarked = Boolean(media.metadata?.watermarked);
+
   if (isR2Configured()) {
-    const head = await headR2Object(media.r2Key);
-    verifiedSize = head.ContentLength ?? media.sizeBytes;
+    const namespacePrefix = (media.r2Key.split('/')[0] || '') as MediaNamespace;
+    if (
+      media.type === MediaType.IMAGE &&
+      !watermarked &&
+      shouldWatermarkImage({
+        targetType: media.targetType,
+        namespace: namespacePrefix,
+        mimeType: media.mime,
+      })
+    ) {
+      const brandSettings = await getSettingsGroup('brand');
+      const isStoryImage = media.targetType === 'story_frame' || namespacePrefix === 'stories';
+      if (brandSettings?.imagesWatermarkEnabled || isStoryImage) {
+        try {
+          const obj = await getR2Object(media.r2Key);
+          const bytes = await obj.Body?.transformToByteArray();
+          if (bytes && bytes.length > 0) {
+            let processedBuf: Buffer = Buffer.from(bytes);
+            if (isStoryImage) {
+              processedBuf = await scaleStoryImageTo1080x1920(processedBuf, media.mime);
+            }
+            if (brandSettings?.imagesWatermarkEnabled) {
+              const wmBuf = await resolveWatermarkBuffer(brandSettings.watermarkUrl);
+              processedBuf = await applyImageWatermarkBuffer(processedBuf, media.mime, wmBuf);
+              watermarked = true;
+            }
+            await putR2Buffer({
+              key: media.r2Key,
+              body: processedBuf,
+              contentType: media.mime,
+            });
+            verifiedSize = processedBuf.length;
+            updatedLqip = (await generateLqipBase64(processedBuf)) || updatedLqip;
+            const meta = await sharp(processedBuf).metadata().catch(() => null);
+            if (meta?.width) updatedWidth = meta.width;
+            if (meta?.height) updatedHeight = meta.height;
+          }
+        } catch (err) {
+          logger.warn({ err, mediaId: params.mediaId }, 'Presigned image watermark post-processing skipped');
+          const head = await headR2Object(media.r2Key);
+          verifiedSize = head.ContentLength ?? media.sizeBytes;
+        }
+      } else {
+        const head = await headR2Object(media.r2Key);
+        verifiedSize = head.ContentLength ?? media.sizeBytes;
+      }
+    } else {
+      const head = await headR2Object(media.r2Key);
+      verifiedSize = head.ContentLength ?? media.sizeBytes;
+    }
   }
 
   const needsAsyncTranscode =
@@ -373,11 +750,12 @@ export async function completeMediaUpload(params: {
     media.type === MediaType.AUDIO;
 
   media.sizeBytes = verifiedSize;
-  if (params.lqipBase64) media.lqipBase64 = params.lqipBase64;
+  if (updatedLqip) media.lqipBase64 = updatedLqip;
   media.metadata = {
     ...media.metadata,
-    ...(params.width ? { width: params.width } : {}),
-    ...(params.height ? { height: params.height } : {}),
+    ...(updatedWidth ? { width: updatedWidth } : {}),
+    ...(updatedHeight ? { height: updatedHeight } : {}),
+    ...(watermarked ? { watermarked: true } : {}),
     ...(params.durationSeconds ? { durationSeconds: params.durationSeconds } : {}),
   };
   media.status = needsAsyncTranscode ? MediaStatus.PROCESSING : MediaStatus.PROCESSED;
