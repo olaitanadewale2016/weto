@@ -41,20 +41,18 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-10 w-full rounded-3xl bg-bg-pr border border-bord-pr shadow-vertical-tr overflow-hidden max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-[90dvh] flex flex-col min-w-0',
+          'relative z-10 w-full rounded-2xl bg-bg-pr/95 backdrop-blur-md border border-bord-pr shadow-2xl overflow-hidden max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-[90dvh] flex flex-col min-w-0',
           maxWidthClass
         )}
       >
         {(title || description) && (
-          <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-bord-pr shrink-0">
-            <div className="min-w-0">
-              {title && <h2 className="text-par-l font-bold text-lab-pr truncate">{title}</h2>}
-              {description && <p className="text-cap-l text-lab-sc mt-0.5">{description}</p>}
-            </div>
+          <div className="relative shrink-0 border-b border-bord-pr px-12 py-4 text-center">
+            {title && <h2 className="text-par-l font-bold text-lab-pr truncate">{title}</h2>}
+            {description && <p className="text-cap-l text-lab-sc mt-0.5">{description}</p>}
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full p-1.5 text-lab-sc hover:bg-fill-sc hover:text-lab-pr shrink-0"
+              className="absolute right-3.5 top-3.5 rounded-full p-1.5 text-lab-sc hover:bg-fill-sc hover:text-lab-pr cursor-pointer transition-colors"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />

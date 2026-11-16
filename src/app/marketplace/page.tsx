@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
+  ArrowUpRight,
   Bookmark,
   Plus,
   Search,
@@ -197,30 +198,57 @@ export default function MarketplacePage() {
                     onClick={() => setMenuOpen(false)}
                     aria-hidden="true"
                   />
-                  <div className="absolute right-0 top-11 z-30 w-52 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl py-1.5 overflow-hidden">
+                  <div className="absolute right-0 top-11 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl divide-y divide-bord-pr overflow-hidden">
                     <button
                       type="button"
                       onClick={() => {
                         setMenuOpen(false);
                         setCreateOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-par-s font-medium text-lab-pr hover:bg-fill-qt cursor-pointer"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-fill-qt cursor-pointer transition-colors"
                     >
-                      <Plus className="size-4 text-brand-900" /> Create Listing
+                      <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
+                        <ShoppingBag className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-par-n font-semibold text-lab-pr">Create Listing</p>
+                        <p className="text-cap-s text-lab-sc truncate">
+                          Publish a new product with photos
+                        </p>
+                      </div>
+                      <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
                     </button>
                     <Link
                       href="/business/market"
                       onClick={() => setMenuOpen(false)}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-par-s font-medium text-lab-pr hover:bg-fill-qt"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-fill-qt transition-colors"
                     >
-                      <Store className="size-4 text-lab-sc" /> Business Store
+                      <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
+                        <Store className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-par-n font-semibold text-lab-pr">Business Store</p>
+                        <p className="text-cap-s text-lab-sc truncate">
+                          Manage store inventory & promotions
+                        </p>
+                      </div>
+                      <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
                     </Link>
                     <Link
                       href="/saved/products"
                       onClick={() => setMenuOpen(false)}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-par-s font-medium text-lab-pr hover:bg-fill-qt"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-fill-qt transition-colors"
                     >
-                      <Bookmark className="size-4 text-lab-sc" /> Saved Products
+                      <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
+                        <Bookmark className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-par-n font-semibold text-lab-pr">Saved Products</p>
+                        <p className="text-cap-s text-lab-sc truncate">
+                          View your bookmarked marketplace items
+                        </p>
+                      </div>
+                      <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
                     </Link>
                   </div>
                 </>

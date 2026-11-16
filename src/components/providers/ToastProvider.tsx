@@ -64,42 +64,92 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast, success, error, info }}>
       {children}
+      {/* Desktop ToastNotification.vue: bottom-right pill with border-green-900 / border-red-900 */}
       <div
         aria-live="polite"
-        className="fixed bottom-[calc(4.5rem+max(1.25rem,env(safe-area-inset-bottom)))] md:bottom-6 left-4 right-4 sm:left-auto px-safe z-[100] flex flex-col gap-2 sm:max-w-sm sm:w-full pointer-events-none"
+        className="fixed bottom-6 left-6 right-6 z-[120] hidden md:flex flex-col items-end gap-2 pointer-events-none"
       >
-        {toasts.map((item) => (
-          <div
-            key={item.id}
-            className={cn(
-              'pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-vertical-tr backdrop-blur-md transition-all',
-              'bg-bg-pr border-bord-pr text-lab-pr',
-              item.variant === 'error' && 'border-red-900/40',
-              item.variant === 'success' && 'border-green-900/40'
-            )}
-          >
-            {item.variant === 'success' && <CheckCircle2 className="h-5 w-5 text-green-900 shrink-0 mt-0.5" />}
-            {item.variant === 'error' && <AlertCircle className="h-5 w-5 text-red-900 shrink-0 mt-0.5" />}
-            {(item.variant === 'info' || item.variant === 'default') && (
-              <Info className="h-5 w-5 text-brand-900 shrink-0 mt-0.5" />
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-par-n font-semibold leading-tight">{item.title}</p>
-              {item.description && (
-                <p className="text-cap-l text-lab-sc mt-0.5 break-words">{item.description}</p>
+        {toasts.map((item) => {
+          const message = item.description ? `${item.title}: ${item.description}` : item.title;
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                'pointer-events-auto flex items-center leading-4 max-w-[460px] rounded-xl border pl-5 pr-3 shadow-2xl backdrop-blur-md bg-bg-pr/95 transition-all',
+                item.variant === 'success'
+                  ? 'border-green-900'
+                  : item.variant === 'error'
+                    ? 'border-red-900'
+                    : 'border-bord-pr'
               )}
-            </div>
-            <button
-              type="button"
-              onClick={() => dismiss(item.id)}
-              className="text-lab-tr hover:text-lab-pr p-0.5 rounded-full"
-              aria-label="Close notification"
             >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+              <div className="text-par-m pr-4 text-lab-pr flex-1 py-4 leading-snug break-words">
+                {message}
+              </div>
+              <button
+                type="button"
+                onClick={() => dismiss(item.id)}
+                className="text-lab-pr hover:bg-fill-qt p-1.5 rounded-full shrink-0 cursor-pointer transition-colors"
+                aria-label="Close notification"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Mobile ToastNotification.vue: full-width top edge bar matching PHP Mobile ToastItem.vue */}
+      {toasts.length > 0 && (
+        <div
+          aria-live="polite"
+          className="fixed top-0 left-0 right-0 pt-safe z-[120] md:hidden bg-bg-pr/95 backdrop-blur-md shadow-sm pointer-events-auto"
+        >
+          {toasts.map((item) => {
+            const message = item.description ? `${item.title}: ${item.description}` : item.title;
+            const isSuccess = item.variant === 'success';
+            const isError = item.variant === 'error';
+            return (
+              <div key={item.id} className="px-4 border-b border-bord-pr">
+                <div className="flex items-center leading-4">
+                  <div
+                    className={cn(
+                      'size-4 shrink-0 flex items-center justify-center',
+                      isSuccess ? 'text-green-900' : isError ? 'text-red-900' : 'text-brand-900'
+                    )}
+                  >
+                    {isSuccess ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : isError ? (
+                      <AlertCircle className="h-4 w-4" />
+                    ) : (
+                      <Info className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div
+                    className={cn(
+                      'text-par-s px-2.5 flex-1 py-3.5 leading-snug break-words',
+                      isError ? 'text-red-900' : 'text-lab-pr'
+                    )}
+                  >
+                    {message}
+                  </div>
+                  <div className="text-lab-sc shrink-0 pl-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => dismiss(item.id)}
+                      className="size-6 inline-flex items-center justify-center outline-hidden cursor-pointer opacity-80 hover:opacity-100 rounded-full"
+                      aria-label="Close notification"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </ToastContext.Provider>
   );
 }

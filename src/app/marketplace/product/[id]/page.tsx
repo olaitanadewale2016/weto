@@ -6,14 +6,10 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Bookmark,
-  ChevronLeft,
-  ChevronRight,
   Edit3,
   Eye,
   Flag,
-  MapPin,
   MessageCircle,
-  Package,
   Power,
   Share2,
   Trash2,
@@ -25,7 +21,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { Modal } from '@/components/ui/modal';
-import { Textarea } from '@/components/ui/textarea';
 import { ReportModal } from '@/components/modals/ReportModal';
 import {
   MarketplaceCategoryOption,
@@ -225,7 +220,7 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <AppShell fullWidth>
+      <AppShell>
         <div className="p-8 text-center text-lab-sc">Loading product...</div>
       </AppShell>
     );
@@ -233,7 +228,7 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <AppShell fullWidth>
+      <AppShell>
         <div className="p-10 text-center space-y-3">
           <p className="text-title-3 font-bold text-lab-pr">Product listing not found</p>
           <Link href="/marketplace">
@@ -261,9 +256,9 @@ export default function ProductDetailPage() {
   const isLongDescription = (product.description || '').length > 260;
 
   return (
-    <AppShell fullWidth>
+    <AppShell>
       {/* PHP ProductHeader */}
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-tr px-4 h-14 flex items-center justify-between gap-2">
+      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr px-4 h-14 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
@@ -303,24 +298,34 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          {/* Left: Multi-slide Gallery + Click-to-Lightbox */}
-          <div className="lg:col-span-7 space-y-3">
-            <div className="relative aspect-square sm:aspect-[4/3] rounded-3xl border border-bord-card bg-fill-sc overflow-hidden group">
+      {/* PHP ProductOverviewCard.vue: edge-to-edge swipe gallery + p-4 overview + divider + ProductDescriptionCard */}
+      <div>
+        <div className="border-b border-bord-pr bg-fill-tr relative group">
+          <div className="flex gap-px overflow-x-auto snap-x snap-mandatory hidden-scroll">
+            {photos.map((photo, idx) => (
               <button
+                key={`${photo.url}-${idx}`}
                 type="button"
-                onClick={() => setLightboxOpen(true)}
-                className="block w-full h-full cursor-zoom-in"
-                aria-label="Open full-screen photo viewer"
+                onClick={() => {
+                  setActivePhoto(idx);
+                  setLightboxOpen(true);
+                }}
+                className={cn(
+                  'relative shrink-0 snap-start overflow-hidden cursor-zoom-in bg-fill-qt',
+                  photos.length === 1
+                    ? 'w-full aspect-[4/3]'
+                    : photos.length === 2
+                      ? 'w-1/2 aspect-square'
+                      : 'w-[42%] sm:w-[41%] aspect-square'
+                )}
+                aria-label={`View photo ${idx + 1}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  key={currentPhoto.url}
-                  src={currentPhoto.url}
-                  alt={product.title}
+                  src={photo.url}
+                  alt={photo.alt}
+                  loading={idx === 0 ? 'eager' : 'lazy'}
                   decoding="async"
-                  fetchPriority="high"
                   onLoad={(e) => {
                     e.currentTarget.dataset.fallbackApplied = '';
                   }}
@@ -330,310 +335,229 @@ export default function ProductDetailPage() {
                       e.currentTarget.src = '/assets/products/default-preview.png';
                     }
                   }}
-                  className="h-full w-full object-contain bg-fill-qt"
+                  className="h-full w-full object-cover hover:scale-105 transition-transform duration-200"
                 />
               </button>
+            ))}
+          </div>
+          {photos.length > 1 && (
+            <span className="absolute bottom-2.5 right-2.5 rounded-full bg-black/65 text-white px-2.5 py-0.5 text-cap-s font-semibold pointer-events-none">
+              {photos.length} photos
+            </span>
+          )}
+        </div>
 
-              {photos.length > 1 ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActivePhoto((prev) => (prev > 0 ? prev - 1 : photos.length - 1))
-                    }
-                    className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center transition-colors cursor-pointer"
-                    aria-label="Previous photo"
-                  >
-                    <ChevronLeft className="size-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActivePhoto((prev) => (prev < photos.length - 1 ? prev + 1 : 0))
-                    }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center transition-colors cursor-pointer"
-                    aria-label="Next photo"
-                  >
-                    <ChevronRight className="size-5" />
-                  </button>
-                  <span className="absolute bottom-3 right-3 rounded-full bg-black/65 text-white px-2.5 py-0.5 text-cap-s font-semibold">
-                    {safeActiveIndex + 1}/{photos.length}
-                  </span>
-                </>
+        <div className="p-4 border-b border-bord-pr space-y-3">
+          {/* Seller Row + Bookmark */}
+          <div className="flex justify-between items-center gap-3">
+            <Link href={`/@${product.seller.username}`} className="flex items-center gap-2.5 min-w-0">
+              <Avatar
+                src={product.seller.avatar}
+                alt={product.seller.username}
+                verified={product.seller.verified}
+                size="sm"
+              />
+              <div className="min-w-0">
+                <p className="text-par-s font-bold text-lab-pr truncate">
+                  {product.seller.firstName} {product.seller.lastName}
+                </p>
+                <p className="text-cap-s text-lab-sc truncate">@{product.seller.username}</p>
+              </div>
+            </Link>
+
+            <button
+              type="button"
+              onClick={toggleBookmark}
+              className={cn(
+                'size-9 rounded-full hover:bg-fill-qt flex items-center justify-center transition-colors cursor-pointer shrink-0',
+                product.isBookmarked ? 'text-brand-900' : 'text-lab-pr2 hover:text-brand-900'
+              )}
+              aria-label={product.isBookmarked ? 'Remove bookmark' : 'Bookmark listing'}
+            >
+              <Bookmark className={cn('h-5 w-5', product.isBookmarked && 'fill-current')} />
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap gap-1.5">
+              {product.isPromoted ? <Badge variant="brand">Promoted</Badge> : null}
+              {product.status === 'inactive' ? <Badge variant="danger">Inactive</Badge> : null}
+              {product.discount > 0 ? <Badge variant="danger">-{product.discount}%</Badge> : null}
+            </div>
+            <h1 className="text-title-3 text-lab-pr2 leading-snug font-medium max-w-11/12">
+              {product.title}
+            </h1>
+            <div className="flex gap-2 items-center flex-wrap">
+              <span className="text-title-3 text-lab-pr font-bold">
+                {formatCurrency(product.salePrice, product.currency, bootstrap?.currencies, locale)}
+              </span>
+              {product.discount > 0 ? (
+                <span className="text-cap-l text-lab-sc line-through">
+                  {formatCurrency(product.price, product.currency, bootstrap?.currencies, locale)}
+                </span>
               ) : null}
             </div>
-
-            {photos.length > 1 ? (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {photos.map((photo, i) => (
-                  <button
-                    key={`${photo.url}-${i}`}
-                    type="button"
-                    onClick={() => setActivePhoto(i)}
-                    className={cn(
-                      'size-16 rounded-2xl overflow-hidden border-2 shrink-0 cursor-pointer transition-all',
-                      safeActiveIndex === i
-                        ? 'border-brand-900 opacity-100'
-                        : 'border-transparent opacity-70 hover:opacity-100'
-                    )}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.url}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      onLoad={(e) => {
-                        e.currentTarget.dataset.fallbackApplied = '';
-                      }}
-                      onError={(e) => {
-                        if (e.currentTarget.dataset.fallbackApplied !== '1') {
-                          e.currentTarget.dataset.fallbackApplied = '1';
-                          e.currentTarget.src = '/assets/products/default-preview.png';
-                        }
-                      }}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            <p className="text-par-n text-lab-sc">
+              {[
+                product.category?.localization?.en || 'Marketplace',
+                product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : 'Out of stock',
+                product.createdAt ? formatRelativeTime(product.createdAt, locale) : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
           </div>
 
-          {/* Right: PHP ProductOverviewCard */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="rounded-3xl border border-bord-card bg-bg-pr p-4 sm:p-5 space-y-4">
-              {/* Seller bar + Bookmark toggle */}
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-bord-tr">
-                <Link
-                  href={`/@${product.seller.username}`}
-                  className="flex items-center gap-2.5 min-w-0"
-                >
-                  <Avatar
-                    src={product.seller.avatar}
-                    alt={product.seller.username}
-                    verified={product.seller.verified}
-                    size="sm"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-par-s font-bold text-lab-pr truncate">
-                      {product.seller.firstName} {product.seller.lastName}
-                    </p>
-                    <p className="text-cap-s text-lab-sc truncate">@{product.seller.username}</p>
-                  </div>
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={toggleBookmark}
-                  className={cn(
-                    'size-9 rounded-full border border-bord-pr flex items-center justify-center transition-colors cursor-pointer shrink-0',
-                    product.isBookmarked
-                      ? 'bg-fill-qt text-lab-pr'
-                      : 'text-lab-sc hover:bg-fill-qt hover:text-lab-pr'
-                  )}
-                  aria-label={product.isBookmarked ? 'Remove bookmark' : 'Bookmark listing'}
-                >
-                  <Bookmark className={cn('h-4 w-4', product.isBookmarked && 'fill-current')} />
-                </button>
-              </div>
-
-              {/* Badges + Title + Price */}
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {product.isPromoted ? <Badge variant="brand">Promoted</Badge> : null}
-                  {product.status === 'inactive' ? <Badge variant="danger">Inactive</Badge> : null}
-                  {product.category?.localization?.en ? (
-                    <Badge variant="brand">{product.category.localization.en}</Badge>
-                  ) : null}
-                  <Badge className="capitalize">{product.condition}</Badge>
-                  <Badge variant="outline" className="capitalize">
-                    {product.type}
-                  </Badge>
-                </div>
-
-                <h1 className="text-title-2 font-bold text-lab-pr leading-snug">{product.title}</h1>
-
-                <div className="flex items-baseline gap-2.5 flex-wrap pt-1">
-                  <span className="text-title-1 font-bold text-lab-pr">
-                    {formatCurrency(product.salePrice, product.currency, bootstrap?.currencies, locale)}
-                  </span>
-                  {product.discount > 0 ? (
-                    <>
-                      <span className="text-par-n text-lab-tr line-through">
-                        {formatCurrency(product.price, product.currency, bootstrap?.currencies, locale)}
-                      </span>
-                      <Badge variant="danger">-{product.discount}% OFF</Badge>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* Metadata */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-cap-l text-lab-sc pt-1">
-                <span className="inline-flex items-center gap-1">
-                  <Package className="size-3.5" />
-                  {product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : 'Out of stock'}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Eye className="size-3.5" /> {product.viewsCount || 0} views
-                </span>
-                {product.address ? (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="size-3.5" /> {product.address}
-                  </span>
-                ) : null}
-                {product.createdAt ? (
-                  <span>Listed {formatRelativeTime(product.createdAt, locale)}</span>
-                ) : null}
-              </div>
-
-              {/* Ask Seller CTA or Owner Controls */}
-              <div className="pt-2 space-y-2.5">
-                {!isOwner ? (
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full rounded-full"
-                    onClick={openChatLauncher}
-                  >
-                    <MessageCircle className="h-4 w-4" /> Ask seller
-                  </Button>
-                ) : (
-                  <div className="space-y-2">
-                    <Button
-                      variant="primary"
-                      size="md"
-                      className="w-full rounded-full"
-                      onClick={() => setPromoteOpen(true)}
-                    >
-                      <TrendingUp className="h-4 w-4" />
-                      {product.isPromoted ? 'Extend listing promotion' : 'Promote listing'}
-                    </Button>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                        <Edit3 className="h-3.5 w-3.5" /> Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        loading={togglingStatus}
-                        onClick={toggleProductStatus}
-                      >
-                        <Power className="h-3.5 w-3.5" />{' '}
-                        {product.status === 'active' ? 'Pause' : 'Activate'}
-                      </Button>
-                      <Button variant="danger" size="sm" onClick={deleteListing}>
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                      </Button>
-                    </div>
-                  </div>
-                )}
+          {/* Primary Actions Row matching PHP ProductOverviewCard */}
+          {!isOwner ? (
+            <div className="flex items-center gap-3 pt-1 leading-none flex-wrap">
+              <Button
+                variant="primary"
+                size="md"
+                className="rounded-full"
+                onClick={openChatLauncher}
+              >
+                <MessageCircle className="h-4 w-4" /> Ask seller
+              </Button>
+              <Link href={`/@${product.seller.username}`}>
+                <Button variant="outline" size="md" className="rounded-full">
+                  View profile
+                </Button>
+              </Link>
+              <div className="ml-auto inline-flex items-center gap-1.5 text-cap-l text-lab-sc shrink-0">
+                <Eye className="size-4" />
+                <span>{product.viewsCount || 0}</span>
               </div>
             </div>
-
-            {/* PHP ProductDescriptionCard */}
-            <div className="rounded-3xl border border-bord-card bg-bg-pr p-4 sm:p-5 space-y-3">
-              <h2 className="text-par-l font-bold text-lab-pr">Product Description</h2>
-
-              <div className="grid grid-cols-2 gap-2.5 text-cap-l bg-fill-qt/60 rounded-2xl p-3">
-                <div>
-                  <p className="text-lab-sc">Condition</p>
-                  <p className="font-semibold text-lab-pr capitalize">{product.condition}</p>
-                </div>
-                <div>
-                  <p className="text-lab-sc">Product Type</p>
-                  <p className="font-semibold text-lab-pr capitalize">{product.type}</p>
-                </div>
-                <div>
-                  <p className="text-lab-sc">Stock Quantity</p>
-                  <p className="font-semibold text-lab-pr">{product.stockQuantity}</p>
-                </div>
-                <div>
-                  <p className="text-lab-sc">Currency</p>
-                  <p className="font-semibold text-lab-pr">{product.currency}</p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <p
-                  className={cn(
-                    'text-par-n text-lab-pr whitespace-pre-wrap leading-relaxed',
-                    !descExpanded && isLongDescription && 'line-clamp-4'
-                  )}
+          ) : (
+            <div className="space-y-2.5 pt-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => setPromoteOpen(true)}
                 >
-                  {product.description || 'No additional description provided.'}
-                </p>
-                {isLongDescription ? (
-                  <button
-                    type="button"
-                    onClick={() => setDescExpanded((v) => !v)}
-                    className="text-cap-l font-semibold text-brand-900 hover:underline cursor-pointer"
-                  >
-                    {descExpanded ? 'See less' : 'See full description'}
-                  </button>
-                ) : null}
+                  <TrendingUp className="h-4 w-4" />
+                  {product.isPromoted ? 'Extend promotion' : 'Promote listing'}
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-full" onClick={() => setEditOpen(true)}>
+                  <Edit3 className="h-3.5 w-3.5" /> Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  loading={togglingStatus}
+                  onClick={toggleProductStatus}
+                >
+                  <Power className="h-3.5 w-3.5" />
+                  {product.status === 'active' ? 'Pause' : 'Activate'}
+                </Button>
+                <Button variant="danger" size="sm" className="rounded-full" onClick={deleteListing}>
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
+                <div className="ml-auto inline-flex items-center gap-1.5 text-cap-l text-lab-sc shrink-0">
+                  <Eye className="size-4" />
+                  <span>{product.viewsCount || 0}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
-      </div>
 
-      {/* PHP ChatLauncher Modal */}
-      <Modal
-        open={chatModalOpen}
-        onClose={() => setChatModalOpen(false)}
-        title="Ask seller"
-        maxWidthClass="max-w-md"
-      >
-        <form onSubmit={handleSendSellerMessage} className="space-y-4 min-w-0">
-          <div className="flex items-center gap-3 rounded-2xl border border-bord-card bg-fill-qt/50 p-3 min-w-0 overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={currentPhoto.url}
-              alt={product.title}
-              onLoad={(e) => {
-                e.currentTarget.dataset.fallbackApplied = '';
-              }}
-              onError={(e) => {
-                if (e.currentTarget.dataset.fallbackApplied !== '1') {
-                  e.currentTarget.dataset.fallbackApplied = '1';
-                  e.currentTarget.src = '/assets/products/default-preview.png';
-                }
-              }}
-              className="size-14 rounded-xl object-cover shrink-0 bg-fill-tr"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-par-s font-bold text-lab-pr truncate">{product.title}</p>
-              <p className="text-cap-l font-bold text-brand-900">
-                {formatCurrency(product.salePrice, product.currency, bootstrap?.currencies, locale)}
-              </p>
-              <p className="text-cap-s text-lab-sc truncate">
-                Seller: {product.seller.firstName} {product.seller.lastName}
-              </p>
+        {/* PHP ProductDescriptionCard */}
+        <div className="p-4 space-y-3">
+          <h2 className="text-par-l font-bold text-lab-pr">Product Description</h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-cap-l bg-fill-qt/60 rounded-2xl p-3">
+            <div>
+              <p className="text-lab-sc">Condition</p>
+              <p className="font-semibold text-lab-pr capitalize">{product.condition}</p>
+            </div>
+            <div>
+              <p className="text-lab-sc">Product Type</p>
+              <p className="font-semibold text-lab-pr capitalize">{product.type}</p>
+            </div>
+            <div>
+              <p className="text-lab-sc">Stock</p>
+              <p className="font-semibold text-lab-pr">{product.stockQuantity}</p>
+            </div>
+            <div>
+              <p className="text-lab-sc">Location</p>
+              <p className="font-semibold text-lab-pr truncate">{product.address || 'Available'}</p>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Textarea
-              label="Your message"
+            <p
+              className={cn(
+                'text-par-n text-lab-pr whitespace-pre-wrap leading-relaxed',
+                !descExpanded && isLongDescription && 'line-clamp-4'
+              )}
+            >
+              {product.description || 'No additional description provided.'}
+            </p>
+            {isLongDescription ? (
+              <button
+                type="button"
+                onClick={() => setDescExpanded((v) => !v)}
+                className="text-cap-l font-semibold text-brand-900 hover:underline cursor-pointer"
+              >
+                {descExpanded ? 'See less' : 'See full description'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* PHP ChatLauncher Modal ("Write message") */}
+      <Modal
+        open={chatModalOpen}
+        onClose={() => setChatModalOpen(false)}
+        title="Write message"
+        maxWidthClass="max-w-md"
+        bodyClassName="p-0"
+      >
+        <form onSubmit={handleSendSellerMessage} className="min-w-0">
+          <div className="p-5 flex items-center gap-3 border-b border-bord-pr bg-fill-qt/30">
+            <Avatar
+              src={product.seller.avatar}
+              alt={product.seller.username}
+              verified={product.seller.verified}
+              size="md"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-par-n font-bold text-lab-pr truncate">
+                {product.seller.firstName} {product.seller.lastName}
+              </p>
+              <p className="text-cap-l text-lab-sc truncate">@{product.seller.username}</p>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={currentPhoto.url}
+              alt={product.title}
+              className="size-11 rounded-lg object-cover shrink-0 bg-fill-tr border border-bord-card"
+            />
+          </div>
+
+          <div className="relative border-b border-bord-pr">
+            <textarea
               rows={4}
               maxLength={500}
               placeholder="Ask about availability, delivery, or condition..."
               value={chatMessage}
               onChange={(e) => setChatMessage(e.target.value)}
+              className="resize-none w-full px-4 pt-3.5 pb-8 bg-transparent text-par-n text-lab-pr2 max-h-72 overflow-y-auto outline-hidden placeholder:font-light placeholder:text-par-s"
               required
             />
-            <div className="flex justify-end text-cap-s text-lab-sc">
+            <span className="absolute bottom-2.5 left-4 text-lab-sc text-cap-l">
               {chatMessage.length}/500
-            </div>
+            </span>
           </div>
 
-          <div className="flex items-center justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setChatModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" loading={sendingChat}>
+          <div className="flex justify-center py-4 px-4">
+            <Button type="submit" variant="primary" className="rounded-full px-6" loading={sendingChat}>
               Send message
             </Button>
           </div>

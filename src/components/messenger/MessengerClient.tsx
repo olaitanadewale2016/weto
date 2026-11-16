@@ -1597,9 +1597,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           </div>
         ) : (
           <>
-            {/* Thread Header */}
+            {/* Thread Header (PHP ChatHeader.vue px-6 h-16 parity) */}
             <div className="border-b border-bord-pr bg-bg-pr shrink-0 pt-safe px-safe">
-              <div className="h-16 px-3 sm:px-4 flex items-center justify-between gap-2">
+              <div className="h-16 px-3 sm:px-6 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <Link
                     href="/messenger"
@@ -2140,7 +2140,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             )}
 
             {showGifPicker && !recording && (
-              <div className="px-3 py-2 border-t border-bord-pr bg-bg-pr shrink-0">
+              <div className="md:px-3 md:py-2 md:border-t md:border-bord-pr md:bg-bg-pr shrink-0">
                 <GiphyPicker
                   onSelect={(url) => void handleSendGif(url)}
                   onClose={() => setShowGifPicker(false)}
@@ -2181,10 +2181,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               <div className="px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-bg-pr shrink-0">
                 <form
                   onSubmit={handleSendText}
-                  className="flex items-center gap-1 sm:gap-1.5 min-w-0 max-w-full rounded-3xl border border-bord-pr bg-fill-qt md:bg-bg-pr px-2 sm:px-3 py-1"
+                  className="flex items-center gap-0.5 sm:gap-1.5 min-w-0 max-w-full rounded-3xl border border-bord-pr bg-fill-qt md:bg-bg-pr px-2 sm:px-3 py-1"
                 >
                   <label
-                    className="p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
+                    className={cn(
+                      'p-1 sm:p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0',
+                      msgText.trim() && 'hidden sm:inline-flex'
+                    )}
                     title="Send photo or video"
                   >
                     <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2198,7 +2201,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </label>
 
                   <label
-                    className="p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
+                    className={cn(
+                      'p-1 sm:p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0',
+                      msgText.trim() && 'hidden sm:inline-flex'
+                    )}
                     title="Attach file or audio"
                   >
                     <Paperclip className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2216,7 +2222,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     disabled={uploadingMedia}
                     onClick={() => setShowGifPicker((v) => !v)}
                     className={cn(
-                      'p-1.5 rounded-full hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0',
+                      'p-1 sm:p-1.5 rounded-full hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0',
+                      msgText.trim() && 'hidden sm:inline-flex',
                       showGifPicker ? 'text-brand-900 bg-fill-pr' : 'text-lab-sc hover:text-lab-pr'
                     )}
                     title="Send GIF"
@@ -2228,7 +2235,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     type="button"
                     disabled={uploadingMedia}
                     onClick={startVoiceRecording}
-                    className="p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0"
+                    className={cn(
+                      'p-1 sm:p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0',
+                      msgText.trim() && 'hidden sm:inline-flex'
+                    )}
                     title="Record voice note"
                   >
                     <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2244,7 +2254,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       emitTypingChange(val.length > 0);
                     }}
                     placeholder="Write a message..."
-                    className="flex-1 min-w-0 bg-transparent border-0 px-1.5 py-1.5 text-[16px] md:text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none"
+                    className="flex-1 min-w-[80px] bg-transparent border-0 px-2 py-1.5 text-[16px] md:text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none"
                   />
 
                   <button

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Film, Loader2, Search, X } from 'lucide-react';
+import { Film, Search, X } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { ActionSheet } from '@/components/mobile/ActionSheet';
 
 export interface GiphyItem {
   id: string;
@@ -20,11 +21,23 @@ export function GiphyAttribution({ className = '' }: { className?: string }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className={`inline-flex items-center gap-1 rounded-full bg-black/65 px-2.5 py-0.5 text-[11px] leading-tight text-white/90 hover:bg-black/80 transition-colors backdrop-blur-xs ${className}`}
+      className={`shadow-md rounded-xs inline-flex items-center z-10 px-1.5 md:px-2 h-4 md:h-6 leading-none bg-black/60 hover:bg-black/80 transition-colors backdrop-blur-xs ${className}`}
     >
-      <span className="font-bold tracking-wide text-white">GIF</span>
-      <span className="opacity-60">/</span>
-      <span className="opacity-90">Powered by GIPHY</span>
+      <span className="text-gray-200 text-[9px] md:text-cap-s whitespace-nowrap">
+        GIF / Powered by GIPHY
+      </span>
+      <span className="size-2.5 md:size-3 ml-1 shrink-0 inline-flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 35" className="h-full w-auto">
+          <g fillRule="evenodd" clipRule="evenodd">
+            <path fill="#00ff99" d="M0 3h4v29H0z" />
+            <path fill="#9933ff" d="M24 11h4v21h-4z" />
+            <path fill="#00ccff" d="M0 31h28v4H0z" />
+            <path fill="#fff35c" d="M0 0h16v4H0z" />
+            <path fill="#ff6666" d="M24 8V4h-4V0h-4v12h12V8" />
+            <path fill="#222" d="M24 16v-4h4M16 0v4h-4" />
+          </g>
+        </svg>
+      </span>
     </a>
   );
 }
@@ -48,21 +61,38 @@ export function GiphyPicker({
   const [items, setItems] = useState<GiphyItem[]>([]);
   const [configured, setConfigured] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [manualUrl, setManualUrl] = useState('');
+  const [loadedIds, setLoadedIds] = useState<Record<string, boolean>>({});
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobileViewport(mq.matches);
+    sync();
+    mq.addEventListener?.('change', sync);
+    return () => mq.removeEventListener?.('change', sync);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(
       async () => {
         setLoading(true);
+        setErrorMsg(null);
         try {
           const qs = query.trim() ? `?q=${encodeURIComponent(query.trim())}&limit=24` : '?limit=24';
           const res = await apiFetch<GiphyResponse>(`/giphy${qs}`);
           if (cancelled) return;
           setConfigured(res.configured);
           setItems(res.items || []);
-        } catch {
-          if (!cancelled) setItems([]);
+          setErrorMsg(res.error || null);
+        } catch (err) {
+          if (!cancelled) {
+            setItems([]);
+            setErrorMsg(err instanceof Error ? err.message : 'Unable to reach GIPHY');
+          }
         } finally {
           if (!cancelled) setLoading(false);
         }
@@ -75,34 +105,34 @@ export function GiphyPicker({
     };
   }, [query]);
 
-  return (
-    <div className="rounded-2xl border border-bord-pr bg-bg-pr p-3 space-y-2.5 shadow-sm">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 rounded-xl bg-input-pr border border-bord-card px-3 h-9">
-          <Search className="h-3.5 w-3.5 text-lab-sc shrink-0" />
+  const pickerInner = (
+    <div className="space-y-2.5 flex flex-col min-h-0">
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="flex-1 flex items-center gap-2 rounded-full bg-fill-qt border border-bord-pr px-3.5 h-10">
+          <Search className="h-4 w-4 text-lab-sc shrink-0" />
           <input
-            type="text"
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search GIPHY GIFs..."
-            className="flex-1 bg-transparent text-cap-l text-lab-pr placeholder:text-lab-tr focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent text-[16px] md:text-par-s text-lab-pr placeholder:text-lab-tr focus:outline-none"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="text-lab-tr hover:text-lab-pr cursor-pointer"
+              className="text-lab-tr hover:text-lab-pr cursor-pointer shrink-0"
               aria-label="Clear search"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
-        {onClose && (
+        {onClose && !isMobileViewport && (
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+            className="p-2 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer shrink-0"
             aria-label="Close GIF picker"
           >
             <X className="h-4 w-4" />
@@ -111,54 +141,65 @@ export function GiphyPicker({
       </div>
 
       {loading ? (
-        <div className="h-44 flex items-center justify-center text-lab-sc">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
-      ) : configured && items.length > 0 ? (
-        <div className="grid grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-1">
-          {items.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              onClick={() => {
-                onSelect(g.gifUrl);
-                onSelectGif?.(g);
-              }}
-              className="relative aspect-square rounded-xl overflow-hidden bg-fill-pr border border-bord-card hover:opacity-90 transition-opacity cursor-pointer"
-              title={g.title}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={g.previewUrl}
-                alt={g.title}
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            </button>
+        <div className="grid grid-cols-3 gap-0.5 max-h-80 overflow-hidden rounded-xl">
+          {Array.from({ length: 9 }).map((_, idx) => (
+            <div key={idx} className="aspect-square bg-fill-qt fb-shimmer" />
           ))}
         </div>
+      ) : configured && items.length > 0 ? (
+        <div className="grid grid-cols-3 gap-0.5 max-h-[52dvh] md:max-h-72 overflow-y-auto rounded-xl">
+          {items.map((g) => {
+            const loaded = Boolean(loadedIds[g.id]);
+            return (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => {
+                  onSelect(g.gifUrl);
+                  onSelectGif?.(g);
+                }}
+                className="relative aspect-square overflow-hidden bg-fill-tr group cursor-pointer"
+                title={g.title}
+              >
+                {!loaded && <span className="absolute inset-0 bg-fill-qt fb-shimmer" aria-hidden="true" />}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={g.previewUrl || g.gifUrl}
+                  alt={g.title || 'GIF'}
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  onLoad={() => setLoadedIds((prev) => ({ ...prev, [g.id]: true }))}
+                  className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-105"
+                />
+              </button>
+            );
+          })}
+        </div>
       ) : (
-        <div className="space-y-2 py-2">
-          <p className="text-cap-s text-lab-sc text-center">
-            {configured
-              ? 'No GIFs found for your search.'
-              : 'GIPHY API key is not configured yet. Paste a direct GIF URL below:'}
+        <div className="space-y-2.5 py-4">
+          <p className="text-cap-l text-lab-sc text-center">
+            {errorMsg
+              ? errorMsg
+              : configured
+                ? 'No GIFs found for your search.'
+                : 'GIPHY API key is not configured yet. Paste a direct GIF URL below:'}
           </p>
-          <div className="flex items-center gap-2 rounded-xl bg-input-pr border border-bord-card px-3 py-1.5">
+          <div className="flex items-center gap-2 rounded-full bg-input-pr border border-bord-card px-3.5 py-2">
             <Film className="h-4 w-4 text-lab-sc shrink-0" />
             <input
               type="url"
               value={manualUrl}
               onChange={(e) => setManualUrl(e.target.value)}
               placeholder="https://media.giphy.com/..."
-              className="flex-1 bg-transparent text-cap-l text-lab-pr focus:outline-none"
+              className="flex-1 min-w-0 bg-transparent text-[16px] md:text-cap-l text-lab-pr focus:outline-none"
             />
             <button
               type="button"
               onClick={() => {
                 if (manualUrl.trim()) onSelect(manualUrl.trim());
               }}
-              className="text-cap-s font-semibold text-brand-900 hover:underline cursor-pointer"
+              className="text-cap-l font-semibold text-brand-900 hover:underline cursor-pointer shrink-0"
             >
               Use
             </button>
@@ -166,8 +207,8 @@ export function GiphyPicker({
         </div>
       )}
 
-      <div className="flex items-center justify-between text-[11px] text-lab-tr pt-1 border-t border-bord-pr">
-        <span>Powered by GIPHY</span>
+      <div className="flex items-center justify-between pt-1.5 border-t border-bord-tr shrink-0">
+        <GiphyAttribution />
         {configured && (
           <button
             type="button"
@@ -175,12 +216,26 @@ export function GiphyPicker({
               const url = window.prompt('Paste direct GIF URL (https://...):');
               if (url?.trim()) onSelect(url.trim());
             }}
-            className="hover:text-lab-pr cursor-pointer"
+            className="text-cap-s text-lab-sc hover:text-lab-pr cursor-pointer"
           >
             Paste URL
           </button>
         )}
       </div>
+    </div>
+  );
+
+  if (isMobileViewport && onClose) {
+    return (
+      <ActionSheet open onClose={onClose} muted={false}>
+        <div className="pb-2">{pickerInner}</div>
+      </ActionSheet>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-bord-pr bg-bg-pr p-3 shadow-vertical-tr">
+      {pickerInner}
     </div>
   );
 }
