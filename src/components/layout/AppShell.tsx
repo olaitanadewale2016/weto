@@ -295,7 +295,20 @@ export function AppShell({
               <ChevronDown className="size-4 text-lab-pr3 shrink-0" />
             </button>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <Link
+                href="/games"
+                className={cn(
+                  'size-9 rounded-full hover:bg-fill-qt flex items-center justify-center transition-colors',
+                  pathname.startsWith('/games')
+                    ? 'text-brand-900 bg-brand-900/10'
+                    : 'text-lab-pr2'
+                )}
+                aria-label="Play Games"
+                title="Play Tic-Tac-Toe"
+              >
+                <Gamepad2 className="size-5" />
+              </Link>
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -480,6 +493,13 @@ export function AppShell({
                           </Link>
                         </>
                       )}
+                      <Link
+                        href="/games"
+                        className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
+                      >
+                        <Gamepad2 className="size-4 text-lab-sc" />
+                        <span>Games (Tic-Tac-Toe)</span>
+                      </Link>
                       <Link
                         href="/live-stream"
                         className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
@@ -703,6 +723,14 @@ export function AppShell({
               router.push('/new/story');
             }}
           />
+          <ActionSheetItem
+            label="Play Tic-Tac-Toe"
+            icon={Gamepad2}
+            onClick={() => {
+              setMobileCreateOpen(false);
+              router.push('/games');
+            }}
+          />
         </ActionSheetGroup>
       </ActionSheet>
 
@@ -710,6 +738,14 @@ export function AppShell({
       <ActionSheet open={mobileHeaderMenuOpen} onClose={() => setMobileHeaderMenuOpen(false)}>
         <div className="space-y-4">
           <ActionSheetGroup>
+            <ActionSheetItem
+              label="Games (Tic-Tac-Toe)"
+              icon={Gamepad2}
+              onClick={() => {
+                setMobileHeaderMenuOpen(false);
+                router.push('/games');
+              }}
+            />
             {features?.marketplace !== false && (
               <ActionSheetItem
                 label={dict.nav.marketplace}

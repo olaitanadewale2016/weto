@@ -998,6 +998,16 @@ export default function UserProfilePage() {
       <ActionSheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} muted>
         <div className="space-y-4">
           <ActionSheetGroup>
+            {!profile.viewerContext.isSelf && (
+              <ActionSheetItem
+                icon={Gamepad2}
+                label={`Challenge @${profile.username} to Tic-Tac-Toe`}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push(`/games?challenge=${encodeURIComponent(profile.username)}`);
+                }}
+              />
+            )}
             <ActionSheetItem
               icon={AtSign}
               label={`Mention @${profile.username}`}
