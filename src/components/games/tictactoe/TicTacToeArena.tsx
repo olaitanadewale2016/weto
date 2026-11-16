@@ -8,10 +8,7 @@ import {
   Check,
   Copy,
   ExternalLink,
-  Home,
   Loader2,
-  Maximize2,
-  Minimize2,
   RefreshCw,
   Users,
   Volume2,
@@ -463,10 +460,11 @@ export function TicTacToeArena() {
   const inviteKeyParam = searchParams.get('invite');
   const challengeUserParam = searchParams.get('challenge');
 
-  const { user } = useApp();
+  const { user, bootstrap } = useApp();
   const { success, error, info } = useToast();
-  const arenaRootRef = useRef<HTMLDivElement | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const appLogoSrc = bootstrap?.config?.logos?.dark || '/assets/logos/dark.png';
+  const appName = bootstrap?.config?.appName || 'Weto';
 
   // Navigation & catalog state
   const [view, setView] = useState<ScreenView>('home');
@@ -492,32 +490,7 @@ export function TicTacToeArena() {
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeReloadKey, setIframeReloadKey] = useState(0);
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const onFsChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-    document.addEventListener('fullscreenchange', onFsChange);
-    return () => document.removeEventListener('fullscreenchange', onFsChange);
-  }, []);
-
-  const toggleFullscreen = useCallback(async () => {
-    if (typeof document === 'undefined') return;
-    try {
-      if (!document.fullscreenElement && arenaRootRef.current?.requestFullscreen) {
-        await arenaRootRef.current.requestFullscreen();
-      } else if (document.fullscreenElement && document.exitFullscreen) {
-        await document.exitFullscreen();
-      }
-    } catch {
-      // ignore if browser blocks fullscreen
-    }
-  }, []);
-
   const handleExitToApp = useCallback(() => {
-    if (typeof document !== 'undefined' && document.fullscreenElement) {
-      document.exitFullscreen().catch(() => undefined);
-    }
     router.push('/');
   }, [router]);
 
@@ -1429,133 +1402,47 @@ export function TicTacToeArena() {
     : 'Guest Player';
   const myAvatarUrl = user?.avatar || '/assets/games/tictactoe/png/guest.png';
 
-  const handleBackFromSubView = () => {
-    if (activeIframeGame) {
-      setActiveIframeGame(null);
-      return;
-    }
-    if (view === 'connection' && onlineMatch) {
-      void apiFetch('/games/tictactoe', {
-        method: 'POST',
-        json: { action: 'close_waiting', gameKey: onlineMatch.gameKey },
-      })
-        .then((res: unknown) => {
-          const r = res as { coins?: number };
-          if (typeof r?.coins === 'number') {
-            setProfile((p) => ({ ...p, coins: r.coins! }));
-          }
-        })
-        .catch(() => undefined);
-      setOnlineMatch(null);
-    } else if (view === 'maze' && gameMode === 'multiplayer' && onlineMatch?.status === 'inProgress') {
-      void apiFetch('/games/tictactoe', {
-        method: 'POST',
-        json: { action: 'forfeit', gameKey: onlineMatch.gameKey },
-      }).catch(() => undefined);
-    }
-    setView('home');
-  };
-
-  const viewTitleMap: Record<ScreenView, string> = {
-    home: 'Tic-Tac-Toe Arena',
-    connection: 'Matchmaking',
-    maze: 'Live Match',
-    leaderboard: 'Leaderboard',
-    skins: 'Skins',
-    shop: 'Coin Shop',
-    history: 'Match History',
-    settings: 'Game Profile',
-    howToPlay: 'How To Play ?',
-    moreGames: 'Play More Games',
-  };
-
   return (
     <div
-      ref={arenaRootRef}
-      className="min-h-dvh w-full text-white flex flex-col select-none relative overflow-x-hidden pb-safe"
+      className="min-h-dvh w-full text-white flex flex-col select-none relative overflow-x-hidden pt-safe pb-safe"
       style={{
         background: 'linear-gradient(180deg, #262C30 0%, #161719 100%)',
       }}
     >
-      {/* Full-Game Mode Top Navigation Bar — Seamless UX to switch between Game Hub and Social App */}
-      <div className="sticky top-0 z-30 pt-safe bg-[#161719]/90 backdrop-blur-md border-b border-[#5A5A5A]/45">
-        <div className="max-w-[560px] mx-auto h-12 px-3.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {view === 'home' && !activeIframeGame ? (
-              <button
-                type="button"
-                onClick={handleExitToApp}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] text-xs font-bold text-white transition-colors cursor-pointer shrink-0"
-                title="Return to Social Feed"
-              >
-                <ArrowLeft className="size-3.5 text-[#F0842A]" />
-                <span>Back to App</span>
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleBackFromSubView}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] text-xs font-bold text-white transition-colors cursor-pointer shrink-0"
-                >
-                  <ArrowLeft className="size-3.5 text-[#00A0FF]" />
-                  <span>{activeIframeGame ? 'More Games' : 'Game Hub'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExitToApp}
-                  className="inline-flex items-center gap-1 h-8 px-2.5 rounded-full bg-[#242424]/70 hover:bg-[#242424] border border-[#5A5A5A]/70 text-xs font-semibold text-white/80 hover:text-white transition-colors cursor-pointer shrink-0"
-                  title="Exit to Social App"
-                >
-                  <Home className="size-3.5 text-[#F0842A]" />
-                  <span className="hidden sm:inline">Exit to App</span>
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5 min-w-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/assets/games/tictactoe/svg/dora.svg"
-              alt=""
-              className="size-5 object-contain shrink-0"
-            />
-            <span className="text-xs sm:text-sm font-extrabold tracking-wide text-white truncate">
-              {activeIframeGame ? activeIframeGame.name : viewTitleMap[view]}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={toggleSound}
-              className="size-8 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] flex items-center justify-center text-white transition-colors cursor-pointer"
-              title={soundOn ? 'Mute game sound' : 'Unmute game sound'}
-            >
-              {soundOn ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5 text-white/60" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => void toggleFullscreen()}
-              className="size-8 rounded-full bg-[#242424] hover:bg-[#2f353a] border border-[#5A5A5A] flex items-center justify-center text-white transition-colors cursor-pointer"
-              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen game mode'}
-            >
-              {isFullscreen ? (
-                <Minimize2 className="size-3.5 text-[#F0842A]" />
-              ) : (
-                <Maximize2 className="size-3.5 text-[#00A0FF]" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
       {/* =====================================================================
        * 1. HOME SCREEN (`home_screen.dart` + `home_top_bar.dart`)
        * ===================================================================== */}
       {view === 'home' && (
-        <div className="w-full max-w-[560px] mx-auto px-4 pt-4 pb-8 flex-1 flex flex-col">
-          {/* HomeTopBar */}
+        <div className="w-full max-w-[560px] mx-auto px-4 pt-3 pb-8 flex-1 flex flex-col">
+          {/* App Brand & Back Row */}
+          <div className="flex items-center justify-between mb-3.5">
+            <button
+              type="button"
+              onClick={handleExitToApp}
+              className="inline-flex items-center gap-2 py-1 pr-3 pl-2 rounded-full bg-[#242424]/85 hover:bg-[#242424] border border-[#5A5A5A]/70 text-xs font-bold text-white/90 hover:text-white transition-colors cursor-pointer"
+              title={`Back to ${appName}`}
+            >
+              <ArrowLeft className="size-3.5 text-[#F0842A]" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={appLogoSrc}
+                alt={appName}
+                className="h-4.5 w-auto object-contain"
+              />
+            </button>
+
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#242424]/70 border border-[#5A5A5A]/50 text-[11px] font-bold text-white/75">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/games/tictactoe/svg/dora.svg"
+                alt=""
+                className="size-3.5 object-contain"
+              />
+              <span>{appName} Games</span>
+            </div>
+          </div>
+
+          {/* HomeTopBar (`home_top_bar.dart`) */}
           <div className="flex items-center justify-between gap-3 mb-6">
             {/* Profile Avatar Button */}
             <button
@@ -1620,51 +1507,6 @@ export function TicTacToeArena() {
                 />
               </span>
             </button>
-          </div>
-
-          {/* Quick Secondary Pill Bar (Skins / History / How to Play / More Games) */}
-          <div className="flex items-center justify-between gap-2 mb-5 overflow-x-auto no-scrollbar pb-1">
-            {[
-              {
-                label: 'Skins',
-                icon: '/assets/games/tictactoe/svg/skin.svg',
-                target: 'skins' as ScreenView,
-              },
-              {
-                label: 'History',
-                icon: '/assets/games/tictactoe/svg/history.svg',
-                target: 'history' as ScreenView,
-              },
-              {
-                label: 'Shop',
-                icon: '/assets/games/tictactoe/svg/shop.svg',
-                target: 'shop' as ScreenView,
-              },
-              {
-                label: 'How To Play',
-                icon: '/assets/games/tictactoe/svg/how_to_play.svg',
-                target: 'howToPlay' as ScreenView,
-              },
-              {
-                label: 'More Games',
-                icon: '/assets/games/tictactoe/svg/more_game.svg',
-                target: 'moreGames' as ScreenView,
-              },
-            ].map((nav) => (
-              <button
-                key={nav.label}
-                type="button"
-                onClick={() => {
-                  if (nav.target === 'history') void fetchHubData();
-                  setView(nav.target);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#242424]/90 border border-[#5A5A5A]/70 hover:border-[#F0842A] text-xs font-semibold text-white shrink-0 transition-colors cursor-pointer"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={nav.icon} alt="" className="size-3.5 object-contain" />
-                <span>{nav.label}</span>
-              </button>
-            ))}
           </div>
 
           {/* Three Sloped Game Mode Cards (`HomeCard`) */}
@@ -1778,7 +1620,12 @@ export function TicTacToeArena() {
             <span className="text-xs font-semibold uppercase tracking-wider text-white/60">
               Room: {onlineMatch.gameKey}
             </span>
-            <div className="size-9" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={appLogoSrc}
+              alt={appName}
+              className="h-5 w-auto object-contain opacity-90"
+            />
           </div>
 
           <div className="my-4 flex flex-col items-center">
@@ -1950,11 +1797,20 @@ export function TicTacToeArena() {
                   <span>Exit Match</span>
                 </button>
 
-                {totalRoundsCount > 1 && (
+                {totalRoundsCount > 1 ? (
                   <span className="text-sm font-extrabold text-[#F0842A]">
                     Current Round: {currentRoundNumber} / {totalRoundsCount}
                   </span>
+                ) : (
+                  <span />
                 )}
+
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={appLogoSrc}
+                  alt={appName}
+                  className="h-4.5 w-auto object-contain opacity-85"
+                />
               </div>
 
               {/* Move Status + Countdown Label */}
@@ -2030,7 +1886,7 @@ export function TicTacToeArena() {
                             'inset 0 2px 3px rgba(255,255,255,0.07), 5px 5px 10px rgba(0,0,0,0.45), 3px 3px 8px rgba(0,0,0,0.28)',
                         }}
                       >
-                        {cell.mark && (
+                        {cell.mark ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={getSkinAssetPath(
@@ -2039,6 +1895,14 @@ export function TicTacToeArena() {
                             )}
                             alt={cell.mark}
                             className="w-3/4 h-3/4 object-contain animate-in zoom-in-75 duration-150"
+                          />
+                        ) : (
+                          // Subtle app logo watermark inside empty squircle tiles
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={appLogoSrc}
+                            alt=""
+                            className="w-1/2 max-h-6 object-contain opacity-[0.07] pointer-events-none"
                           />
                         )}
                       </button>
@@ -2784,23 +2648,21 @@ export function TicTacToeArena() {
       {activeIframeGame && (
         <div className="fixed inset-0 z-50 bg-[#161719] flex flex-col pt-safe pb-safe">
           <div className="h-13 px-4 bg-[#242424] border-b border-[#5A5A5A] flex items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0">
               <button
                 type="button"
                 onClick={() => setActiveIframeGame(null)}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-[#161719] hover:bg-white/10 border border-[#5A5A5A] text-xs font-bold text-white cursor-pointer"
+                className="size-8 rounded-full bg-[#161719] hover:bg-white/10 border border-[#5A5A5A] flex items-center justify-center text-white cursor-pointer shrink-0"
+                aria-label="Back to More Games"
               >
-                <ArrowLeft className="size-3.5 text-[#00A0FF]" />
-                <span>More Games</span>
+                <ArrowLeft className="size-4" />
               </button>
-              <button
-                type="button"
-                onClick={handleExitToApp}
-                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-full bg-[#161719]/80 hover:bg-white/10 border border-[#5A5A5A]/70 text-xs font-semibold text-white/80 hover:text-white cursor-pointer"
-              >
-                <Home className="size-3.5 text-[#F0842A]" />
-                <span className="hidden sm:inline">Exit to App</span>
-              </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={appLogoSrc}
+                alt={appName}
+                className="h-4.5 w-auto object-contain hidden sm:block opacity-90"
+              />
             </div>
 
             <span className="text-sm sm:text-base font-extrabold text-white truncate">
