@@ -352,16 +352,26 @@ export function AppShell({
         </header>
       )}
 
-      {/* Desktop Fixed Left Sidebar matching ApplicationSidebar.vue (340px w-page-offset, NO right border) */}
-      {!hideDesktopSidebar && (
-        <aside className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-[260px] xl:w-[340px]">
-          {/* Left ActionBar gutter (ApplicationActionBar.vue) */}
-          <div className="hidden xl:flex pl-6 shrink-0">
-            <div className="flex w-[56px] flex-col h-full justify-end items-center pb-6" />
-          </div>
-
-          {/* Main Nav Column */}
-          <div className="flex-1 h-full shrink-0 flex flex-col pt-6 px-6 overflow-y-auto hidden-scroll">
+      {/* Centered Desktop Application Layout (Balanced Left & Right Margins) */}
+      <div
+        className={cn(
+          'w-full flex justify-center',
+          !viewportLocked && 'min-h-screen'
+        )}
+      >
+        <div
+          className={cn(
+            'w-full flex',
+            viewportLocked
+              ? 'h-full flex-col'
+              : 'max-w-[1260px] xl:max-w-[1300px] justify-center'
+          )}
+        >
+          {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
+          {!hideDesktopSidebar && (
+            <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[275px] shrink-0">
+              {/* Main Nav Column */}
+              <div className="flex-1 h-full shrink-0 flex flex-col pt-6 px-3 xl:px-5 overflow-y-auto hidden-scroll">
             {/* Logo Header — exact ApplicationSidebar.vue */}
             <div className="mb-4">
               <Link href="/" className="inline-block">
@@ -640,38 +650,39 @@ export function AppShell({
         </aside>
       )}
 
-      {/* Main Content Wrapper matching ApplicationMainLayout (ml-page-offset) */}
-      <div
-        className={cn(
-          'flex-1 min-w-0',
-          viewportLocked && 'min-h-0 flex flex-col overflow-hidden',
-          !hideDesktopSidebar && 'md:ml-[260px] xl:ml-[340px]',
-          hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6',
-          hideMobileChrome
-            ? 'pb-0'
-            : viewportLocked
-              ? 'pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0'
-              : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
-        )}
-      >
-        {fullWidth || hideRightRail ? (
-          <main
+          {/* Main Content Wrapper */}
+          <div
             className={cn(
-              viewportLocked ? 'flex-1 min-h-0 h-full overflow-hidden' : 'min-h-screen',
-              fullWidth && !hideDesktopSidebar ? 'max-w-[1280px]' : 'w-full'
+              'flex-1 min-w-0',
+              viewportLocked && 'min-h-0 flex flex-col overflow-hidden',
+              hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6',
+              hideMobileChrome
+                ? 'pb-0'
+                : viewportLocked
+                  ? 'pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0'
+                  : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
             )}
           >
-            {children}
-          </main>
-        ) : (
-          /* Exact SidedContentLayout (w-sided-content = 960px, flex gap-6, w-content = 600px border-x border-bord-tr + sticky sidebar) */
-          <div className="w-full max-w-[984px] flex gap-6">
-            <main className="w-full max-w-[600px] min-w-0 border-x border-bord-tr min-h-screen">
-              {children}
-            </main>
-            <RightRail />
+            {fullWidth || hideRightRail ? (
+              <main
+                className={cn(
+                  viewportLocked ? 'flex-1 min-h-0 h-full overflow-hidden' : 'min-h-screen',
+                  fullWidth && !hideDesktopSidebar ? 'max-w-[1280px]' : 'w-full'
+                )}
+              >
+                {children}
+              </main>
+            ) : (
+              /* Balanced SidedContentLayout centered with equal left & right margins */
+              <div className="w-full flex gap-4 xl:gap-6 justify-center lg:justify-start">
+                <main className="w-full max-w-[600px] min-w-0 border-x border-bord-tr min-h-screen shrink-0">
+                  {children}
+                </main>
+                <RightRail />
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Mobile Bottom Navigation matching mobile/components/layout/ApplicationNavbar.vue */}
