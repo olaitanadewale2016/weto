@@ -6,6 +6,7 @@ import {
   initializeAuth,
   indexedDBLocalPersistence,
   browserLocalPersistence,
+  browserPopupRedirectResolver,
   Auth,
   GoogleAuthProvider,
 } from 'firebase/auth';
@@ -52,6 +53,7 @@ export function getFirebaseClientAuth(): Auth {
     try {
       authInstance = initializeAuth(app, {
         persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+        popupRedirectResolver: browserPopupRedirectResolver,
       });
       return authInstance;
     } catch {
@@ -62,7 +64,14 @@ export function getFirebaseClientAuth(): Auth {
   return authInstance;
 }
 
+export function getGoogleAuthProvider(): GoogleAuthProvider {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
+}
+
 export const googleAuthProvider = new GoogleAuthProvider();
+export { browserPopupRedirectResolver };
 
 export async function getFirebaseClientMessaging(): Promise<Messaging | null> {
   if (typeof window === 'undefined') return null;

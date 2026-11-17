@@ -12,7 +12,9 @@ import { Eye, EyeOff } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { apiFetch } from '@/lib/api-client';
 import {
+  browserPopupRedirectResolver,
   getFirebaseClientAuth,
+  getGoogleAuthProvider,
   googleAuthProvider,
   isFirebaseClientConfigured,
 } from '@/lib/firebase/client';
@@ -97,7 +99,7 @@ export default function LoginPage() {
     redirectCheckedRef.current = true;
     try {
       const auth = getFirebaseClientAuth();
-      getRedirectResult(auth)
+      getRedirectResult(auth, browserPopupRedirectResolver)
         .then(async (cred) => {
           if (cred?.user) {
             setLoading(true);
@@ -200,9 +202,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const auth = getFirebaseClientAuth();
+      const provider = getGoogleAuthProvider();
       let cred = null;
       try {
-        cred = await signInWithPopup(auth, googleAuthProvider);
+        cred = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
       } catch (popupErr: unknown) {
         const pCode = (popupErr as { code?: string })?.code;
 
@@ -225,7 +228,7 @@ export default function LoginPage() {
         ) {
           // Store a flag so getRedirectResult knows to show errors
           try { sessionStorage.setItem('cp_google_redirect', '1'); } catch { /* ignore */ }
-          await signInWithRedirect(auth, googleAuthProvider);
+          await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
           return; // Page will redirect away; getRedirectResult handles the return
         }
         throw popupErr;
