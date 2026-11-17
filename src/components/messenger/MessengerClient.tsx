@@ -216,6 +216,8 @@ interface ChatMessage {
   deliveredTo?: string[];
   readBy?: string[];
   isDeleted?: boolean;
+  isEdited?: boolean;
+  editedAt?: string | null;
   createdAt: string;
 }
 
@@ -1760,7 +1762,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const safePinIdx = pinnedMessages.length > 0 ? Math.min(pinIndex, pinnedMessages.length - 1) : 0;
   const currentPinned = pinnedMessages[safePinIdx] || pinnedMessages[0] || null;
 
-  const renderMessageBody = (m: ChatMessage, variant: 'desktop' | 'mobile-mine' | 'mobile-other') => {
+  const renderMessageBody = (
+    m: ChatMessage,
+    variant: 'desktop' | 'mobile-mine' | 'mobile-other',
+    inlineTimestampNode?: React.ReactNode
+  ) => {
     if (m.isDeleted) {
       return <p className="text-cap-l italic text-lab-sc">Message deleted</p>;
     }
@@ -1773,11 +1779,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             ? 'Started an audio call'
             : m.content || 'Call update';
       return (
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-fill-qt border border-bord-card px-3 py-1 text-cap-s text-lab-sc">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-black/30 dark:bg-black/55 backdrop-blur-xs px-3.5 py-1 text-[12px] font-medium text-white shadow-xs">
           {m.content === 'user_initiated_video_call' ? (
-            <Video className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+            <Video className="size-3.5 text-emerald-300 shrink-0" />
           ) : (
-            <Phone className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+            <Phone className="size-3.5 text-emerald-300 shrink-0" />
           )}
           <span>{label}</span>
         </div>
@@ -1785,12 +1791,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     }
 
     const mediaUrl = m.media?.publicUrl || m.media?.url;
-    const isDesktop = variant === 'desktop';
-    const boxClass = isDesktop
-      ? 'bg-fill-qt border-bord-card text-lab-pr'
-      : variant === 'mobile-mine'
-        ? 'bg-bg-pr/70 border-bord-pr text-lab-pr'
-        : 'bg-fill-qt border-bord-card text-lab-pr';
+    const boxClass =
+      'bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.08] text-lab-pr dark:text-white';
 
     const totalPollVotes = m.poll
       ? m.poll.options.reduce((sum, opt) => sum + (opt.voterIds?.length || 0), 0)
@@ -1799,22 +1801,27 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     return (
       <>
         {m.forwardedFromId && (
-          <div className="inline-flex items-center gap-1 text-[11px] font-medium text-lab-sc">
-            <Forward className="h-3 w-3" />
-            <span>Forwarded</span>
+          <div className="flex items-center gap-1 text-[11.5px] font-medium text-brand-900 dark:text-emerald-400 mb-1 select-none">
+            <Forward className="size-3 shrink-0" />
+            <span>Forwarded message</span>
           </div>
         )}
 
         {m.type === 'sticker' && m.stickerUrl && (
-          <div className="inline-block py-0.5">
+          <div className="relative inline-block py-0.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={m.stickerUrl}
               alt="Sticker"
               loading="lazy"
               decoding="async"
-              className="h-28 w-28 object-contain"
+              className="h-32 w-32 object-contain"
             />
+            {inlineTimestampNode && (
+              <div className="absolute bottom-1 right-1 z-10 px-1.5 py-0.5 rounded-full bg-black/45 backdrop-blur-xs text-[10px] text-white font-medium inline-flex items-center gap-0.5 pointer-events-none shadow-xs">
+                {inlineTimestampNode}
+              </div>
+            )}
           </div>
         )}
 
@@ -1864,39 +1871,49 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 );
               })}
             </div>
-            <p className="text-[11px] text-lab-sc">
-              {totalPollVotes} {totalPollVotes === 1 ? 'vote' : 'votes'} · Tap an option to vote
-            </p>
+            <div className="flex items-center justify-between pt-1">
+              <p className="text-[11px] text-lab-sc">
+                {totalPollVotes} {totalPollVotes === 1 ? 'vote' : 'votes'} · Tap an option to vote
+              </p>
+              {!m.content && inlineTimestampNode}
+            </div>
           </div>
         )}
 
         {m.type === 'location' && m.location && (
-          <a
-            href={`https://www.google.com/maps?q=${encodeURIComponent(`${m.location.lat},${m.location.lng}`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              'flex items-center gap-2.5 rounded-xl px-3 py-2.5 border transition-opacity hover:opacity-90 w-full max-w-full sm:w-72',
-              boxClass
+          <div className="space-y-1">
+            <a
+              href={`https://www.google.com/maps?q=${encodeURIComponent(`${m.location.lat},${m.location.lng}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'flex items-center gap-2.5 rounded-xl px-3 py-2.5 border transition-opacity hover:opacity-90 w-full max-w-full sm:w-72',
+                boxClass
+              )}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-900/15 text-brand-900">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-cap-l font-semibold text-lab-pr truncate">Shared Location</p>
+                <p className="text-[11px] text-lab-sc truncate">
+                  {m.location.label || `${m.location.lat.toFixed(4)}, ${m.location.lng.toFixed(4)}`}
+                </p>
+              </div>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-lab-sc" />
+            </a>
+            {!m.content && inlineTimestampNode && (
+              <div className="flex justify-end pt-0.5">
+                {inlineTimestampNode}
+              </div>
             )}
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-900/15 text-brand-900">
-              <MapPin className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="text-cap-l font-semibold text-lab-pr truncate">Shared Location</p>
-              <p className="text-[11px] text-lab-sc truncate">
-                {m.location.label || `${m.location.lat.toFixed(4)}, ${m.location.lng.toFixed(4)}`}
-              </p>
-            </div>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-lab-sc" />
-          </a>
+          </div>
         )}
 
         {mediaUrl && (
           <>
             {(m.type === 'image' || m.type === 'gif') && (
-              <div className="relative inline-block max-w-full rounded-xl overflow-hidden border border-bord-card">
+              <div className="relative inline-block max-w-full rounded-xl overflow-hidden border border-black/[0.06] dark:border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setLightboxImageUrl(mediaUrl)}
@@ -1911,28 +1928,43 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     className="max-h-72 max-w-full object-cover"
                   />
                 </button>
+                {!m.content && inlineTimestampNode && (
+                  <div className="absolute bottom-1.5 right-1.5 z-10 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-xs text-[10.5px] text-white font-medium inline-flex items-center gap-1 shadow-xs pointer-events-none">
+                    {inlineTimestampNode}
+                  </div>
+                )}
                 {m.type === 'gif' && <GiphyAttribution className="absolute bottom-2 left-2 z-10" />}
               </div>
             )}
 
             {(m.type === 'video' || m.type === 'video_circle') && (
-              <video
-                src={mediaUrl}
-                controls
-                playsInline
-                className="rounded-xl max-h-72 max-w-full bg-black border border-bord-card"
-              />
+              <div className="relative inline-block max-w-full rounded-xl overflow-hidden">
+                <video
+                  src={mediaUrl}
+                  controls
+                  playsInline
+                  className="rounded-xl max-h-72 max-w-full bg-black border border-bord-card"
+                />
+                {!m.content && inlineTimestampNode && (
+                  <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-[10.5px] text-white font-medium inline-flex items-center gap-1 shadow-xs pointer-events-none">
+                    {inlineTimestampNode}
+                  </div>
+                )}
+              </div>
             )}
 
             {m.type === 'audio' && (
               <div className="space-y-1 w-[210px] sm:w-[260px] max-w-full">
                 <audio src={mediaUrl} controls className="w-full h-9 max-w-full" />
-                {m.media?.durationSeconds ? (
-                  <p className="text-[11px] text-lab-sc">
-                    Voice note · {Math.floor(m.media.durationSeconds / 60)}:
-                    {String(Math.floor(m.media.durationSeconds % 60)).padStart(2, '0')}
-                  </p>
-                ) : null}
+                <div className="flex items-center justify-between text-cap-s text-lab-sc">
+                  {m.media?.durationSeconds ? (
+                    <p className="text-[11px] text-lab-sc">
+                      Voice note · {Math.floor(m.media.durationSeconds / 60)}:
+                      {String(Math.floor(m.media.durationSeconds % 60)).padStart(2, '0')}
+                    </p>
+                  ) : <span />}
+                  {!m.content && inlineTimestampNode}
+                </div>
               </div>
             )}
 
@@ -1941,38 +1973,46 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               m.type !== 'video' &&
               m.type !== 'video_circle' &&
               m.type !== 'audio' && (
-                <a
-                  href={mediaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={m.media?.filename}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2 border text-cap-l transition-opacity hover:opacity-90 w-full max-w-full md:max-w-sm min-w-0 overflow-hidden',
-                    boxClass
+                <div className="space-y-1">
+                  <a
+                    href={mediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={m.media?.filename}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-xl px-3 py-2 border text-cap-l transition-opacity hover:opacity-90 w-full max-w-full md:max-w-sm min-w-0 overflow-hidden',
+                      boxClass
+                    )}
+                  >
+                    <FileDown className="h-4 w-4 shrink-0 text-lab-sc" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold truncate">{m.media?.filename || 'Download attachment'}</p>
+                      {m.media?.sizeBytes ? (
+                        <p className="text-[10px] text-lab-sc">{(m.media.sizeBytes / 1024).toFixed(1)} KB</p>
+                      ) : null}
+                    </div>
+                  </a>
+                  {!m.content && inlineTimestampNode && (
+                    <div className="flex justify-end pt-0.5">
+                      {inlineTimestampNode}
+                    </div>
                   )}
-                >
-                  <FileDown className="h-4 w-4 shrink-0 text-lab-sc" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold truncate">{m.media?.filename || 'Download attachment'}</p>
-                    {m.media?.sizeBytes ? (
-                      <p className="text-[10px] text-lab-sc">{(m.media.sizeBytes / 1024).toFixed(1)} KB</p>
-                    ) : null}
-                  </div>
-                </a>
+                </div>
               )}
           </>
         )}
 
         {m.content && (
           <div className="space-y-1 min-w-0 max-w-full">
-            <p className="text-par-m text-lab-pr whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
-              {msgTranslations[m.id] || m.content}
-            </p>
+            <div className="text-[14.5px] leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              <span>{msgTranslations[m.id] || m.content}</span>
+              {inlineTimestampNode}
+            </div>
             {msgTranslations[m.id] && (
               <button
                 type="button"
                 onClick={() => setMsgTranslations((prev) => ({ ...prev, [m.id]: null }))}
-                className="text-cap-l text-lab-sc underline cursor-pointer"
+                className="text-cap-s text-lab-sc underline cursor-pointer block mt-1"
               >
                 Translated · Show original
               </button>
@@ -1981,30 +2021,37 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         )}
 
         {m.linkSnapshot?.url && (
-          <a
-            href={m.linkSnapshot.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              'block rounded-xl p-2.5 border text-left transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden',
-              boxClass
+          <div className="space-y-1">
+            <a
+              href={m.linkSnapshot.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                'block rounded-xl p-2.5 border text-left transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden',
+                boxClass
+              )}
+            >
+              <div className="flex items-center justify-between gap-2 text-cap-s text-lab-sc min-w-0">
+                <span className="truncate">{m.linkSnapshot.domain || m.linkSnapshot.url}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </div>
+              {m.linkSnapshot.title && (
+                <p className="text-cap-l font-semibold text-lab-pr mt-0.5 line-clamp-1 [overflow-wrap:anywhere]">
+                  {m.linkSnapshot.title}
+                </p>
+              )}
+              {m.linkSnapshot.description && (
+                <p className="text-cap-s text-lab-sc mt-0.5 line-clamp-2 [overflow-wrap:anywhere]">
+                  {m.linkSnapshot.description}
+                </p>
+              )}
+            </a>
+            {!m.content && inlineTimestampNode && (
+              <div className="flex justify-end pt-0.5">
+                {inlineTimestampNode}
+              </div>
             )}
-          >
-            <div className="flex items-center justify-between gap-2 text-cap-s text-lab-sc min-w-0">
-              <span className="truncate">{m.linkSnapshot.domain || m.linkSnapshot.url}</span>
-              <ExternalLink className="h-3 w-3 shrink-0" />
-            </div>
-            {m.linkSnapshot.title && (
-              <p className="text-cap-l font-semibold text-lab-pr mt-0.5 line-clamp-1 [overflow-wrap:anywhere]">
-                {m.linkSnapshot.title}
-              </p>
-            )}
-            {m.linkSnapshot.description && (
-              <p className="text-cap-s text-lab-sc mt-0.5 line-clamp-2 [overflow-wrap:anywhere]">
-                {m.linkSnapshot.description}
-              </p>
-            )}
-          </a>
+          </div>
         )}
 
         {m.contextRef?.title && (() => {
@@ -2013,34 +2060,41 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               ? `/marketplace/product/${encodeURIComponent(m.contextRef.hashId || m.contextRef.id)}`
               : '/jobs';
           return (
-            <Link
-              href={refHref}
-              className={cn(
-                'flex items-center gap-2.5 rounded-xl p-2 border transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden text-left',
-                boxClass
-              )}
-            >
-              {m.contextRef.imageUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={m.contextRef.imageUrl}
-                  alt={m.contextRef.title}
-                  loading="lazy"
-                  decoding="async"
-                  className="size-11 rounded-lg object-cover shrink-0 bg-fill-qt"
-                />
-              ) : null}
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <p className="text-[11px] uppercase tracking-wide font-semibold text-lab-sc truncate">
-                  {m.contextRef.kind === 'product' ? 'Marketplace Product' : 'Job Listing'}
-                </p>
-                <p className="text-cap-l font-semibold text-lab-pr truncate">{m.contextRef.title}</p>
-                {m.contextRef.priceLabel ? (
-                  <p className="text-cap-s font-semibold text-brand-900 truncate">{m.contextRef.priceLabel}</p>
+            <div className="space-y-1">
+              <Link
+                href={refHref}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-xl p-2 border transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden text-left',
+                  boxClass
+                )}
+              >
+                {m.contextRef.imageUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={m.contextRef.imageUrl}
+                    alt={m.contextRef.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="size-11 rounded-lg object-cover shrink-0 bg-fill-qt"
+                  />
                 ) : null}
-              </div>
-              <ExternalLink className="h-3.5 w-3.5 text-lab-sc shrink-0" />
-            </Link>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-[11px] uppercase tracking-wide font-semibold text-lab-sc truncate">
+                    {m.contextRef.kind === 'product' ? 'Marketplace Product' : 'Job Listing'}
+                  </p>
+                  <p className="text-cap-l font-semibold text-lab-pr truncate">{m.contextRef.title}</p>
+                  {m.contextRef.priceLabel ? (
+                    <p className="text-cap-s font-semibold text-brand-900 truncate">{m.contextRef.priceLabel}</p>
+                  ) : null}
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-lab-sc shrink-0" />
+              </Link>
+              {!m.content && inlineTimestampNode && (
+                <div className="flex justify-end pt-0.5">
+                  {inlineTimestampNode}
+                </div>
+              )}
+            </div>
           );
         })()}
       </>
@@ -2974,16 +3028,16 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </div>
                 )}
 
-                {/* Messages Timeline (Clean Grupo Pro message bubbles + Homepage typography) */}
+                {/* Messages Timeline (Authentic Telegram Chat UI + Homepage typography) */}
                 <div
                   className={cn(
-                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe sm:px-5 space-y-1.5 bg-fill-fv/35',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3 px-2.5 px-safe sm:px-4 space-y-0.5 bg-[#f0f2f5] dark:bg-[#0e1621]',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
                   {!loadingThread && !threadSearchQ && (
-                    <div className="border-b border-bord-card px-4 py-6 mb-3 text-center">
-                      <div className="flex justify-center mb-3">
+                    <div className="border-b border-bord-card/60 px-4 py-5 mb-2 text-center">
+                      <div className="flex justify-center mb-2.5">
                         <Avatar src={activeAvatar} alt={activeTitle} size="lg" />
                       </div>
                       <div className="flex items-center justify-center gap-1">
@@ -3005,10 +3059,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               : ''}
                           </p>
                           {interlocutor?.username && (
-                            <div className="mt-3">
+                            <div className="mt-2.5">
                               <Link
                                 href={`/@${interlocutor.username}`}
-                                className="inline-flex items-center rounded-full border border-bord-pr px-4 py-1.5 text-cap-l font-medium text-lab-pr hover:bg-fill-fv transition-colors"
+                                className="inline-flex items-center rounded-full border border-bord-pr px-3.5 py-1 text-cap-l font-medium text-lab-pr hover:bg-fill-fv transition-colors"
                               >
                                 View profile
                               </Link>
@@ -3020,11 +3074,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   )}
 
                   {loadingThread && messages.length === 0 && (
-                    <div className="space-y-4 animate-pulse py-2 px-2 sm:px-4">
-                      <div className="h-10 w-52 rounded-2xl bg-fill-fv" />
-                      <div className="h-12 w-64 rounded-2xl bg-fill-fv ml-auto" />
-                      <div className="h-9 w-44 rounded-2xl bg-fill-fv" />
-                      <div className="h-14 w-60 rounded-2xl bg-fill-fv ml-auto" />
+                    <div className="space-y-3 animate-pulse py-2 px-2 sm:px-4">
+                      <div className="h-10 w-52 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08]" />
+                      <div className="h-12 w-64 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08] ml-auto" />
+                      <div className="h-9 w-44 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08]" />
+                      <div className="h-14 w-60 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08] ml-auto" />
                     </div>
                   )}
 
@@ -3044,44 +3098,71 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     const timeDiffMs = prevMsg
                       ? new Date(m.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()
                       : Number.POSITIVE_INFINITY;
-                    const isCompacted =
-                      !showDateDivider &&
-                      Boolean(prevMsg) &&
-                      !prevMsg?.isDeleted &&
-                      prevMsg?.type !== 'system' &&
-                      m.type !== 'system' &&
-                      prevSenderId === currSenderId &&
-                      timeDiffMs >= 0 &&
-                      timeDiffMs < 180_000;
+
+                    const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
+                    const isNextDateDivider = !nextMsg || getDateKey(nextMsg.createdAt) !== getDateKey(m.createdAt);
+                    const nextSenderId = nextMsg ? String(nextMsg.sender?._id || nextMsg.senderId) : '';
+                    const nextTimeDiffMs = nextMsg
+                      ? new Date(nextMsg.createdAt).getTime() - new Date(m.createdAt).getTime()
+                      : Number.POSITIVE_INFINITY;
+
+                    const isFirstInCluster =
+                      !prevMsg ||
+                      showDateDivider ||
+                      prevMsg.type === 'system' ||
+                      prevSenderId !== currSenderId ||
+                      timeDiffMs > 300_000;
+
+                    const isLastInCluster =
+                      !nextMsg ||
+                      isNextDateDivider ||
+                      nextMsg.type === 'system' ||
+                      nextSenderId !== currSenderId ||
+                      nextTimeDiffMs > 300_000;
+
                     const senderName =
                       `${m.sender?.firstName || ''} ${m.sender?.lastName || ''}`.trim() ||
                       (m.sender?.username ? `@${m.sender.username}` : 'User');
                     const isStickerOnly = m.type === 'sticker' && !m.content && !m.parentId && !m.isDeleted;
+                    const isGroupChat = activeChat.type === 'group';
 
                     if (m.type === 'system') {
                       return (
                         <React.Fragment key={m.id}>
                           <span id={`msg-${m.id}`} className="sr-only" />
                           {showDateDivider && (
-                            <div className="flex justify-center py-2.5">
-                              <span className="px-3.5 py-1 rounded-full bg-fill-sc text-par-s text-lab-sc font-medium">
+                            <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
+                              <span className="px-3.5 py-0.5 rounded-full bg-black/40 dark:bg-black/60 backdrop-blur-md text-[11.5px] font-medium text-white shadow-xs select-none">
                                 {formatDateDivider(m.createdAt, locale)}
                               </span>
                             </div>
                           )}
-                          <div className="flex justify-center py-1">
+                          <div className="flex justify-center py-1 select-none">
                             {renderMessageBody(m, 'desktop')}
                           </div>
                         </React.Fragment>
                       );
                     }
 
+                    const inlineTimestampNode = (
+                      <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[11px] select-none text-lab-sc/80 dark:text-white/60 tabular-nums">
+                        {m.isEdited && <span className="text-[10px] italic mr-0.5">edited</span>}
+                        <span>{formatMessageTime(m.createdAt, locale)}</span>
+                        {mine &&
+                          (readByOther ? (
+                            <CheckCheck className="h-3.5 w-3.5 text-brand-900 dark:text-emerald-400 shrink-0 ml-0.5" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5 text-lab-sc/70 dark:text-white/50 shrink-0 ml-0.5" />
+                          ))}
+                      </span>
+                    );
+
                     return (
                       <React.Fragment key={m.id}>
                         <span id={`msg-${m.id}`} className="sr-only" />
                         {showDateDivider && (
-                          <div className="flex justify-center py-2.5">
-                            <span className="px-3.5 py-1 rounded-full bg-fill-sc text-par-s text-lab-sc font-medium">
+                          <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
+                            <span className="px-3.5 py-0.5 rounded-full bg-black/40 dark:bg-black/60 backdrop-blur-md text-[11.5px] font-medium text-white shadow-xs select-none">
                               {formatDateDivider(m.createdAt, locale)}
                             </span>
                           </div>
@@ -3094,73 +3175,81 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             messageInputRef.current?.focus();
                           }}
                           className={cn(
-                            'flex items-start gap-2.5 group relative w-full min-w-0',
+                            'flex items-end gap-1.5 group relative w-full min-w-0',
                             mine ? 'justify-end' : 'justify-start',
-                            isCompacted ? 'pt-0.5' : 'pt-2.5'
+                            isFirstInCluster ? 'pt-2' : 'pt-0.5'
                           )}
                         >
-                          {!mine &&
-                            (isCompacted ? (
-                              <div className="w-9 shrink-0" />
-                            ) : (
-                              <div className="shrink-0 mt-0.5">
-                                <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="sm" />
-                              </div>
-                            ))}
+                          {/* Telegram Group Avatar (at bottom of cluster, incoming only) */}
+                          {!mine && isGroupChat && (
+                            <div className="w-7 shrink-0 flex flex-col justify-end self-end mb-0.5">
+                              {isLastInCluster ? (
+                                <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="xs" />
+                              ) : (
+                                <div className="w-6 h-6" />
+                              )}
+                            </div>
+                          )}
 
                           <div
                             className={cn(
-                              'min-w-0 max-w-[82%] sm:max-w-[70%] lg:max-w-[62%] flex flex-col',
+                              'min-w-0 max-w-[85%] sm:max-w-[74%] lg:max-w-[66%] flex flex-col',
                               mine ? 'items-end' : 'items-start'
                             )}
                           >
-                            {!isCompacted && (
+                            <div
+                              className={cn(
+                                'flex items-center gap-1.5 max-w-full min-w-0',
+                                mine && 'flex-row-reverse'
+                              )}
+                            >
                               <div
                                 className={cn(
-                                  'flex items-center gap-1.5 mb-1 px-0.5',
-                                  mine && 'flex-row-reverse'
-                                )}
-                              >
-                                <span className="text-par-s font-semibold text-lab-pr truncate">
-                                  {mine ? 'You' : senderName}
-                                </span>
-                                <span className="text-cap-s text-lab-tr shrink-0 tabular-nums">
-                                  {formatMessageTime(m.createdAt, locale)}
-                                </span>
-                                {mine &&
-                                  (readByOther ? (
-                                    <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />
-                                  ) : (
-                                    <Check className="h-3.5 w-3.5 text-lab-tr shrink-0" />
-                                  ))}
-                              </div>
-                            )}
-
-                            <div className={cn('flex items-center gap-1.5 max-w-full min-w-0', mine && 'flex-row-reverse')}>
-                              <div
-                                className={cn(
-                                  'min-w-0 max-w-full overflow-hidden space-y-1.5',
+                                  'min-w-0 max-w-full overflow-hidden space-y-1',
                                   isStickerOnly
-                                    ? 'bg-transparent p-0'
+                                    ? 'bg-transparent border-0 shadow-none p-0'
                                     : cn(
-                                        'rounded-xl px-3.5 py-2 border shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+                                        'rounded-2xl px-3.5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.06)]',
                                         mine
-                                          ? 'bg-fill-qt border-bord-pr/80 text-lab-pr rounded-tr-xs'
-                                          : 'bg-bg-pr border-bord-card text-lab-pr rounded-tl-xs'
+                                          ? cn(
+                                              'bg-[#eef8f0] dark:bg-[#1f382a] border border-[#d2edd9] dark:border-[#274c39] text-lab-pr dark:text-[#f0faf4]',
+                                              isLastInCluster ? 'rounded-br-[4px]' : 'rounded-br-2xl'
+                                            )
+                                          : cn(
+                                              'bg-white dark:bg-[#212121] border border-black/[0.06] dark:border-white/[0.08] text-lab-pr dark:text-white',
+                                              isLastInCluster ? 'rounded-bl-[4px]' : 'rounded-bl-2xl'
+                                            )
                                       )
                                 )}
                               >
-                                {m.parentId && !m.isDeleted && (
-                                  <div className="max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-2 border-brand-900 bg-fill-fv/80 text-par-s text-lab-sc text-left">
-                                    <p className="text-cap-l font-semibold text-lab-pr truncate">
-                                      {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
-                                    </p>
-                                    <p className="truncate">{getMessagePreviewLabel(m.parentId)}</p>
+                                {/* Telegram Group Sender Name inside bubble */}
+                                {!mine && isGroupChat && isFirstInCluster && (
+                                  <div className="font-semibold text-[13px] text-brand-900 dark:text-emerald-400 hover:underline mb-1 truncate cursor-pointer select-none">
+                                    {senderName}
                                   </div>
                                 )}
 
-                                <div className="space-y-1.5 text-left">
-                                  {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
+                                {/* Telegram Quote Reply Block */}
+                                {m.parentId && !m.isDeleted && (
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const el = document.getElementById(`msg-${m.parentId?.id}`);
+                                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }}
+                                    className="max-w-full min-w-0 overflow-hidden rounded-md px-2.5 py-1 mb-1.5 border-l-[3px] border-brand-900 dark:border-emerald-400 bg-black/[0.04] dark:bg-white/[0.06] text-left cursor-pointer hover:bg-black/[0.07] dark:hover:bg-white/[0.1] transition-colors"
+                                  >
+                                    <p className="text-[12px] font-semibold text-brand-900 dark:text-emerald-400 truncate">
+                                      {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
+                                    </p>
+                                    <p className="text-[12.5px] text-lab-sc dark:text-white/70 truncate">
+                                      {getMessagePreviewLabel(m.parentId)}
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div className="space-y-1 text-left">
+                                  {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other', inlineTimestampNode)}
                                 </div>
                               </div>
 
@@ -3168,7 +3257,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 <button
                                   type="button"
                                   onClick={() => setMobileActionMsg(m)}
-                                  className="shrink-0 size-7 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+                                  className="shrink-0 size-7 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer self-center"
                                   title="Message options"
                                   aria-label="Message actions"
                                 >
@@ -3178,16 +3267,23 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             </div>
 
                             {m.reactionSummary && m.reactionSummary.length > 0 && (
-                              <div className={cn('flex flex-wrap gap-1 pt-1', mine ? 'justify-end' : 'justify-start')}>
+                              <div
+                                className={cn(
+                                  'flex flex-wrap gap-1 pt-1',
+                                  mine ? 'justify-end' : 'justify-start'
+                                )}
+                              >
                                 {m.reactionSummary.map((rs) => (
                                   <button
                                     key={rs.unifiedId}
                                     type="button"
                                     onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
+                                    className="inline-flex items-center gap-1 rounded-full bg-white dark:bg-[#212121] border border-black/[0.08] dark:border-white/[0.1] px-2 py-0.5 text-cap-s text-lab-pr dark:text-white hover:bg-fill-sc cursor-pointer shadow-xs"
                                   >
                                     <span>{rs.nativeSymbol}</span>
-                                    <span className="font-semibold text-lab-sc">{rs.count}</span>
+                                    <span className="font-semibold text-lab-sc dark:text-white/70 text-[11px]">
+                                      {rs.count}
+                                    </span>
                                   </button>
                                 ))}
                               </div>
@@ -3200,12 +3296,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                   {typingUsers.length > 0 && (
                     <div className="flex items-end gap-2 justify-start px-1 py-1">
-                      <Avatar
-                        src={typingUsers[0]?.avatar || activeAvatar}
-                        alt={typingUsers[0]?.username || 'Typing'}
-                        size="xs"
-                      />
-                      <div className="rounded-xl rounded-tl-xs bg-bg-pr border border-bord-card px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
+                      <div className="rounded-2xl rounded-bl-[4px] bg-white dark:bg-[#212121] border border-black/[0.06] dark:border-white/[0.08] px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.3s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.15s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce" />
@@ -3218,11 +3309,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                 {(!callMode || showChatInCall) && (
                   <>
-                    {/* Reply Preview Banner */}
+                    {/* Reply Preview Banner (Telegram style) */}
                     {replyTo && (
-                      <div className="px-4 py-2 border-t border-bord-pr bg-fill-qt flex items-center justify-between gap-3">
-                        <div className="min-w-0 border-l-2 border-brand-900 pl-2.5">
-                          <p className="text-cap-s font-bold text-brand-900 truncate">
+                      <div className="px-4 py-2 border-t border-bord-pr bg-bg-pr flex items-center justify-between gap-3 shadow-xs">
+                        <div className="min-w-0 border-l-[3px] border-brand-900 dark:border-emerald-400 pl-2.5">
+                          <p className="text-cap-s font-bold text-brand-900 dark:text-emerald-400 truncate">
                             Replying to {replyTo.sender?.firstName || replyTo.sender?.username || 'Message'}
                           </p>
                           <p className="text-cap-l text-lab-sc truncate">{getMessagePreviewLabel(replyTo)}</p>
@@ -3230,7 +3321,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         <button
                           type="button"
                           onClick={() => setReplyTo(null)}
-                          className="p-1 rounded-full text-lab-sc hover:bg-fill-sc cursor-pointer shrink-0"
+                          className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
                           aria-label="Cancel reply"
                         >
                           <X className="h-4 w-4" />
@@ -3345,9 +3436,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             ))}
                           </div>
                         )}
-                        {/* Grupo-Style Minimal Plus (+) Action Menu */}
+                        {/* Telegram-style Attachment Menu Popover */}
                         {attachMenuOpen && (
-                          <div className="absolute bottom-full left-3 mb-2 z-30 w-52 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5">
+                          <div className="absolute bottom-full left-3 mb-2 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5">
                             <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
                               <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
                               <span>Photo or Video</span>
@@ -3449,67 +3540,73 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                           </div>
                         )}
 
+                        {/* Telegram-style Composer Form */}
                         <form
                           onSubmit={handleSendText}
-                          className="flex items-center gap-1.5 min-w-0 max-w-full rounded-full border border-bord-pr bg-fill-qt/80 md:bg-bg-pr px-2 py-1"
+                          className="flex items-center gap-2 min-w-0 max-w-full"
                         >
+                          {/* Telegram Attachment button (Paperclip on far left) */}
                           <button
                             type="button"
                             disabled={uploadingMedia}
                             onClick={() => setAttachMenuOpen((v) => !v)}
                             className={cn(
-                              'size-8 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
+                              'size-9 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
                               attachMenuOpen
                                 ? 'bg-brand-900 text-white rotate-45'
-                                : 'bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc'
-                            )}
-                            title="Attach or insert"
-                            aria-label="More message actions"
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          </button>
-
-                          <input
-                            ref={messageInputRef}
-                            type="text"
-                            value={msgText}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setMsgText(val);
-                              emitTypingChange(val.length > 0);
-                            }}
-                            placeholder="Write a message..."
-                            className="flex-1 min-w-[80px] bg-transparent border-0 px-2 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
-                          />
-
-                          <button
-                            type="button"
-                            disabled={uploadingMedia}
-                            onClick={() => {
-                              setAttachMenuOpen(false);
-                              setShowGifPicker(false);
-                              setShowStickerPicker((v) => !v);
-                            }}
-                            className={cn(
-                              'size-8 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0',
-                              showStickerPicker
-                                ? 'text-brand-900 bg-brand-900/10'
                                 : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
                             )}
-                            title="Emoji & Stickers"
-                            aria-label="Emoji and stickers"
+                            title="Attach file or media"
+                            aria-label="Attach file or media"
                           >
-                            <Smile className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                            <Paperclip className="h-5 w-5" strokeWidth={1.8} />
                           </button>
 
+                          {/* Telegram Rounded Input Pill with Smile/Sticker Button inside */}
+                          <div className="flex-1 min-w-0 flex items-center bg-fill-qt dark:bg-fill-sc/60 border border-transparent focus-within:border-brand-900/40 focus-within:bg-bg-pr rounded-full px-3.5 py-1 transition-all">
+                            <input
+                              ref={messageInputRef}
+                              type="text"
+                              value={msgText}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setMsgText(val);
+                                emitTypingChange(val.length > 0);
+                              }}
+                              placeholder="Write a message..."
+                              className="flex-1 min-w-[80px] bg-transparent border-0 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
+                            />
+
+                            <button
+                              type="button"
+                              disabled={uploadingMedia}
+                              onClick={() => {
+                                setAttachMenuOpen(false);
+                                setShowGifPicker(false);
+                                setShowStickerPicker((v) => !v);
+                              }}
+                              className={cn(
+                                'size-8 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 ml-1',
+                                showStickerPicker
+                                  ? 'text-brand-900 bg-brand-900/10'
+                                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                              )}
+                              title="Emoji & Stickers"
+                              aria-label="Emoji and stickers"
+                            >
+                              <Smile className="h-5 w-5" strokeWidth={1.8} />
+                            </button>
+                          </div>
+
+                          {/* Telegram Circular Action Button: Send Paperplane or Voice Note Mic */}
                           {msgText.trim() ? (
                             <button
                               type="submit"
                               disabled={sending || uploadingMedia}
                               aria-label="Send message"
-                              className="size-8 rounded-full bg-brand-900 text-white hover:opacity-90 inline-flex items-center justify-center transition-opacity shrink-0 cursor-pointer disabled:opacity-50"
+                              className="size-10 rounded-full bg-brand-900 text-white hover:opacity-90 inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 shadow-xs"
                             >
-                              <Send className="h-4 w-4" strokeWidth={2} />
+                              <Send className="h-4 w-4 ml-0.5" strokeWidth={2.2} />
                             </button>
                           ) : (
                             <button
@@ -3518,9 +3615,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               onClick={startVoiceRecording}
                               title="Record voice note"
                               aria-label="Record voice note"
-                              className="size-8 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv inline-flex items-center justify-center transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                              className="size-10 rounded-full bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc dark:bg-fill-sc/60 dark:hover:bg-fill-sc inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50"
                             >
-                              <Mic className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                              <Mic className="h-5 w-5" strokeWidth={1.8} />
                             </button>
                           )}
                         </form>
