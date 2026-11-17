@@ -160,9 +160,11 @@ function ParticipantMediaTile({
   return (
     <div
       className={cn(
-        'relative rounded-2xl overflow-hidden bg-zinc-900 border transition-all flex items-center justify-center group',
-        isSpeaking ? 'border-green-500 ring-2 ring-green-500/40' : 'border-white/10',
-        isPinned ? 'w-full h-full min-h-[260px]' : 'aspect-video min-h-[160px]'
+        'relative rounded-xl overflow-hidden bg-[#1e1d1d] border transition-all flex items-center justify-center group',
+        isSpeaking
+          ? 'border-2 border-[#26C6DA] shadow-[0_0_14px_rgba(38,198,218,0.4)]'
+          : 'border-white/10',
+        isPinned ? 'w-full h-full min-h-[240px]' : 'aspect-video min-h-[150px]'
       )}
     >
       {audioOnly && !isLocal && <audio ref={audioRef} autoPlay playsInline className="hidden" />}
@@ -174,52 +176,35 @@ function ParticipantMediaTile({
           playsInline
           muted={isLocal}
           className={cn(
-            'w-full h-full bg-black block',
+            'w-full h-full bg-[#1e1d1d] block',
             screenSharing ? 'object-contain' : 'object-cover',
             isLocal && !screenSharing && 'scale-x-[-1]'
           )}
         />
       ) : (
-        <div className="flex flex-col items-center justify-center gap-2.5 p-4 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 p-4 text-center">
           {!audioOnly && !isLocal && <audio ref={audioRef} autoPlay playsInline className="hidden" />}
           <div
             className={cn(
               'rounded-full p-1 transition-all',
-              isSpeaking ? 'ring-4 ring-green-500/60 scale-105' : ''
+              isSpeaking ? 'ring-3 ring-[#26C6DA]/70 scale-105' : ''
             )}
           >
-            <Avatar src={avatar} alt={displayName} size="xl" />
+            <Avatar src={avatar} alt={displayName} size="lg" />
           </div>
-          <p className="text-par-s font-semibold text-white/90 truncate max-w-[180px]">
-            {displayName}
-          </p>
           {audioOnly && (
-            <span className="text-[11px] text-white/60">
-              {muted ? 'Muted' : isSpeaking ? 'Speaking...' : 'Audio connected'}
+            <span className="text-[11px] text-white/55">
+              {muted ? 'Muted' : isSpeaking ? 'Speaking' : 'Connected'}
             </span>
           )}
         </div>
       )}
 
-      {/* Bottom Name + Mute + Spotlight Badge */}
-      <div className="absolute inset-x-2.5 bottom-2.5 flex items-center justify-between gap-2 pointer-events-none">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-black/65 backdrop-blur-xs px-2.5 py-1 text-[11px] font-semibold text-white max-w-[70%] truncate">
-          {muted ? (
-            <MicOff className="size-3 text-red-400 shrink-0" />
-          ) : (
-            <Mic className={cn('size-3 shrink-0', isSpeaking ? 'text-green-400' : 'text-white/80')} />
-          )}
-          <span className="truncate">{displayName}</span>
-          {screenSharing && (
-            <span className="ml-1 rounded bg-brand-900 px-1.5 py-0.5 text-[9px] uppercase tracking-wide">
-              Screen
-            </span>
-          )}
-        </span>
-
+      {/* Grupo-style Crisp Floating Name Tag & Subtle Hover Controls */}
+      <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-2 pointer-events-none">
         <div className="flex items-center gap-1 pointer-events-auto">
           {!isLocal && typeof volume === 'number' && onVolumeChange && (
-            <div className="hidden sm:flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-white">
+            <div className="hidden sm:flex items-center gap-1 rounded-md bg-black/60 backdrop-blur-xs px-1.5 py-1 text-white opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 type="button"
                 onClick={() => onVolumeChange(volume === 0 ? 100 : 0)}
@@ -234,7 +219,7 @@ function ParticipantMediaTile({
                 max={100}
                 value={volume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="w-14 accent-white cursor-pointer"
+                className="w-12 accent-white cursor-pointer"
                 aria-label={`Volume for ${displayName}`}
               />
             </div>
@@ -245,22 +230,37 @@ function ParticipantMediaTile({
               type="button"
               onClick={() => onAdminRemoteMute(!muted)}
               title={muted ? 'Allow mic' : 'Mute participant'}
-              className="rounded-full bg-black/65 hover:bg-black/85 p-1.5 text-white cursor-pointer"
+              className="rounded-md bg-black/60 hover:bg-black/80 p-1 text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
             >
               {muted ? <Mic className="size-3.5 text-green-400" /> : <MicOff className="size-3.5 text-red-400" />}
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={onTogglePin}
-            title={isPinned ? 'Exit spotlight view' : 'Expand to spotlight'}
-            aria-label={isPinned ? 'Exit spotlight view' : 'Expand to spotlight'}
-            className="rounded-full bg-black/65 hover:bg-black/85 p-1.5 text-white cursor-pointer"
-          >
-            {isPinned ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-          </button>
         </div>
+
+        <button
+          type="button"
+          onClick={onTogglePin}
+          title={isPinned ? 'Exit spotlight view' : 'Expand to spotlight'}
+          aria-label={isPinned ? 'Exit spotlight view' : 'Expand to spotlight'}
+          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-md bg-white/95 hover:bg-white text-black px-2 py-0.5 text-[11px] font-semibold shadow-sm max-w-[70%] truncate cursor-pointer"
+        >
+          {muted ? (
+            <MicOff className="size-3 text-red-600 shrink-0" />
+          ) : (
+            <Mic className={cn('size-3 shrink-0', isSpeaking ? 'text-[#0288D1]' : 'text-zinc-700')} />
+          )}
+          <span className="truncate">{displayName}</span>
+          {screenSharing && (
+            <span className="ml-0.5 rounded bg-brand-900 text-white px-1 py-0.2 text-[9px] uppercase">
+              Screen
+            </span>
+          )}
+          {isPinned ? (
+            <Minimize2 className="size-3 shrink-0 text-zinc-600" />
+          ) : (
+            <Maximize2 className="size-3 shrink-0 text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </button>
       </div>
     </div>
   );
@@ -975,31 +975,25 @@ export function VideoCallStage({
   );
 
   return (
-    <div className="bg-zinc-950 text-white border-b border-white/10 relative flex flex-col max-h-[65vh] min-h-[260px]">
-      {/* Call Status Bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-black/50 border-b border-white/10 text-cap-l">
-        <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="font-semibold">
-            {connecting
-              ? 'Connecting call...'
-              : screenSharing
-                ? 'Screen Sharing Live'
-                : audioOnly
-                  ? 'Audio Call'
-                  : 'Video Call'}
-          </span>
-          <span className="text-white/60">· {1 + remoteList.length} in call</span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-cap-s text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
-          title="Audio & camera settings"
-        >
-          <Settings className="size-3.5" /> Devices
-        </button>
+    <div
+      className={cn(
+        'bg-black text-white relative flex flex-col overflow-hidden transition-all',
+        chatWindowVisible ? 'h-[48%] min-h-[250px] shrink-0 border-b border-white/10' : 'flex-1 min-h-0'
+      )}
+    >
+      {/* Subtle Overlaid Live Status Pill (matches Grupo clean stage feel) */}
+      <div className="pointer-events-none absolute top-3 left-3 z-20 flex items-center gap-2 rounded-full bg-black/55 backdrop-blur-xs border border-white/10 px-3 py-1 text-[11px] font-medium text-white/90">
+        <span className="size-2 rounded-full bg-[#26C6DA] animate-pulse" />
+        <span>
+          {connecting
+            ? 'Connecting...'
+            : screenSharing
+              ? 'Screen Share'
+              : audioOnly
+                ? 'Audio Call'
+                : 'Video Call'}
+        </span>
+        <span className="text-white/55">· {1 + remoteList.length}</span>
       </div>
 
       {/* Device Settings Modal/Overlay (matches Grupo .video_chat_settings_box) */}
@@ -1052,7 +1046,7 @@ export function VideoCallStage({
       )}
 
       {/* Video / Audio Grid + Optional Pinned Full View */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+      <div className="flex-1 overflow-y-auto p-3 pb-20 space-y-2.5">
         {pinnedUserId ? (
           <div className="flex flex-col gap-2.5 h-full">
             <div className="flex-1 min-h-[220px]">
@@ -1202,17 +1196,16 @@ export function VideoCallStage({
         )}
       </div>
 
-      {/* Bottom Floating Controls Dock (matches Grupo middle.php .video_chat_container > .icons) */}
-      <div className="flex flex-wrap items-center justify-center gap-2.5 px-4 py-3 bg-black/70 border-t border-white/10">
+      {/* Floating Grupo-Style Bottom Controls Dock */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-2 px-2 py-1.5 rounded-xl bg-[#161515]/85 backdrop-blur-md border border-white/10 shadow-2xl">
         <button
           type="button"
           onClick={() => void cleanupCall(true).then(() => onExit())}
           title="Leave Call"
           aria-label="Leave call"
-          className="h-10 px-4 rounded-full bg-red-900 hover:opacity-90 text-white font-semibold text-cap-l inline-flex items-center gap-1.5 cursor-pointer"
+          className="size-9 rounded-lg bg-[#d40000] hover:bg-[#b80000] text-white inline-flex items-center justify-center transition-colors cursor-pointer"
         >
           <PhoneOff className="size-4" />
-          <span className="hidden sm:inline">Leave</span>
         </button>
 
         <button
@@ -1221,10 +1214,10 @@ export function VideoCallStage({
           title={screenSharing ? 'Stop sharing screen' : 'Share your screen'}
           aria-label={screenSharing ? 'Stop sharing screen' : 'Share your screen'}
           className={cn(
-            'size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
+            'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
             screenSharing
-              ? 'bg-brand-900 text-white'
-              : 'bg-white/10 hover:bg-white/20 text-white'
+              ? 'bg-[#03A9F4] text-white'
+              : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
           )}
         >
           {screenSharing ? <MonitorOff className="size-4" /> : <Monitor className="size-4" />}
@@ -1237,8 +1230,8 @@ export function VideoCallStage({
             title={micMuted ? 'Unmute microphone' : 'Mute microphone'}
             aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
             className={cn(
-              'size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-              micMuted ? 'bg-red-900/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white'
+              'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
+              micMuted ? 'bg-red-900/90 text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
             )}
           >
             {micMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
@@ -1270,11 +1263,11 @@ export function VideoCallStage({
             }}
             title="Hold to talk (or hold Space)"
             className={cn(
-              'h-10 px-3.5 rounded-full inline-flex items-center gap-1.5 text-cap-l font-semibold transition-colors cursor-pointer select-none',
-              pttActive ? 'bg-green-900 text-white' : 'bg-white/15 text-white/90 hover:bg-white/25'
+              'h-9 px-3 rounded-lg inline-flex items-center gap-1.5 text-cap-l font-semibold transition-colors cursor-pointer select-none',
+              pttActive ? 'bg-[#03A9F4] text-white' : 'bg-white/15 text-white/90 hover:bg-white/25'
             )}
           >
-            <Radio className="size-4" /> Hold to Talk
+            <Radio className="size-4" /> Talk
           </button>
         )}
 
@@ -1292,8 +1285,8 @@ export function VideoCallStage({
             }}
             title={pushToTalkMode ? 'Switch to open mic' : 'Enable Push-to-Talk'}
             className={cn(
-              'h-10 px-3 rounded-full text-cap-s font-semibold transition-colors cursor-pointer',
-              pushToTalkMode ? 'bg-brand-900 text-white' : 'bg-white/10 hover:bg-white/20 text-white/80'
+              'h-9 px-2.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer',
+              pushToTalkMode ? 'bg-[#03A9F4] text-white' : 'bg-white/10 hover:bg-white/20 text-white/80'
             )}
           >
             PTT
@@ -1307,8 +1300,8 @@ export function VideoCallStage({
             title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
             aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'}
             className={cn(
-              'size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-              cameraOff ? 'bg-red-900/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white'
+              'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
+              cameraOff ? 'bg-red-900/90 text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
             )}
           >
             {cameraOff ? <VideoOff className="size-4" /> : <Video className="size-4" />}
@@ -1318,14 +1311,27 @@ export function VideoCallStage({
         <button
           type="button"
           onClick={onToggleChatWindow}
-          title={chatWindowVisible ? 'Hide chat below call' : 'Show chat below call'}
+          title={chatWindowVisible ? 'Hide chat' : 'Show chat alongside call'}
           aria-label="Toggle chat window"
           className={cn(
-            'size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-            chatWindowVisible ? 'bg-brand-900 text-white' : 'bg-white/10 hover:bg-white/20 text-white'
+            'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
+            chatWindowVisible ? 'bg-[#03A9F4] text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
           )}
         >
           <MessageSquare className="size-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSettingsOpen((v) => !v)}
+          title="Audio & camera settings"
+          aria-label="Call settings"
+          className={cn(
+            'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
+            settingsOpen ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
+          )}
+        >
+          <Settings className="size-4" />
         </button>
       </div>
     </div>
