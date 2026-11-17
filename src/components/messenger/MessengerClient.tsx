@@ -56,6 +56,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { VideoCallStage } from '@/components/messenger/VideoCallStage';
 import { StickerEmojiPicker } from '@/components/messenger/StickerEmojiPicker';
 import { GroupInfoPanel } from '@/components/messenger/GroupInfoPanel';
+import { DirectProfilePanel } from '@/components/messenger/DirectProfilePanel';
 import { AvatarPresetPicker } from '@/components/profile/AvatarPresetPicker';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { GiphyAttribution, GiphyPicker } from '@/components/feed/GiphyPicker';
@@ -476,6 +477,106 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const threadMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stickerMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tipDirectUserModalOpen, setTipDirectUserModalOpen] = useState(false);
+
+  // Draggable Split Pane Widths & Responsive Bounds
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState<number>(340);
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const leftDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(320);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+  const rightDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const savedLeft = localStorage.getItem('cp_messenger_sidebar_width');
+      if (savedLeft) {
+        const val = parseInt(savedLeft, 10);
+        if (!isNaN(val) && val >= 260 && val <= 560) {
+          setLeftSidebarWidth(val);
+        }
+      }
+      const savedRight = localStorage.getItem('cp_messenger_right_width');
+      if (savedRight) {
+        const val = parseInt(savedRight, 10);
+        if (!isNaN(val) && val >= 260 && val <= 520) {
+          setRightPanelWidth(val);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleLeftResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsDraggingLeft(true);
+    leftDragRef.current = {
+      startX: e.clientX,
+      startWidth: leftSidebarWidth,
+    };
+  }, [leftSidebarWidth]);
+
+  useEffect(() => {
+    if (!isDraggingLeft) return;
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!leftDragRef.current) return;
+      const delta = e.clientX - leftDragRef.current.startX;
+      const maxWidth = Math.min(560, Math.floor(window.innerWidth * 0.45));
+      const newWidth = Math.max(260, Math.min(maxWidth, leftDragRef.current.startWidth + delta));
+      setLeftSidebarWidth(newWidth);
+    };
+
+    const onPointerUp = () => {
+      setIsDraggingLeft(false);
+      leftDragRef.current = null;
+      try {
+        localStorage.setItem('cp_messenger_sidebar_width', String(leftSidebarWidth));
+      } catch {}
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [isDraggingLeft, leftSidebarWidth]);
+
+  const handleRightResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsDraggingRight(true);
+    rightDragRef.current = {
+      startX: e.clientX,
+      startWidth: rightPanelWidth,
+    };
+  }, [rightPanelWidth]);
+
+  useEffect(() => {
+    if (!isDraggingRight) return;
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!rightDragRef.current) return;
+      const delta = rightDragRef.current.startX - e.clientX;
+      const maxWidth = Math.min(500, Math.floor(window.innerWidth * 0.4));
+      const newWidth = Math.max(260, Math.min(maxWidth, rightDragRef.current.startWidth + delta));
+      setRightPanelWidth(newWidth);
+    };
+
+    const onPointerUp = () => {
+      setIsDraggingRight(false);
+      rightDragRef.current = null;
+      try {
+        localStorage.setItem('cp_messenger_right_width', String(rightPanelWidth));
+      } catch {}
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [isDraggingRight, rightPanelWidth]);
 
   const handleAttachEnter = () => {
     if (attachMenuTimeoutRef.current) {
@@ -2160,7 +2261,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   };
 
   return (
-    <div className="flex overflow-hidden bg-bg-pr w-full max-w-full h-full">
+    <div
+      className={cn(
+        'flex overflow-hidden bg-bg-pr w-full max-w-full h-full',
+        (isDraggingLeft || isDraggingRight) && 'select-none cursor-col-resize'
+      )}
+    >
       {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden in Expand mode) */}
       <aside
         className={cn(
@@ -2272,10 +2378,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </div>
       </aside>
 
-      {/* Left Conversation List (Simplified Grupo aside + Homepage typography) */}
+      {/* Left Conversation List (Simplified Grupo aside + Homepage typography, resizable) */}
       <div
+        style={{
+          '--left-sidebar-w': `${leftSidebarWidth}px`,
+        } as React.CSSProperties}
         className={cn(
-          'w-full md:w-[320px] lg:w-[350px] shrink-0 h-full min-h-0 overflow-hidden md:border-r border-bord-pr flex flex-col bg-bg-pr min-w-0',
+          'w-full md:w-[var(--left-sidebar-w,340px)] shrink-0 h-full min-h-0 overflow-hidden flex flex-col bg-bg-pr min-w-0',
           activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
@@ -2605,6 +2714,30 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </div>
       </div>
 
+      {/* Draggable Divider Handle between Left Chat List and Middle Chat View */}
+      {!middleFullScreen && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          tabIndex={0}
+          onPointerDown={handleLeftResizeStart}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft') {
+              setLeftSidebarWidth((w) => Math.max(260, w - 20));
+            } else if (e.key === 'ArrowRight') {
+              setLeftSidebarWidth((w) => Math.min(560, w + 20));
+            }
+          }}
+          className={cn(
+            'hidden md:flex relative items-center justify-center w-2 -ml-1 z-20 cursor-col-resize hover:bg-brand-900/40 active:bg-brand-900 transition-colors select-none group shrink-0 border-l border-bord-pr',
+            isDraggingLeft && 'bg-brand-900/80 border-brand-900'
+          )}
+          title="Drag to resize chat list"
+        >
+          <div className="w-0.5 h-7 rounded-full bg-lab-tr group-hover:bg-brand-900 transition-colors" />
+        </div>
+      )}
+
       {/* Right Active Thread */}
       <div
         className={cn(
@@ -2669,7 +2802,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     onClick={() =>
                       activeChat.type === 'group'
                         ? setGroupInfoOpen((prev) => !prev)
-                        : setDirectInfoOpen(true)
+                        : setDirectInfoOpen((prev) => !prev)
                     }
                     className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
                   >
@@ -2799,7 +2932,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 if (activeChat.type === 'group') {
                                   setGroupInfoOpen((prev) => !prev);
                                 } else {
-                                  setDirectInfoOpen(true);
+                                  setDirectInfoOpen((prev) => !prev);
                                 }
                               }}
                               className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
@@ -3143,97 +3276,127 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 >
                   <div className="max-w-[840px] mx-auto w-full space-y-1">
                     {!loadingThread && !threadSearchQ && (
-                    <div className="border-b border-bord-card/60 px-4 py-5 mb-2 text-center">
-                      <div className="flex justify-center mb-2.5">
-                        <Avatar src={activeAvatar} alt={activeTitle} size="lg" />
-                      </div>
-                      <div className="flex items-center justify-center gap-1">
-                        <h3 className="text-par-l font-bold text-lab-pr">{activeTitle}</h3>
-                        {activeChat.type === 'direct' && interlocutor?.verified && (
-                          <BadgeCheck className="size-4 text-brand-900 shrink-0" />
+                      <div className="border-b border-bord-card/60 px-4 py-5 mb-2 text-center">
+                        <div className="flex justify-center mb-2.5">
+                          <Avatar src={activeAvatar} alt={activeTitle} size="lg" />
+                        </div>
+                        <div className="flex items-center justify-center gap-1">
+                          <h3 className="text-par-l font-bold text-lab-pr">{activeTitle}</h3>
+                          {activeChat.type === 'direct' && interlocutor?.verified && (
+                            <BadgeCheck className="size-4 text-brand-900 shrink-0" />
+                          )}
+                        </div>
+                        {activeChat.type === 'group' ? (
+                          <p className="text-cap-l text-lab-sc mt-1">
+                            {activeChat.group?.description || `${activeChat.participants?.length || 0} participants`}
+                          </p>
+                        ) : (
+                          <>
+                            <p className="text-cap-l text-lab-sc mt-0.5">
+                              @{interlocutor?.username}
+                              {interlocutor?.lastActive
+                                ? ` · Last active ${formatRelativeTime(interlocutor.lastActive, locale)}`
+                                : ''}
+                            </p>
+                            {interlocutor?.username && (
+                              <div className="mt-2.5">
+                                <Link
+                                  href={`/@${interlocutor.username}`}
+                                  className="inline-flex items-center rounded-full border border-bord-pr px-3.5 py-1 text-cap-l font-medium text-lab-pr hover:bg-fill-fv transition-colors"
+                                >
+                                  View profile
+                                </Link>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
-                      {activeChat.type === 'group' ? (
-                        <p className="text-cap-l text-lab-sc mt-1">
-                          {activeChat.group?.description || `${activeChat.participants?.length || 0} participants`}
-                        </p>
-                      ) : (
-                        <>
-                          <p className="text-cap-l text-lab-sc mt-0.5">
-                            @{interlocutor?.username}
-                            {interlocutor?.lastActive
-                              ? ` · Last active ${formatRelativeTime(interlocutor.lastActive, locale)}`
-                              : ''}
-                          </p>
-                          {interlocutor?.username && (
-                            <div className="mt-2.5">
-                              <Link
-                                href={`/@${interlocutor.username}`}
-                                className="inline-flex items-center rounded-full border border-bord-pr px-3.5 py-1 text-cap-l font-medium text-lab-pr hover:bg-fill-fv transition-colors"
-                              >
-                                View profile
-                              </Link>
+                    )}
+
+                    {loadingThread && messages.length === 0 && (
+                      <div className="space-y-3 animate-pulse py-2 px-2 sm:px-4">
+                        <div className="h-10 w-52 rounded-2xl bg-fill-fv" />
+                        <div className="h-12 w-64 rounded-2xl bg-fill-fv ml-auto" />
+                        <div className="h-9 w-44 rounded-2xl bg-fill-fv" />
+                        <div className="h-14 w-60 rounded-2xl bg-fill-fv ml-auto" />
+                      </div>
+                    )}
+
+                    {!loadingThread && messages.length === 0 && (
+                      <p className="text-center text-par-n text-lab-sc py-12">
+                        {threadSearchQ ? 'No matching messages found.' : 'Say hello to start the conversation!'}
+                      </p>
+                    )}
+
+                    {messages.map((m, idx) => {
+                      const mine = String(m.sender?._id || m.senderId) === user.id;
+                      const readByOther = (m.readBy || []).some((id) => String(id) !== user.id);
+                      const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                      const showDateDivider = !prevMsg || getDateKey(prevMsg.createdAt) !== getDateKey(m.createdAt);
+                      const prevSenderId = prevMsg ? String(prevMsg.sender?._id || prevMsg.senderId) : '';
+                      const currSenderId = String(m.sender?._id || m.senderId);
+                      const timeDiffMs = prevMsg
+                        ? new Date(m.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()
+                        : Number.POSITIVE_INFINITY;
+
+                      const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
+                      const isNextDateDivider = !nextMsg || getDateKey(nextMsg.createdAt) !== getDateKey(m.createdAt);
+                      const nextSenderId = nextMsg ? String(nextMsg.sender?._id || nextMsg.senderId) : '';
+                      const nextTimeDiffMs = nextMsg
+                        ? new Date(nextMsg.createdAt).getTime() - new Date(m.createdAt).getTime()
+                        : Number.POSITIVE_INFINITY;
+
+                      const isFirstInCluster =
+                        !prevMsg ||
+                        showDateDivider ||
+                        prevMsg.type === 'system' ||
+                        prevSenderId !== currSenderId ||
+                        timeDiffMs > 300_000;
+
+                      const isLastInCluster =
+                        !nextMsg ||
+                        isNextDateDivider ||
+                        nextMsg.type === 'system' ||
+                        nextSenderId !== currSenderId ||
+                        nextTimeDiffMs > 300_000;
+
+                      const senderName =
+                        `${m.sender?.firstName || ''} ${m.sender?.lastName || ''}`.trim() ||
+                        (m.sender?.username ? `@${m.sender.username}` : 'User');
+                      const isStickerOnly = m.type === 'sticker' && !m.content && !m.parentId && !m.isDeleted;
+                      const isGroupChat = activeChat.type === 'group';
+
+                      if (m.type === 'system') {
+                        return (
+                          <React.Fragment key={m.id}>
+                            <span id={`msg-${m.id}`} className="sr-only" />
+                            {showDateDivider && (
+                              <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
+                                <span className="px-3.5 py-1 rounded-full bg-fill-sc border border-bord-card/60 text-par-s text-lab-sc font-medium shadow-xs select-none backdrop-blur-xs">
+                                  {formatDateDivider(m.createdAt, locale)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-center py-1 select-none">
+                              {renderMessageBody(m, 'desktop')}
                             </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
+                          </React.Fragment>
+                        );
+                      }
 
-                  {loadingThread && messages.length === 0 && (
-                    <div className="space-y-3 animate-pulse py-2 px-2 sm:px-4">
-                      <div className="h-10 w-52 rounded-2xl bg-fill-fv" />
-                      <div className="h-12 w-64 rounded-2xl bg-fill-fv ml-auto" />
-                      <div className="h-9 w-44 rounded-2xl bg-fill-fv" />
-                      <div className="h-14 w-60 rounded-2xl bg-fill-fv ml-auto" />
-                    </div>
-                  )}
+                      const inlineTimestampNode = (
+                        <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[11px] select-none text-lab-sc tabular-nums">
+                          {m.isEdited && <span className="text-[10px] italic mr-0.5">edited</span>}
+                          <span>{formatMessageTime(m.createdAt, locale)}</span>
+                          {mine &&
+                            (readByOther ? (
+                              <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0 ml-0.5" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5 text-lab-tr shrink-0 ml-0.5" />
+                            ))}
+                        </span>
+                      );
 
-                  {!loadingThread && messages.length === 0 && (
-                    <p className="text-center text-par-n text-lab-sc py-12">
-                      {threadSearchQ ? 'No matching messages found.' : 'Say hello to start the conversation!'}
-                    </p>
-                  )}
-
-                  {messages.map((m, idx) => {
-                    const mine = String(m.sender?._id || m.senderId) === user.id;
-                    const readByOther = (m.readBy || []).some((id) => String(id) !== user.id);
-                    const prevMsg = idx > 0 ? messages[idx - 1] : null;
-                    const showDateDivider = !prevMsg || getDateKey(prevMsg.createdAt) !== getDateKey(m.createdAt);
-                    const prevSenderId = prevMsg ? String(prevMsg.sender?._id || prevMsg.senderId) : '';
-                    const currSenderId = String(m.sender?._id || m.senderId);
-                    const timeDiffMs = prevMsg
-                      ? new Date(m.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()
-                      : Number.POSITIVE_INFINITY;
-
-                    const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
-                    const isNextDateDivider = !nextMsg || getDateKey(nextMsg.createdAt) !== getDateKey(m.createdAt);
-                    const nextSenderId = nextMsg ? String(nextMsg.sender?._id || nextMsg.senderId) : '';
-                    const nextTimeDiffMs = nextMsg
-                      ? new Date(nextMsg.createdAt).getTime() - new Date(m.createdAt).getTime()
-                      : Number.POSITIVE_INFINITY;
-
-                    const isFirstInCluster =
-                      !prevMsg ||
-                      showDateDivider ||
-                      prevMsg.type === 'system' ||
-                      prevSenderId !== currSenderId ||
-                      timeDiffMs > 300_000;
-
-                    const isLastInCluster =
-                      !nextMsg ||
-                      isNextDateDivider ||
-                      nextMsg.type === 'system' ||
-                      nextSenderId !== currSenderId ||
-                      nextTimeDiffMs > 300_000;
-
-                    const senderName =
-                      `${m.sender?.firstName || ''} ${m.sender?.lastName || ''}`.trim() ||
-                      (m.sender?.username ? `@${m.sender.username}` : 'User');
-                    const isStickerOnly = m.type === 'sticker' && !m.content && !m.parentId && !m.isDeleted;
-                    const isGroupChat = activeChat.type === 'group';
-
-                    if (m.type === 'system') {
                       return (
                         <React.Fragment key={m.id}>
                           <span id={`msg-${m.id}`} className="sr-only" />
@@ -3244,174 +3407,144 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               </span>
                             </div>
                           )}
-                          <div className="flex justify-center py-1 select-none">
-                            {renderMessageBody(m, 'desktop')}
-                          </div>
-                        </React.Fragment>
-                      );
-                    }
-
-                    const inlineTimestampNode = (
-                      <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[11px] select-none text-lab-sc tabular-nums">
-                        {m.isEdited && <span className="text-[10px] italic mr-0.5">edited</span>}
-                        <span>{formatMessageTime(m.createdAt, locale)}</span>
-                        {mine &&
-                          (readByOther ? (
-                            <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0 ml-0.5" />
-                          ) : (
-                            <Check className="h-3.5 w-3.5 text-lab-tr shrink-0 ml-0.5" />
-                          ))}
-                      </span>
-                    );
-
-                    return (
-                      <React.Fragment key={m.id}>
-                        <span id={`msg-${m.id}`} className="sr-only" />
-                        {showDateDivider && (
-                          <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
-                            <span className="px-3.5 py-1 rounded-full bg-fill-sc border border-bord-card/60 text-par-s text-lab-sc font-medium shadow-xs select-none backdrop-blur-xs">
-                              {formatDateDivider(m.createdAt, locale)}
-                            </span>
-                          </div>
-                        )}
-
-                        <div
-                          onDoubleClick={() => {
-                            if (m.isDeleted) return;
-                            setReplyTo(m);
-                            messageInputRef.current?.focus();
-                          }}
-                          className={cn(
-                            'flex items-end gap-2 group relative w-full min-w-0 transition-all',
-                            mine ? 'justify-end pl-12 sm:pl-24 pr-1 sm:pr-2' : 'justify-start pr-12 sm:pr-24 pl-1 sm:pr-2',
-                            isFirstInCluster ? 'mt-3 mb-1' : 'mt-1 mb-0.5'
-                          )}
-                        >
-                          {/* Telegram Group Avatar (at bottom of cluster, incoming only) */}
-                          {!mine && isGroupChat && (
-                            <div className="w-7 shrink-0 flex flex-col justify-end self-end mb-0.5">
-                              {isLastInCluster ? (
-                                <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="xs" />
-                              ) : (
-                                <div className="w-6 h-6" />
-                              )}
-                            </div>
-                          )}
 
                           <div
+                            onDoubleClick={() => {
+                              if (m.isDeleted) return;
+                              setReplyTo(m);
+                              messageInputRef.current?.focus();
+                            }}
                             className={cn(
-                              'min-w-0 max-w-[85%] sm:max-w-[74%] lg:max-w-[66%] flex flex-col',
-                              mine ? 'items-end' : 'items-start'
+                              'flex items-end gap-2 group relative w-full min-w-0 transition-all',
+                              mine ? 'justify-end pl-12 sm:pl-24 pr-1 sm:pr-2' : 'justify-start pr-12 sm:pr-24 pl-1 sm:pr-2',
+                              isFirstInCluster ? 'mt-3 mb-1' : 'mt-1 mb-0.5'
                             )}
                           >
+                            {/* Telegram Group Avatar (at bottom of cluster, incoming only) */}
+                            {!mine && isGroupChat && (
+                              <div className="w-7 shrink-0 flex flex-col justify-end self-end mb-0.5">
+                                {isLastInCluster ? (
+                                  <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="xs" />
+                                ) : (
+                                  <div className="w-6 h-6" />
+                                )}
+                              </div>
+                            )}
+
                             <div
                               className={cn(
-                                'flex items-center gap-1.5 max-w-full min-w-0',
-                                mine && 'flex-row-reverse'
+                                'min-w-0 max-w-[85%] sm:max-w-[74%] lg:max-w-[66%] flex flex-col',
+                                mine ? 'items-end' : 'items-start'
                               )}
                             >
                               <div
                                 className={cn(
-                                  'min-w-0 max-w-full overflow-hidden space-y-1',
-                                  isStickerOnly
-                                    ? 'bg-transparent border-0 shadow-none p-0'
-                                    : cn(
-                                      'rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
-                                      mine
-                                        ? cn(
-                                          'bg-fill-qt border border-bord-pr/80 text-lab-pr',
-                                          isLastInCluster ? 'rounded-br-[4px]' : 'rounded-br-2xl'
-                                        )
-                                        : cn(
-                                          'bg-bg-pr border border-bord-card text-lab-pr',
-                                          isLastInCluster ? 'rounded-bl-[4px]' : 'rounded-bl-2xl'
-                                        )
-                                    )
+                                  'flex items-center gap-1.5 max-w-full min-w-0',
+                                  mine && 'flex-row-reverse'
                                 )}
                               >
-                                {/* Telegram Group Sender Name inside bubble */}
-                                {!mine && isGroupChat && isFirstInCluster && (
-                                  <div className="font-semibold text-[13px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
-                                    {senderName}
-                                  </div>
-                                )}
+                                <div
+                                  className={cn(
+                                    'min-w-0 max-w-full overflow-hidden space-y-1',
+                                    isStickerOnly
+                                      ? 'bg-transparent border-0 shadow-none p-0'
+                                      : cn(
+                                        'rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+                                        mine
+                                          ? cn(
+                                            'bg-fill-qt border border-bord-pr/80 text-lab-pr',
+                                            isLastInCluster ? 'rounded-br-[4px]' : 'rounded-br-2xl'
+                                          )
+                                          : cn(
+                                            'bg-bg-pr border border-bord-card text-lab-pr',
+                                            isLastInCluster ? 'rounded-bl-[4px]' : 'rounded-bl-2xl'
+                                          )
+                                      )
+                                  )}
+                                >
+                                  {/* Telegram Group Sender Name inside bubble */}
+                                  {!mine && isGroupChat && isFirstInCluster && (
+                                    <div className="font-semibold text-[13px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
+                                      {senderName}
+                                    </div>
+                                  )}
 
-                                {/* Telegram Quote Reply Block */}
-                                {m.parentId && !m.isDeleted && (
-                                  <div
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const el = document.getElementById(`msg-${m.parentId?.id}`);
-                                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    }}
-                                    className="max-w-full min-w-0 overflow-hidden rounded-md px-2.5 py-1 mb-1.5 border-l-[3px] border-brand-900 bg-fill-fv/80 text-left cursor-pointer hover:bg-fill-sc transition-colors"
-                                  >
-                                    <p className="text-[12px] font-semibold text-brand-900 truncate">
-                                      {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
-                                    </p>
-                                    <p className="text-[12.5px] text-lab-sc truncate">
-                                      {getMessagePreviewLabel(m.parentId)}
-                                    </p>
-                                  </div>
-                                )}
+                                  {/* Telegram Quote Reply Block */}
+                                  {m.parentId && !m.isDeleted && (
+                                    <div
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const el = document.getElementById(`msg-${m.parentId?.id}`);
+                                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                      }}
+                                      className="max-w-full min-w-0 overflow-hidden rounded-md px-2.5 py-1 mb-1.5 border-l-[3px] border-brand-900 bg-fill-fv/80 text-left cursor-pointer hover:bg-fill-sc transition-colors"
+                                    >
+                                      <p className="text-[12px] font-semibold text-brand-900 truncate">
+                                        {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
+                                      </p>
+                                      <p className="text-[12.5px] text-lab-sc truncate">
+                                        {getMessagePreviewLabel(m.parentId)}
+                                      </p>
+                                    </div>
+                                  )}
 
-                                <div className="space-y-1 text-left">
-                                  {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other', inlineTimestampNode)}
+                                  <div className="space-y-1 text-left">
+                                    {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other', inlineTimestampNode)}
+                                  </div>
                                 </div>
+
+                                {!m.isDeleted && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setMobileActionMsg(m)}
+                                    className="shrink-0 size-7 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer self-center"
+                                    title="Message options"
+                                    aria-label="Message actions"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </button>
+                                )}
                               </div>
 
-                              {!m.isDeleted && (
-                                <button
-                                  type="button"
-                                  onClick={() => setMobileActionMsg(m)}
-                                  className="shrink-0 size-7 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer self-center"
-                                  title="Message options"
-                                  aria-label="Message actions"
+                              {m.reactionSummary && m.reactionSummary.length > 0 && (
+                                <div
+                                  className={cn(
+                                    'flex flex-wrap gap-1 pt-1',
+                                    mine ? 'justify-end' : 'justify-start'
+                                  )}
                                 >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </button>
+                                  {m.reactionSummary.map((rs) => (
+                                    <button
+                                      key={rs.unifiedId}
+                                      type="button"
+                                      onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
+                                      className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
+                                    >
+                                      <span>{rs.nativeSymbol}</span>
+                                      <span className="font-semibold text-lab-sc text-[11px]">
+                                        {rs.count}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
                               )}
                             </div>
-
-                            {m.reactionSummary && m.reactionSummary.length > 0 && (
-                              <div
-                                className={cn(
-                                  'flex flex-wrap gap-1 pt-1',
-                                  mine ? 'justify-end' : 'justify-start'
-                                )}
-                              >
-                                {m.reactionSummary.map((rs) => (
-                                  <button
-                                    key={rs.unifiedId}
-                                    type="button"
-                                    onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
-                                  >
-                                    <span>{rs.nativeSymbol}</span>
-                                    <span className="font-semibold text-lab-sc text-[11px]">
-                                      {rs.count}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
+                        </React.Fragment>
+                      );
+                    })}
+
+                    {typingUsers.length > 0 && (
+                      <div className="flex items-end gap-2 justify-start px-1 py-1">
+                        <div className="rounded-2xl rounded-bl-[4px] bg-bg-pr border border-bord-card px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
+                          <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.3s]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.15s]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce" />
                         </div>
-                      </React.Fragment>
-                    );
-                  })}
-
-                  {typingUsers.length > 0 && (
-                    <div className="flex items-end gap-2 justify-start px-1 py-1">
-                      <div className="rounded-2xl rounded-bl-[4px] bg-bg-pr border border-bord-card px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
-                        <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.3s]" />
-                        <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.15s]" />
-                        <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce" />
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef} />
                   </div>
                 </div>
 
@@ -3763,34 +3896,89 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         )}
       </div>
 
-      {/* Grupo Pro 3rd Column: Docked Right Room Info Panel on Desktop */}
-      {activeChat?.type === 'group' && groupInfoOpen && !joinPreviewStatus && (
-        <div className="hidden lg:flex w-[300px] xl:w-[320px] shrink-0 h-full min-h-0 overflow-hidden">
-          <div className="w-full h-full">
-            <GroupInfoPanel
-              key={activeChat.id}
-              chat={activeChat}
-              currentUserId={user.id}
-              myRole={myParticipantRole}
-              onlineUsers={onlineUsers}
-              pinnedCount={pinnedMessages.length}
-              messages={messages}
-              inviteUserQuery={inviteUserQuery}
-              inviteUserResults={inviteUserResults}
-              onInviteQueryChange={setInviteUserQuery}
-              onInviteUser={(uid) => void handleInviteToGroup(uid)}
-              onStartCall={(mode) => handleStartCall(mode)}
-              onLeaveGroup={() => void handleChatAction('leave_group')}
-              onDeleteGroup={() => void handleChatAction('delete')}
-              onOpenLightbox={(url) => setLightboxImageUrl(url)}
-              onRefresh={() => {
-                void loadConversation(activeChat.id, '', true);
-                void loadInbox();
-              }}
-              onClose={() => setGroupInfoOpen(false)}
-            />
+      {/* Desktop Docked 3rd Column: Group Info or Direct Profile View (Resizable & Responsive) */}
+      {((activeChat?.type === 'group' && groupInfoOpen && !joinPreviewStatus) ||
+        (activeChat?.type === 'direct' && directInfoOpen && interlocutor)) && (
+        <>
+          {/* Draggable Divider Handle between Middle Chat View and Right Info/Profile Panel */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            tabIndex={0}
+            onPointerDown={handleRightResizeStart}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') {
+                setRightPanelWidth((w) => Math.min(500, w + 20));
+              } else if (e.key === 'ArrowRight') {
+                setRightPanelWidth((w) => Math.max(260, w - 20));
+              }
+            }}
+            className={cn(
+              'hidden lg:flex relative items-center justify-center w-2 -mr-1 z-20 cursor-col-resize hover:bg-brand-900/40 active:bg-brand-900 transition-colors select-none group shrink-0 border-l border-bord-pr',
+              isDraggingRight && 'bg-brand-900/80 border-brand-900'
+            )}
+            title="Drag to resize profile & info panel"
+          >
+            <div className="w-0.5 h-7 rounded-full bg-lab-tr group-hover:bg-brand-900 transition-colors" />
           </div>
-        </div>
+
+          <div
+            style={{
+              '--right-panel-w': `${rightPanelWidth}px`,
+            } as React.CSSProperties}
+            className="hidden lg:flex w-[var(--right-panel-w,320px)] shrink-0 h-full min-h-0 overflow-hidden border-l border-bord-pr bg-bg-pr flex-col"
+          >
+            {activeChat?.type === 'group' ? (
+              <GroupInfoPanel
+                key={activeChat.id}
+                chat={activeChat}
+                currentUserId={user.id}
+                myRole={myParticipantRole}
+                onlineUsers={onlineUsers}
+                pinnedCount={pinnedMessages.length}
+                messages={messages}
+                inviteUserQuery={inviteUserQuery}
+                inviteUserResults={inviteUserResults}
+                onInviteQueryChange={setInviteUserQuery}
+                onInviteUser={(uid) => void handleInviteToGroup(uid)}
+                onStartCall={(mode) => handleStartCall(mode)}
+                onLeaveGroup={() => void handleChatAction('leave_group')}
+                onDeleteGroup={() => void handleChatAction('delete')}
+                onOpenLightbox={(url) => setLightboxImageUrl(url)}
+                onRefresh={() => {
+                  void loadConversation(activeChat.id, '', true);
+                  void loadInbox();
+                }}
+                onClose={() => setGroupInfoOpen(false)}
+              />
+            ) : interlocutor ? (
+              <DirectProfilePanel
+                key={activeChat.id}
+                user={{
+                  _id: interlocutor._id,
+                  username: interlocutor.username,
+                  firstName: interlocutor.firstName,
+                  lastName: interlocutor.lastName,
+                  avatar: interlocutor.avatar,
+                  verified: interlocutor.verified,
+                  lastActive: interlocutor.lastActive,
+                }}
+                isOnline={interlocutorOnline}
+                messages={messages}
+                locale={locale}
+                isArchived={isArchivedChat}
+                isMuted={chatMuted}
+                onToggleMute={() => setChatMuted((prev) => !prev)}
+                onStartCall={(mode) => handleStartCall(mode)}
+                onOpenSearch={() => setThreadSearchOpen(true)}
+                onOpenTip={() => setTipDirectUserModalOpen(true)}
+                onChatAction={(action) => void handleChatAction(action)}
+                onOpenLightbox={(url) => setLightboxImageUrl(url)}
+                onClose={() => setDirectInfoOpen(false)}
+              />
+            ) : null}
+          </div>
+        </>
       )}
 
       {/* New Chat / Group Modal */}
@@ -4138,82 +4326,56 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </form>
       </Modal>
 
-      {/* Direct Chat Info Sheet Modal (PHP ChatInfoSheet parity) */}
-      {activeChat?.type === 'direct' && (
-        <Modal
-          open={directInfoOpen}
-          onClose={() => setDirectInfoOpen(false)}
-          title="Conversation Info"
-        >
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-fill-qt">
-              <Avatar src={activeAvatar} alt={activeTitle} online={interlocutorOnline} size="md" />
-              <div className="min-w-0">
-                <p className="text-par-l font-bold text-lab-pr truncate">{activeTitle}</p>
-                {interlocutor?.username && (
-                  <p className="text-cap-l text-lab-sc truncate">@{interlocutor.username}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="divide-y divide-bord-pr rounded-2xl border border-bord-pr overflow-hidden">
-              {interlocutor?.username && (
-                <Link
-                  href={`/@${interlocutor.username}`}
-                  onClick={() => setDirectInfoOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-par-n text-lab-pr hover:bg-fill-pr"
-                >
-                  <ExternalLink className="h-4 w-4 text-lab-sc" />
-                  View profile
-                </Link>
-              )}
-              <button
-                type="button"
-                onClick={() => {
+      {/* Mobile/Tablet Direct Chat Info Sheet Modal (Responsive Parity with Desktop 3rd Column) */}
+      {activeChat?.type === 'direct' && interlocutor && (
+        <div className="lg:hidden">
+          <Modal
+            open={directInfoOpen}
+            onClose={() => setDirectInfoOpen(false)}
+            title="Conversation Info"
+          >
+            <div className="max-h-[80vh] overflow-y-auto">
+              <DirectProfilePanel
+                user={{
+                  _id: interlocutor._id,
+                  username: interlocutor.username,
+                  firstName: interlocutor.firstName,
+                  lastName: interlocutor.lastName,
+                  avatar: interlocutor.avatar,
+                  verified: interlocutor.verified,
+                  lastActive: interlocutor.lastActive,
+                }}
+                isOnline={interlocutorOnline}
+                messages={messages}
+                locale={locale}
+                isArchived={isArchivedChat}
+                isMuted={chatMuted}
+                onToggleMute={() => setChatMuted((prev) => !prev)}
+                onStartCall={(mode) => {
+                  setDirectInfoOpen(false);
+                  handleStartCall(mode);
+                }}
+                onOpenSearch={() => {
                   setDirectInfoOpen(false);
                   setThreadSearchOpen(true);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-lab-pr hover:bg-fill-pr cursor-pointer"
-              >
-                <Search className="h-4 w-4 text-lab-sc" />
-                Search messages
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+                onOpenTip={() => {
                   setDirectInfoOpen(false);
-                  void handleChatAction(isArchivedChat ? 'unarchive' : 'archive');
+                  setTipDirectUserModalOpen(true);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-lab-pr hover:bg-fill-pr cursor-pointer"
-              >
-                <Archive className="h-4 w-4 text-lab-sc" />
-                {isArchivedChat ? 'Unarchive conversation' : 'Archive conversation'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+                onChatAction={(action) => {
                   setDirectInfoOpen(false);
-                  void handleChatAction('clear');
+                  void handleChatAction(action);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-lab-pr hover:bg-fill-pr cursor-pointer"
-              >
-                <X className="h-4 w-4 text-lab-sc" />
-                Clear history
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+                onOpenLightbox={(url) => {
                   setDirectInfoOpen(false);
-                  void handleChatAction('delete');
+                  setLightboxImageUrl(url);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-red-600 hover:bg-fill-pr cursor-pointer"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete conversation
-              </button>
+                onClose={() => setDirectInfoOpen(false)}
+              />
             </div>
-          </div>
-        </Modal>
+          </Modal>
+        </div>
       )}
 
       {/* Message Actions Modal */}
