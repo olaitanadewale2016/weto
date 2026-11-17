@@ -29,20 +29,41 @@ import { dispatchNotification } from '@/services/notification.service';
 
 const MAX_LINKED_ACCOUNTS = 5;
 
-function setAccountCookie(res: NextResponse, cookieName: string, accountId: string) {
+function isRequestSecure(req?: NextRequest): boolean {
+  if (!req) return false;
+  const forwardedProto = req.headers.get('x-forwarded-proto');
+  if (forwardedProto) {
+    return forwardedProto.split(',')[0].trim().toLowerCase() === 'https';
+  }
+  const forwardedSsl = req.headers.get('x-forwarded-ssl');
+  if (forwardedSsl && forwardedSsl.toLowerCase() === 'on') {
+    return true;
+  }
+  const frontEndHttps = req.headers.get('front-end-https');
+  if (frontEndHttps && frontEndHttps.toLowerCase() === 'on') {
+    return true;
+  }
+  const urlProto = req.nextUrl?.protocol;
+  if (urlProto) {
+    return urlProto.toLowerCase() === 'https:';
+  }
+  return false;
+}
+
+function setAccountCookie(res: NextResponse, cookieName: string, accountId: string, req?: NextRequest) {
   res.cookies.set(cookieName, accountId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isRequestSecure(req),
     sameSite: 'lax',
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
   });
 }
 
-function applySwitchCookies(res: NextResponse, nextAccountId: string, previousAccountId: string) {
-  setAccountCookie(res, ACTIVE_ACCOUNT_COOKIE_NAME, nextAccountId);
+function applySwitchCookies(res: NextResponse, nextAccountId: string, previousAccountId: string, req?: NextRequest) {
+  setAccountCookie(res, ACTIVE_ACCOUNT_COOKIE_NAME, nextAccountId, req);
   if (previousAccountId && previousAccountId !== nextAccountId) {
-    setAccountCookie(res, PREVIOUS_ACCOUNT_COOKIE_NAME, previousAccountId);
+    setAccountCookie(res, PREVIOUS_ACCOUNT_COOKIE_NAME, previousAccountId, req);
   }
 }
 
@@ -246,7 +267,7 @@ export async function POST(req: NextRequest) {
         },
         { status: 201 }
       );
-      applySwitchCookies(res, String(linked._id), String(user._id));
+      applySwitchCookies(res, String(linked._id), String(user._id), req);
       return res;
     }
 
@@ -309,7 +330,7 @@ export async function POST(req: NextRequest) {
           username: resolvedTarget.username,
         },
       });
-      applySwitchCookies(res, String(resolvedTarget._id), activeIdStr);
+      applySwitchCookies(res, String(resolvedTarget._id), activeIdStr, req);
       return res;
     }
 
@@ -476,7 +497,7 @@ export async function POST(req: NextRequest) {
           },
         });
         if (body.switchImmediately) {
-          applySwitchCookies(res, String(target._id), String(user._id));
+          applySwitchCookies(res, String(target._id), String(user._id), req);
         }
         return res;
       }

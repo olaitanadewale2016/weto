@@ -17,12 +17,12 @@ import {
   googleAuthProvider,
   isFirebaseClientConfigured,
 } from '@/lib/firebase/client';
-import { useApp } from '@/components/providers/AppContext';
+import { clearBootstrapCache, useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
+  const { user, loading: appLoading, bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
   const { error, success } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +31,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const appName = bootstrap?.config?.appName || 'Weto';
+
+  // If already authenticated, redirect to destination immediately
+  useEffect(() => {
+    if (user && !appLoading) {
+      const nextUrl =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('redirect')
+          : null;
+      const safeRedirect = nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/';
+      window.location.assign(safeRedirect);
+    }
+  }, [user, appLoading]);
 
   // Handle Google OAuth redirect on PWA standalone & mobile
   useEffect(() => {
@@ -55,24 +67,34 @@ export default function LoginPage() {
   }, []);
 
   async function completeSessionExchange(idToken: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('cp_token', idToken);
+      } catch {
+        // ignore
+      }
+    }
+    clearBootstrapCache();
     const res = await apiFetch<{
-      user: { status: string; onboardingStep?: string };
+      user: { status: string; onboardingStep?: string; firstName?: string; username?: string };
     }>('/auth/session', {
       method: 'POST',
       json: { idToken, remember },
     });
     await refreshBootstrap();
-    success('Welcome back!');
+    success(`Welcome back, ${res.user.firstName || res.user.username || 'user'}!`);
     const nextUrl =
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('redirect')
         : null;
     const safeRedirect = nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/';
-    if (res.user.status === 'onboarding') {
-      router.push(`/onboarding/step/${res.user.onboardingStep || 'profile'}`);
-    } else {
-      router.push(safeRedirect);
-    }
+    setTimeout(() => {
+      if (res.user.status === 'onboarding') {
+        window.location.assign(`/onboarding/step/${res.user.onboardingStep || 'profile'}`);
+      } else {
+        window.location.assign(safeRedirect);
+      }
+    }, 200);
   }
 
   async function handleEmailLogin(e: React.FormEvent) {

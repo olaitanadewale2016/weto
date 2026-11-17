@@ -35,6 +35,18 @@ export async function apiFetch<T>(
     reqHeaders.set('Content-Type', 'application/json');
   }
 
+  // Dual-layer session fallback: attach client token if cookies are blocked/partitioned on PWA
+  if (!reqHeaders.has('authorization') && typeof window !== 'undefined') {
+    try {
+      const storedToken = localStorage.getItem('cp_token');
+      if (storedToken) {
+        reqHeaders.set('authorization', `Bearer ${storedToken}`);
+      }
+    } catch {
+      // ignore storage access errors
+    }
+  }
+
   const res = await fetch(path.startsWith('/api') ? path : `/api/v1${path}`, {
     credentials: 'include',
     ...rest,
@@ -71,6 +83,18 @@ export async function apiFetchWithMeta<T>(
   const reqHeaders = new Headers(headers);
   if (json !== undefined && !reqHeaders.has('Content-Type')) {
     reqHeaders.set('Content-Type', 'application/json');
+  }
+
+  // Dual-layer session fallback: attach client token if cookies are blocked/partitioned on PWA
+  if (!reqHeaders.has('authorization') && typeof window !== 'undefined') {
+    try {
+      const storedToken = localStorage.getItem('cp_token');
+      if (storedToken) {
+        reqHeaders.set('authorization', `Bearer ${storedToken}`);
+      }
+    } catch {
+      // ignore storage access errors
+    }
   }
 
   const res = await fetch(path.startsWith('/api') ? path : `/api/v1${path}`, {

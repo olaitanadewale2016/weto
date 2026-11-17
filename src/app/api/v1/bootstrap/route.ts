@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
 
     if (authCtx?.user) {
       const u = authCtx.user;
-      await syncAutoJoinGroupsForUser(u._id).catch(() => {});
+      await syncAutoJoinGroupsForUser(u._id).catch(() => { });
       const masterId = u.ownerAccountId || u._id;
       const prevCookieId = req.cookies.get(PREVIOUS_ACCOUNT_COOKIE_NAME)?.value;
       const shouldResolvePrev =
@@ -126,13 +126,13 @@ export async function GET(req: NextRequest) {
         Chat.find({ 'participants.userId': u._id }).select('_id participants').lean(),
         shouldResolvePrev
           ? User.findOne({
-              _id: prevCookieId && prevCookieId !== String(u._id) ? prevCookieId : masterId,
-              deletedAt: null,
-              status: { $nin: [UserStatus.BLOCKED, UserStatus.SUSPENDED] },
-              $or: [{ _id: masterId }, { ownerAccountId: masterId }],
-            })
-              .select('username firstName lastName avatar ownerAccountId')
-              .lean()
+            _id: prevCookieId && prevCookieId !== String(u._id) ? prevCookieId : masterId,
+            deletedAt: null,
+            status: { $nin: [UserStatus.BLOCKED, UserStatus.SUSPENDED] },
+            $or: [{ _id: masterId }, { ownerAccountId: masterId }],
+          })
+            .select('username firstName lastName avatar ownerAccountId')
+            .lean()
           : Promise.resolve(null),
       ]);
 

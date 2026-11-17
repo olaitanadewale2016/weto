@@ -32,6 +32,26 @@ const sessionSchema = z.object({
   deviceHash: z.string().optional(),
 });
 
+function isRequestSecure(req: NextRequest): boolean {
+  const forwardedProto = req.headers.get('x-forwarded-proto');
+  if (forwardedProto) {
+    return forwardedProto.split(',')[0].trim().toLowerCase() === 'https';
+  }
+  const forwardedSsl = req.headers.get('x-forwarded-ssl');
+  if (forwardedSsl && forwardedSsl.toLowerCase() === 'on') {
+    return true;
+  }
+  const frontEndHttps = req.headers.get('front-end-https');
+  if (frontEndHttps && frontEndHttps.toLowerCase() === 'on') {
+    return true;
+  }
+  const urlProto = req.nextUrl?.protocol;
+  if (urlProto) {
+    return urlProto.toLowerCase() === 'https:';
+  }
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!isFirebaseAdminConfigured()) {
@@ -167,6 +187,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       status: 'success',
       data: {
+        token: body.idToken,
         user: {
           id: String(user._id),
           username: user.username,
@@ -184,9 +205,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const isSecure = isRequestSecure(req);
     response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       path: '/',
       maxAge: Math.floor(expiresInMs / 1000),

@@ -19,12 +19,12 @@ import {
   googleAuthProvider,
   isFirebaseClientConfigured,
 } from '@/lib/firebase/client';
-import { useApp } from '@/components/providers/AppContext';
+import { clearBootstrapCache, useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
+  const { user, loading: appLoading, bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
   const { error, success } = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -33,6 +33,13 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   const appName = bootstrap?.config?.appName || 'Weto';
+
+  // If already authenticated, redirect to home immediately
+  useEffect(() => {
+    if (user && !appLoading) {
+      window.location.assign('/');
+    }
+  }, [user, appLoading]);
 
   // Handle Google OAuth redirect on PWA standalone & mobile
   useEffect(() => {
@@ -57,17 +64,27 @@ export default function SignupPage() {
   }, []);
 
   async function completeSession(idToken: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('cp_token', idToken);
+      } catch {
+        // ignore storage errors
+      }
+    }
+    clearBootstrapCache();
     const res = await apiFetch<{ user: { status: string; onboardingStep?: string } }>('/auth/session', {
       method: 'POST',
       json: { idToken },
     });
     await refreshBootstrap();
     success('Account created!');
-    if (res.user.status === 'onboarding') {
-      router.push(`/onboarding/step/${res.user.onboardingStep || 'profile'}`);
-    } else {
-      router.push('/');
-    }
+    setTimeout(() => {
+      if (res.user.status === 'onboarding') {
+        window.location.assign(`/onboarding/step/${res.user.onboardingStep || 'profile'}`);
+      } else {
+        window.location.assign('/');
+      }
+    }, 200);
   }
 
   async function handleSignup(e: React.FormEvent) {

@@ -398,11 +398,17 @@ export function AppProvider({
         setLocaleState(cachedLoc);
         applyLocaleAttrs(cachedLoc, cached.data.locales);
       }
-      setLoading(false);
-      // Only defer network refresh if we have a fresh cached authenticated user; never skip refresh for guest cache
-      if (cached.data.user && Date.now() - cached.ts < 20_000) {
-        bootstrapResolvedRef.current = true;
-        shouldRefresh = false;
+      const hasStoredToken =
+        typeof window !== 'undefined' && Boolean(localStorage.getItem('cp_token'));
+      // Only mark loading false if we actually have an authenticated cached user, OR if we know there is no stored token
+      if (cached.data.user) {
+        setLoading(false);
+        if (Date.now() - cached.ts < 20_000) {
+          bootstrapResolvedRef.current = true;
+          shouldRefresh = false;
+        }
+      } else if (!hasStoredToken) {
+        setLoading(false);
       }
     }
     if (shouldRefresh) {
@@ -503,24 +509,32 @@ export function AppProvider({
     }
   }, [bootstrap?.config?.logos?.favicon]);
 
-  // Firebase Auth ID token sync — only establish a server session if initial bootstrap completed with no active session
+  // Firebase Auth ID token sync — persist client token and establish server session if needed
   useEffect(() => {
     if (!isFirebaseClientConfigured()) return;
     try {
       const auth = getFirebaseClientAuth();
       const unsub = onIdTokenChanged(auth, async (fbUser) => {
-        if (
-          fbUser &&
-          bootstrapResolvedRef.current &&
-          !bootstrapUserRef.current &&
-          !isLoggingOutRef.current
-        ) {
+        if (fbUser) {
           try {
             const idToken = await fbUser.getIdToken();
-            await apiFetch('/auth/session', { method: 'POST', json: { idToken } });
-            await refreshBootstrap();
+            try {
+              localStorage.setItem('cp_token', idToken);
+            } catch {
+              // ignore storage errors
+            }
+            if (!bootstrapUserRef.current && !isLoggingOutRef.current) {
+              await apiFetch('/auth/session', { method: 'POST', json: { idToken } });
+              await refreshBootstrap();
+            }
           } catch {
             // session sync deferred to explicit login
+          }
+        } else if (!isLoggingOutRef.current) {
+          try {
+            localStorage.removeItem('cp_token');
+          } catch {
+            // ignore
           }
         }
       });
@@ -863,6 +877,11 @@ export function AppProvider({
   const logout = useCallback(async () => {
     isLoggingOutRef.current = true;
     try {
+      localStorage.removeItem('cp_token');
+    } catch {
+      // ignore
+    }
+    try {
       await apiFetch('/auth/session', { method: 'DELETE' });
     } catch {
       // ignore
@@ -879,8 +898,8 @@ export function AppProvider({
     socket?.disconnect();
     setBootstrap((prev) => (prev ? { ...prev, user: null } : null));
     isLoggingOutRef.current = false;
-    router.push('/auth/login');
-  }, [socket, router]);
+    window.location.assign('/auth/login');
+  }, [socket]);
 
   const playAudio = useCallback((track: SoundbarTrack) => {
     setSoundbarTrack(track);
