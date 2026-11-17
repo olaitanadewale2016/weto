@@ -7,8 +7,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================================
- * ColibriPlus Design System Tokens
- * Faithfully synced with ColibriPlus/Source/resources/css/themes/
+ * Weto Design System Tokens
+ * Faithfully synced with Weto/Source/resources/css/themes/
  * ============================================================================ */
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -300,12 +300,10 @@ input[type="number"] {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--cp-bg-pr) 55%, transparent),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      color-mix(in srgb, var(--cp-bg-pr) 55%, transparent),
+      transparent);
   animation: fb-shimmer 1.4s infinite ease-in-out;
 }
 
@@ -313,6 +311,7 @@ input[type="number"] {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
