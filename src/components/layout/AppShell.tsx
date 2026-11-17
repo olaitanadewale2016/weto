@@ -364,14 +364,14 @@ export function AppShell({
             'w-full flex',
             viewportLocked
               ? 'h-full flex-col'
-              : 'max-w-[1280px] xl:max-w-[1340px] 2xl:max-w-[1380px] justify-center'
+              : 'max-w-fit mx-auto justify-center px-3 sm:px-4 lg:px-6'
           )}
         >
           {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
           {!hideDesktopSidebar && (
-            <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[275px] shrink-0">
+            <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[265px] shrink-0">
               {/* Main Nav Column */}
-              <div className="flex-1 h-full shrink-0 flex flex-col pt-6 px-3 xl:px-5 overflow-y-auto hidden-scroll">
+              <div className="flex-1 h-full shrink-0 flex flex-col pt-6 px-3 xl:px-4 overflow-y-auto hidden-scroll">
             {/* Logo Header — exact ApplicationSidebar.vue */}
             <div className="mb-4">
               <Link href="/" className="inline-block">

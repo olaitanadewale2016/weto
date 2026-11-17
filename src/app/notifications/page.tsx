@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -130,6 +130,7 @@ export default function NotificationsPage() {
   const [requestDecisionMap, setRequestDecisionMap] = useState<
     Record<string, 'accepted' | 'declined' | 'busy'>
   >({});
+  const autoMarkReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -155,35 +156,13 @@ export default function NotificationsPage() {
     setLoading(true);
     try {
       const data = await apiFetch<NotificationItem[]>(`/notifications?tab=${tab}`);
-      const list = Array.isArray(data) ? data : [];
-      setItems(list);
-
-      // Auto mark notifications as read when viewed
-      const hasUnread = list.some((n) => !n.readAt);
-      if (hasUnread || (counters?.unreadNotifications ?? 0) > 0) {
-        setCounters((prev) => ({ ...prev, unreadNotifications: 0 }));
-        void apiFetch<{ unreadCount: number }>('/notifications', {
-          method: 'PATCH',
-          json: {},
-        })
-          .then((res) => {
-            setCounters((prev) => ({ ...prev, unreadNotifications: res?.unreadCount ?? 0 }));
-          })
-          .catch(() => undefined);
-
-        // Auto mark local items read after viewing
-        setTimeout(() => {
-          setItems((prev) =>
-            prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))
-          );
-        }, 1200);
-      }
+      setItems(Array.isArray(data) ? data : []);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [user, tab, counters?.unreadNotifications, setCounters]);
+  }, [user, tab]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -205,6 +184,40 @@ export default function NotificationsPage() {
       socket?.off('notification:new', refreshLive);
     };
   }, [loadNotifications, socket]);
+
+  // Auto-mark notifications as read when viewed on screen
+  useEffect(() => {
+    if (loading || items.length === 0) return;
+    const hasUnread = items.some((n) => !n.readAt);
+    if (!hasUnread) return;
+
+    if (autoMarkReadTimerRef.current) {
+      clearTimeout(autoMarkReadTimerRef.current);
+    }
+
+    // Mark as read automatically once the user views them
+    autoMarkReadTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await apiFetch<{ unreadCount: number }>('/notifications', {
+          method: 'PATCH',
+          json: {},
+        });
+        setCounters((prev) => ({ ...prev, unreadNotifications: res.unreadCount ?? 0 }));
+        setItems((prev) =>
+          prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))
+        );
+        window.dispatchEvent(new Event('weto:notification-event'));
+      } catch {
+        // non-blocking
+      }
+    }, 600);
+
+    return () => {
+      if (autoMarkReadTimerRef.current) {
+        clearTimeout(autoMarkReadTimerRef.current);
+      }
+    };
+  }, [loading, items, setCounters]);
 
   const grouped = useMemo(() => {
     const map: Record<DateGroupKey, NotificationItem[]> = {
