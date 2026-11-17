@@ -1387,6 +1387,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!middleFullScreen) return;
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMiddleFullScreen(false);
+      }
+    };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [middleFullScreen]);
+
   async function handleDeleteMessage(messageId: string, scope: 'local' | 'global') {
     if (!activeChatId) return;
     try {
@@ -1987,7 +1998,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         {m.type === 'poll' && m.poll && (
           <div
             className={cn(
-              'rounded-2xl border p-3 space-y-2 w-full max-w-full sm:w-80 text-left',
+              'rounded-2xl border p-3 space-y-2 w-full max-w-full text-left',
+              middleFullScreen ? 'sm:w-96 md:w-[420px]' : 'sm:w-80',
               boxClass
             )}
           >
@@ -2046,7 +2058,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               target="_blank"
               rel="noopener noreferrer"
               className={cn(
-                'flex items-center gap-2.5 rounded-xl px-3 py-2.5 border transition-opacity hover:opacity-90 w-full max-w-full sm:w-72',
+                'flex items-center gap-2.5 rounded-xl px-3 py-2.5 border transition-opacity hover:opacity-90 w-full max-w-full min-w-0',
+                middleFullScreen ? 'sm:w-96 md:w-[420px]' : 'sm:w-72',
                 boxClass
               )}
             >
@@ -2084,7 +2097,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     alt={m.media?.filename || (m.type === 'gif' ? 'GIF' : 'Image attachment')}
                     loading="lazy"
                     decoding="async"
-                    className="max-h-72 max-w-full object-cover"
+                    className={cn(
+                      'max-w-full object-cover',
+                      middleFullScreen
+                        ? 'max-h-80 sm:max-h-96 md:max-h-[440px]'
+                        : 'max-h-72 sm:max-h-80'
+                    )}
                   />
                 </button>
                 {!m.content && inlineTimestampNode && (
@@ -2102,7 +2120,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   src={mediaUrl}
                   controls
                   playsInline
-                  className="rounded-xl max-h-72 max-w-full bg-black border border-bord-card"
+                  className={cn(
+                    'rounded-xl max-w-full bg-black border border-bord-card',
+                    middleFullScreen
+                      ? 'max-h-80 sm:max-h-96 md:max-h-[440px]'
+                      : 'max-h-72 sm:max-h-80'
+                  )}
                 />
                 {!m.content && inlineTimestampNode && (
                   <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-[10.5px] text-white font-medium inline-flex items-center gap-1 shadow-xs pointer-events-none">
@@ -2113,7 +2136,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             )}
 
             {m.type === 'audio' && (
-              <div className="space-y-1 w-[210px] sm:w-[260px] max-w-full">
+              <div
+                className={cn(
+                  'space-y-1 max-w-full',
+                  middleFullScreen ? 'w-[240px] sm:w-[320px] md:w-[360px]' : 'w-[210px] sm:w-[260px]'
+                )}
+              >
                 <audio src={mediaUrl} controls className="w-full h-9 max-w-full" />
                 <div className="flex items-center justify-between text-cap-s text-lab-sc">
                   {m.media?.durationSeconds ? (
@@ -2139,7 +2167,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     rel="noopener noreferrer"
                     download={m.media?.filename}
                     className={cn(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-2 border text-cap-l transition-opacity hover:opacity-90 w-full max-w-full md:max-w-sm min-w-0 overflow-hidden',
+                      'flex items-center gap-2.5 rounded-xl px-3 py-2 border text-cap-l transition-opacity hover:opacity-90 w-full max-w-full min-w-0 overflow-hidden',
+                      middleFullScreen ? 'md:max-w-md lg:max-w-lg' : 'md:max-w-sm',
                       boxClass
                     )}
                   >
@@ -2186,7 +2215,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               target="_blank"
               rel="noopener noreferrer"
               className={cn(
-                'block rounded-xl p-2.5 border text-left transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden',
+                'block rounded-xl p-2.5 border text-left transition-opacity hover:opacity-90 w-full max-w-full min-w-0 overflow-hidden',
+                middleFullScreen ? 'md:max-w-lg lg:max-w-xl' : 'md:max-w-md',
                 boxClass
               )}
             >
@@ -2223,7 +2253,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               <Link
                 href={refHref}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-xl p-2 border transition-opacity hover:opacity-90 w-full max-w-full md:max-w-md min-w-0 overflow-hidden text-left',
+                  'flex items-center gap-2.5 rounded-xl p-2 border transition-opacity hover:opacity-90 w-full max-w-full min-w-0 overflow-hidden text-left',
+                  middleFullScreen ? 'md:max-w-lg lg:max-w-xl' : 'md:max-w-md',
                   boxClass
                 )}
               >
@@ -2787,7 +2818,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           <>
             {/* Thread Header (PHP ChatHeader.vue px-6 h-16 parity) */}
             <div className="border-b border-bord-pr bg-bg-pr shrink-0 pt-safe px-safe">
-              <div className="h-16 px-3 sm:px-6 flex items-center justify-between gap-2">
+              <div
+                className={cn(
+                  'h-16 px-3 sm:px-6 flex items-center justify-between gap-2 transition-all',
+                  middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto w-full'
+                )}
+              >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <Link
                     href="/messenger"
@@ -2799,11 +2835,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      activeChat.type === 'group'
-                        ? setGroupInfoOpen((prev) => !prev)
-                        : setDirectInfoOpen((prev) => !prev)
-                    }
+                    onClick={() => {
+                      if (middleFullScreen) setMiddleFullScreen(false);
+                      if (activeChat.type === 'group') {
+                        setGroupInfoOpen((prev) => !prev);
+                      } else {
+                        setDirectInfoOpen((prev) => !prev);
+                      }
+                    }}
                     className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
                   >
                     <Avatar
@@ -2885,7 +2924,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       onClick={() => {
                         setMiddleFullScreen((prev) => {
                           const next = !prev;
-                          if (next) setGroupInfoOpen(false);
+                          if (next) {
+                            setGroupInfoOpen(false);
+                            setDirectInfoOpen(false);
+                          }
                           return next;
                         });
                       }}
@@ -2929,6 +2971,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               type="button"
                               onClick={() => {
                                 setThreadMenuOpen(false);
+                                if (middleFullScreen) setMiddleFullScreen(false);
                                 if (activeChat.type === 'group') {
                                   setGroupInfoOpen((prev) => !prev);
                                 } else {
@@ -3052,7 +3095,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
               {threadSearchOpen && (
                 <div className="px-4 pb-3">
-                  <div className="relative">
+                  <div className={cn('relative', middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto')}>
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-tr" />
                     <input
                       type="search"
@@ -3157,27 +3200,34 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               <>
                 {/* Active incoming/ongoing call join strip */}
                 {activeCall && !callMode && (
-                  <div className="px-4 py-2 border-b border-bord-pr bg-green-600/10 flex items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="h-2.5 w-2.5 rounded-full bg-green-600 animate-pulse shrink-0" />
-                      <p className="text-cap-l font-semibold text-lab-pr truncate">
-                        {activeCall.audioOnly ? 'Live Audio Call' : 'Live Video Call'} in progress (
-                        {activeCall.participantCount} joined)
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="primary"
-                      onClick={() => handleStartCall(activeCall.audioOnly ? 'audio' : 'video')}
-                    >
-                      {activeCall.audioOnly ? (
-                        <Phone className="h-3.5 w-3.5" />
-                      ) : (
-                        <Video className="h-3.5 w-3.5" />
+                  <div className="px-4 py-2 border-b border-bord-pr bg-green-600/10 shrink-0">
+                    <div
+                      className={cn(
+                        'w-full flex items-center justify-between gap-3',
+                        middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
                       )}
-                      Join
-                    </Button>
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="h-2.5 w-2.5 rounded-full bg-green-600 animate-pulse shrink-0" />
+                        <p className="text-cap-l font-semibold text-lab-pr truncate">
+                          {activeCall.audioOnly ? 'Live Audio Call' : 'Live Video Call'} in progress (
+                          {activeCall.participantCount} joined)
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleStartCall(activeCall.audioOnly ? 'audio' : 'video')}
+                      >
+                        {activeCall.audioOnly ? (
+                          <Phone className="h-3.5 w-3.5" />
+                        ) : (
+                          <Video className="h-3.5 w-3.5" />
+                        )}
+                        Join
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -3211,58 +3261,65 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                 {/* Pinned Messages Carousel (Grupo Pro parity) */}
                 {currentPinned && pinnedMessages.length > 0 && (!callMode || showChatInCall) && (
-                  <div className="px-3 sm:px-4 py-2 border-b border-bord-card bg-fill-qt flex items-center justify-between gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const el = document.getElementById(`msg-${currentPinned.id}`);
-                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }}
-                      className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
-                    >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-900/15 text-brand-900">
-                        <Pin className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-cap-l font-bold text-brand-900 truncate">
-                          Pinned Message {pinnedMessages.length > 1 ? `(${safePinIdx + 1}/${pinnedMessages.length})` : ''}
-                        </p>
-                        <p className="text-par-s text-lab-pr truncate">
-                          {getMessagePreviewLabel(currentPinned)}
-                        </p>
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {pinnedMessages.length > 1 && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPinIndex((prev) => (prev - 1 + pinnedMessages.length) % pinnedMessages.length)
-                            }
-                            className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
-                            title="Previous pinned message"
-                          >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPinIndex((prev) => (prev + 1) % pinnedMessages.length)}
-                            className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
-                            title="Next pinned message"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </button>
-                        </>
+                  <div className="px-3 sm:px-4 py-2 border-b border-bord-card bg-fill-qt shrink-0">
+                    <div
+                      className={cn(
+                        'w-full flex items-center justify-between gap-2',
+                        middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
                       )}
+                    >
                       <button
                         type="button"
-                        onClick={() => void handlePinToggle(currentPinned.id)}
-                        className="p-1 rounded-full text-lab-sc hover:text-red-600 hover:bg-fill-fv cursor-pointer"
-                        title="Unpin message"
+                        onClick={() => {
+                          const el = document.getElementById(`msg-${currentPinned.id}`);
+                          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
                       >
-                        <PinOff className="h-3.5 w-3.5" />
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-900/15 text-brand-900">
+                          <Pin className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-cap-l font-bold text-brand-900 truncate">
+                            Pinned Message {pinnedMessages.length > 1 ? `(${safePinIdx + 1}/${pinnedMessages.length})` : ''}
+                          </p>
+                          <p className="text-par-s text-lab-pr truncate">
+                            {getMessagePreviewLabel(currentPinned)}
+                          </p>
+                        </div>
                       </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {pinnedMessages.length > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPinIndex((prev) => (prev - 1 + pinnedMessages.length) % pinnedMessages.length)
+                              }
+                              className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
+                              title="Previous pinned message"
+                            >
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPinIndex((prev) => (prev + 1) % pinnedMessages.length)}
+                              className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
+                              title="Next pinned message"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handlePinToggle(currentPinned.id)}
+                          className="p-1 rounded-full text-lab-sc hover:text-red-600 hover:bg-fill-fv cursor-pointer"
+                          title="Unpin message"
+                        >
+                          <PinOff className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3274,7 +3331,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
-                  <div className="max-w-[840px] mx-auto w-full space-y-1">
+                  <div
+                    className={cn(
+                      'mx-auto w-full space-y-1 transition-all duration-150',
+                      middleFullScreen
+                        ? 'max-w-[1040px] lg:max-w-[1140px] px-2 sm:px-4 md:px-6'
+                        : 'max-w-[840px]'
+                    )}
+                  >
                     {!loadingThread && !threadSearchQ && (
                       <div className="border-b border-bord-card/60 px-4 py-5 mb-2 text-center">
                         <div className="flex justify-center mb-2.5">
@@ -3416,7 +3480,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             }}
                             className={cn(
                               'flex items-end gap-2 group relative w-full min-w-0 transition-all',
-                              mine ? 'justify-end pl-12 sm:pl-24 pr-1 sm:pr-2' : 'justify-start pr-12 sm:pr-24 pl-1 sm:pr-2',
+                              mine
+                                ? (middleFullScreen
+                                    ? 'justify-end pl-14 sm:pl-28 lg:pl-44 pr-1 sm:pr-2'
+                                    : 'justify-end pl-12 sm:pl-24 pr-1 sm:pr-2')
+                                : (middleFullScreen
+                                    ? 'justify-start pr-14 sm:pr-28 lg:pr-44 pl-1 sm:pl-2'
+                                    : 'justify-start pr-12 sm:pr-24 pl-1 sm:pl-2'),
                               isFirstInCluster ? 'mt-3 mb-1' : 'mt-1 mb-0.5'
                             )}
                           >
@@ -3433,7 +3503,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                             <div
                               className={cn(
-                                'min-w-0 max-w-[85%] sm:max-w-[74%] lg:max-w-[66%] flex flex-col',
+                                'min-w-0 flex flex-col transition-all',
+                                middleFullScreen
+                                  ? 'max-w-[85%] sm:max-w-[72%] lg:max-w-[60%] xl:max-w-[52%]'
+                                  : 'max-w-[85%] sm:max-w-[74%] lg:max-w-[66%]',
                                 mine ? 'items-end' : 'items-start'
                               )}
                             >
@@ -3552,340 +3625,380 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   <>
                     {/* Reply Preview Banner (Telegram style) */}
                     {replyTo && (
-                      <div className="px-4 py-2 border-t border-bord-pr bg-bg-pr flex items-center justify-between gap-3 shadow-xs">
-                        <div className="min-w-0 border-l-[3px] border-brand-900 dark:border-emerald-400 pl-2.5">
-                          <p className="text-cap-s font-bold text-brand-900 dark:text-emerald-400 truncate">
-                            Replying to {replyTo.sender?.firstName || replyTo.sender?.username || 'Message'}
-                          </p>
-                          <p className="text-cap-l text-lab-sc truncate">{getMessagePreviewLabel(replyTo)}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setReplyTo(null)}
-                          className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
-                          aria-label="Cancel reply"
+                      <div className="border-t border-bord-pr bg-bg-pr px-4 py-2 shrink-0 shadow-xs">
+                        <div
+                          className={cn(
+                            'w-full flex items-center justify-between gap-3',
+                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                          )}
                         >
-                          <X className="h-4 w-4" />
-                        </button>
+                          <div className="min-w-0 border-l-[3px] border-brand-900 dark:border-emerald-400 pl-2.5">
+                            <p className="text-cap-s font-bold text-brand-900 dark:text-emerald-400 truncate">
+                              Replying to {replyTo.sender?.firstName || replyTo.sender?.username || 'Message'}
+                            </p>
+                            <p className="text-cap-l text-lab-sc truncate">{getMessagePreviewLabel(replyTo)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setReplyTo(null)}
+                            className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
+                            aria-label="Cancel reply"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     )}
 
                     {/* Upload Progress Bar */}
                     {uploadingMedia && (
-                      <div className="px-4 py-1.5 border-t border-bord-pr bg-fill-qt flex items-center gap-3">
-                        <div className="flex-1 h-1.5 rounded-full bg-fill-sc overflow-hidden">
-                          <div
-                            className="h-full bg-brand-900 transition-all"
-                            style={{ width: `${uploadProgress ?? 40}%` }}
-                          />
+                      <div className="border-t border-bord-pr bg-fill-qt px-4 py-1.5 shrink-0">
+                        <div
+                          className={cn(
+                            'w-full flex items-center gap-3',
+                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                          )}
+                        >
+                          <div className="flex-1 h-1.5 rounded-full bg-fill-sc overflow-hidden">
+                            <div
+                              className="h-full bg-brand-900 transition-all"
+                              style={{ width: `${uploadProgress ?? 40}%` }}
+                            />
+                          </div>
+                          <span className="text-cap-s text-lab-sc shrink-0">
+                            Uploading to R2{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
+                          </span>
                         </div>
-                        <span className="text-cap-s text-lab-sc shrink-0">
-                          Uploading to R2{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
-                        </span>
                       </div>
                     )}
 
                     {showGifPicker && !recording && (
                       <div className="md:px-3 md:py-2 md:border-t md:border-bord-pr md:bg-bg-pr shrink-0">
-                        <GiphyPicker
-                          onSelect={(url) => void handleSendGif(url)}
-                          onClose={() => setShowGifPicker(false)}
-                        />
+                        <div
+                          className={cn(
+                            'w-full',
+                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                          )}
+                        >
+                          <GiphyPicker
+                            onSelect={(url) => void handleSendGif(url)}
+                            onClose={() => setShowGifPicker(false)}
+                          />
+                        </div>
                       </div>
                     )}
 
-
-
                     {/* Composer (matches PHP ChatForm + AudioRecorder.vue) */}
                     {isGroupMuted || isReadOnlyRoom ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-fill-qt flex items-center justify-center gap-2 text-cap-l text-lab-sc shrink-0">
-                        <MessageSquareOff className="h-4 w-4 text-lab-sc shrink-0" />
-                        <span>
-                          {isGroupMuted
-                            ? 'You are muted in this group and cannot send messages.'
-                            : 'Only group admins and owners can post messages in this room.'}
-                        </span>
+                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-fill-qt shrink-0">
+                        <div
+                          className={cn(
+                            'w-full flex items-center justify-center gap-2 text-cap-l text-lab-sc',
+                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                          )}
+                        >
+                          <MessageSquareOff className="h-4 w-4 text-lab-sc shrink-0" />
+                          <span>
+                            {isGroupMuted
+                              ? 'You are muted in this group and cannot send messages.'
+                              : 'Only group admins and owners can post messages in this room.'}
+                          </span>
+                        </div>
                       </div>
                     ) : recording ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr flex items-center justify-between gap-3 bg-bg-pr shrink-0">
-                        <div className="flex items-center gap-2.5">
-                          <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse" />
-                          <span className="text-par-n font-semibold text-lab-pr tabular-nums">
-                            {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
-                          </span>
-                          <span className="text-cap-l text-lab-sc hidden sm:inline">Recording voice note (max 2:00)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => stopVoiceRecording(true)}
-                          >
-                            <X className="h-4 w-4" /> Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="primary"
-                            onClick={() => stopVoiceRecording(false)}
-                          >
-                            <Send className="h-4 w-4" /> Send
-                          </Button>
+                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
+                        <div
+                          className={cn(
+                            'w-full flex items-center justify-between gap-3',
+                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse" />
+                            <span className="text-par-n font-semibold text-lab-pr tabular-nums">
+                              {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
+                            </span>
+                            <span className="text-cap-l text-lab-sc hidden sm:inline">Recording voice note (max 2:00)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => stopVoiceRecording(true)}
+                            >
+                              <X className="h-4 w-4" /> Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="primary"
+                              onClick={() => stopVoiceRecording(false)}
+                            >
+                              <Send className="h-4 w-4" /> Send
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
                       <div className="sticky bottom-0 z-20 w-full relative px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
-                        {mentionCandidates.length > 0 && (
-                          <div className="absolute bottom-full left-4 right-4 sm:right-auto sm:w-72 mb-1.5 z-30 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl overflow-hidden divide-y divide-bord-pr">
-                            {mentionCandidates.map((cand) => (
-                              <button
-                                key={cand.user._id}
-                                type="button"
-                                onClick={() => {
-                                  setMsgText((prev) =>
-                                    prev.replace(/(?:^|\s)@([a-zA-Z0-9._]*)$/, (full) =>
-                                      full.startsWith(' ')
-                                        ? ` @${cand.user.username} `
-                                        : `@${cand.user.username} `
-                                    )
-                                  );
-                                  messageInputRef.current?.focus();
-                                }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-fill-fv cursor-pointer"
-                              >
-                                <Avatar src={cand.user.avatar} alt={cand.user.username} size="xs" />
-                                <div className="min-w-0">
-                                  <p className="text-cap-l font-semibold text-lab-pr truncate">
-                                    {`${cand.user.firstName || ''} ${cand.user.lastName || ''}`.trim() ||
-                                      `@${cand.user.username}`}
-                                  </p>
-                                  <p className="text-[11px] text-lab-sc truncate">@{cand.user.username}</p>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {/* Telegram-style Composer Form */}
-                        <form
-                          onSubmit={handleSendText}
-                          className="flex items-center gap-2 min-w-0 max-w-full"
+                        <div
+                          className={cn(
+                            'w-full relative',
+                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                          )}
                         >
-                          {/* Telegram Attachment button (Paperclip on far left) with hover popup and auto-close on mouse leave */}
-                          <div
-                            className="relative shrink-0"
-                            onMouseEnter={handleAttachEnter}
-                            onMouseLeave={handleAttachLeave}
-                          >
-                            <button
-                              type="button"
-                              disabled={uploadingMedia}
-                              onClick={() => setAttachMenuOpen((v) => !v)}
-                              className={cn(
-                                'size-9 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
-                                attachMenuOpen
-                                  ? 'bg-brand-900 text-white rotate-45'
-                                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
-                              )}
-                              title="Attach file or media"
-                              aria-label="Attach file or media"
-                            >
-                              <Paperclip className="h-5 w-5" strokeWidth={1.8} />
-                            </button>
-
-                            {/* Attachment Popover Menu */}
-                            {attachMenuOpen && (
-                              <div
-                                className="absolute bottom-full left-0 mb-2 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5"
-                                onMouseEnter={handleAttachEnter}
-                                onMouseLeave={handleAttachLeave}
-                              >
-                                <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
-                                  <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
-                                  <span>Photo or Video</span>
-                                  <input
-                                    type="file"
-                                    accept="image/*,video/*"
-                                    disabled={uploadingMedia}
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      setAttachMenuOpen(false);
-                                      void handleFileUpload(e);
-                                    }}
-                                  />
-                                </label>
-
-                                <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
-                                  <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                  <span>Attach File</span>
-                                  <input
-                                    type="file"
-                                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
-                                    disabled={uploadingMedia}
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      setAttachMenuOpen(false);
-                                      void handleFileUpload(e);
-                                    }}
-                                  />
-                                </label>
-
+                          {mentionCandidates.length > 0 && (
+                            <div className="absolute bottom-full left-4 right-4 sm:right-auto sm:w-72 mb-1.5 z-30 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl overflow-hidden divide-y divide-bord-pr">
+                              {mentionCandidates.map((cand) => (
                                 <button
+                                  key={cand.user._id}
                                   type="button"
-                                  disabled={uploadingMedia}
                                   onClick={() => {
-                                    setAttachMenuOpen(false);
-                                    setShowStickerPicker(false);
-                                    setShowGifPicker(true);
+                                    setMsgText((prev) =>
+                                      prev.replace(/(?:^|\s)@([a-zA-Z0-9._]*)$/, (full) =>
+                                        full.startsWith(' ')
+                                          ? ` @${cand.user.username} `
+                                          : `@${cand.user.username} `
+                                      )
+                                    );
+                                    messageInputRef.current?.focus();
                                   }}
-                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-fill-fv cursor-pointer"
                                 >
-                                  <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                  <span>GIFs</span>
+                                  <Avatar src={cand.user.avatar} alt={cand.user.username} size="xs" />
+                                  <div className="min-w-0">
+                                    <p className="text-cap-l font-semibold text-lab-pr truncate">
+                                      {`${cand.user.firstName || ''} ${cand.user.lastName || ''}`.trim() ||
+                                        `@${cand.user.username}`}
+                                    </p>
+                                    <p className="text-[11px] text-lab-sc truncate">@{cand.user.username}</p>
+                                  </div>
                                 </button>
+                              ))}
+                            </div>
+                          )}
+                          {/* Telegram-style Composer Form */}
+                          <form
+                            onSubmit={handleSendText}
+                            className="flex items-center gap-2 min-w-0 max-w-full"
+                          >
+                            {/* Telegram Attachment button (Paperclip on far left) with hover popup and auto-close on mouse leave */}
+                            <div
+                              className="relative shrink-0"
+                              onMouseEnter={handleAttachEnter}
+                              onMouseLeave={handleAttachLeave}
+                            >
+                              <button
+                                type="button"
+                                disabled={uploadingMedia}
+                                onClick={() => setAttachMenuOpen((v) => !v)}
+                                className={cn(
+                                  'size-9 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
+                                  attachMenuOpen
+                                    ? 'bg-brand-900 text-white rotate-45'
+                                    : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                                )}
+                                title="Attach file or media"
+                                aria-label="Attach file or media"
+                              >
+                                <Paperclip className="h-5 w-5" strokeWidth={1.8} />
+                              </button>
 
+                              {/* Attachment Popover Menu */}
+                              {attachMenuOpen && (
+                                <div
+                                  className="absolute bottom-full left-0 mb-2 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5"
+                                  onMouseEnter={handleAttachEnter}
+                                  onMouseLeave={handleAttachLeave}
+                                >
+                                  <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                    <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
+                                    <span>Photo or Video</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*,video/*"
+                                      disabled={uploadingMedia}
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        setAttachMenuOpen(false);
+                                        void handleFileUpload(e);
+                                      }}
+                                    />
+                                  </label>
+
+                                  <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                    <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Attach File</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                                      disabled={uploadingMedia}
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        setAttachMenuOpen(false);
+                                        void handleFileUpload(e);
+                                      }}
+                                    />
+                                  </label>
+
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia}
+                                    onClick={() => {
+                                      setAttachMenuOpen(false);
+                                      setShowStickerPicker(false);
+                                      setShowGifPicker(true);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  >
+                                    <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>GIFs</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia}
+                                    onClick={() => {
+                                      setAttachMenuOpen(false);
+                                      setShowGifPicker(false);
+                                      setShowStickerPicker(true);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  >
+                                    <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Stickers &amp; Emoji</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia || sending}
+                                    onClick={() => {
+                                      setAttachMenuOpen(false);
+                                      setPollQuestion('');
+                                      setPollOptions(['', '']);
+                                      setPollModalOpen(true);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  >
+                                    <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Create Poll</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia || sendingLocation}
+                                    onClick={() => {
+                                      setAttachMenuOpen(false);
+                                      void handleShareLocation();
+                                    }}
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  >
+                                    <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Share Location</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia}
+                                    onClick={() => {
+                                      setAttachMenuOpen(false);
+                                      void startVoiceRecording();
+                                    }}
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  >
+                                    <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Voice Message</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Telegram Rounded Input Pill with Smile/Sticker Button inside */}
+                            <div className="flex-1 min-w-0 flex items-center bg-fill-qt dark:bg-fill-sc/60 border border-transparent focus-within:border-brand-900/40 focus-within:bg-bg-pr rounded-full px-3.5 py-1 transition-all">
+                              <input
+                                ref={messageInputRef}
+                                type="text"
+                                value={msgText}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setMsgText(val);
+                                  emitTypingChange(val.length > 0);
+                                }}
+                                placeholder="Write a message..."
+                                className="flex-1 min-w-[80px] bg-transparent border-0 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
+                              />
+
+                              {/* Telegram Hover Floating Sticker & Emoji Popover Card */}
+                              <div
+                                className="relative shrink-0 flex items-center"
+                                onMouseEnter={handleStickerEnter}
+                                onMouseLeave={handleStickerLeave}
+                              >
                                 <button
                                   type="button"
                                   disabled={uploadingMedia}
                                   onClick={() => {
                                     setAttachMenuOpen(false);
                                     setShowGifPicker(false);
-                                    setShowStickerPicker(true);
+                                    setShowStickerPicker((v) => !v);
                                   }}
-                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  className={cn(
+                                    'size-8 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 ml-1',
+                                    showStickerPicker
+                                      ? 'text-brand-900 bg-brand-900/10'
+                                      : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                                  )}
+                                  title="Emoji & Stickers"
+                                  aria-label="Emoji and stickers"
                                 >
-                                  <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                  <span>Stickers &amp; Emoji</span>
+                                  <Smile className="h-5 w-5" strokeWidth={1.8} />
                                 </button>
 
-                                <button
-                                  type="button"
-                                  disabled={uploadingMedia || sending}
-                                  onClick={() => {
-                                    setAttachMenuOpen(false);
-                                    setPollQuestion('');
-                                    setPollOptions(['', '']);
-                                    setPollModalOpen(true);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                >
-                                  <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                  <span>Create Poll</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  disabled={uploadingMedia || sendingLocation}
-                                  onClick={() => {
-                                    setAttachMenuOpen(false);
-                                    void handleShareLocation();
-                                  }}
-                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                >
-                                  <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                  <span>Share Location</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  disabled={uploadingMedia}
-                                  onClick={() => {
-                                    setAttachMenuOpen(false);
-                                    void startVoiceRecording();
-                                  }}
-                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                >
-                                  <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                  <span>Voice Message</span>
-                                </button>
+                                {showStickerPicker && !recording && (
+                                  <div
+                                    className="absolute bottom-full right-0 mb-3 z-50 w-[calc(100vw-1.5rem)] sm:w-[410px] max-w-[410px] h-[380px] sm:h-[450px] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl overflow-hidden"
+                                    onMouseEnter={handleStickerEnter}
+                                    onMouseLeave={handleStickerLeave}
+                                  >
+                                    <StickerEmojiPicker
+                                      onSelectEmoji={(emoji) => {
+                                        setMsgText((prev) => prev + emoji);
+                                        messageInputRef.current?.focus();
+                                      }}
+                                      onSelectSticker={(stickerUrl) => void handleSendSticker(stickerUrl)}
+                                      onSelectGif={(gifUrl) => void handleSendGif(gifUrl)}
+                                      onClose={() => setShowStickerPicker(false)}
+                                    />
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
+                            </div>
 
-                          {/* Telegram Rounded Input Pill with Smile/Sticker Button inside */}
-                          <div className="flex-1 min-w-0 flex items-center bg-fill-qt dark:bg-fill-sc/60 border border-transparent focus-within:border-brand-900/40 focus-within:bg-bg-pr rounded-full px-3.5 py-1 transition-all">
-                            <input
-                              ref={messageInputRef}
-                              type="text"
-                              value={msgText}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setMsgText(val);
-                                emitTypingChange(val.length > 0);
-                              }}
-                              placeholder="Write a message..."
-                              className="flex-1 min-w-[80px] bg-transparent border-0 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
-                            />
-
-                            {/* Telegram Hover Floating Sticker & Emoji Popover Card */}
-                            <div
-                              className="relative shrink-0 flex items-center"
-                              onMouseEnter={handleStickerEnter}
-                              onMouseLeave={handleStickerLeave}
-                            >
+                            {/* Telegram Circular Action Button: Send Paperplane or Voice Note Mic */}
+                            {msgText.trim() ? (
+                              <button
+                                type="submit"
+                                disabled={sending || uploadingMedia}
+                                aria-label="Send message"
+                                className="size-10 rounded-full bg-brand-900 text-white hover:opacity-90 inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 shadow-xs"
+                              >
+                                <Send className="h-4 w-4 ml-0.5" strokeWidth={2.2} />
+                              </button>
+                            ) : (
                               <button
                                 type="button"
                                 disabled={uploadingMedia}
-                                onClick={() => {
-                                  setAttachMenuOpen(false);
-                                  setShowGifPicker(false);
-                                  setShowStickerPicker((v) => !v);
-                                }}
-                                className={cn(
-                                  'size-8 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 ml-1',
-                                  showStickerPicker
-                                    ? 'text-brand-900 bg-brand-900/10'
-                                    : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
-                                )}
-                                title="Emoji & Stickers"
-                                aria-label="Emoji and stickers"
+                                onClick={startVoiceRecording}
+                                title="Record voice note"
+                                aria-label="Record voice note"
+                                className="size-10 rounded-full bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc dark:bg-fill-sc/60 dark:hover:bg-fill-sc inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50"
                               >
-                                <Smile className="h-5 w-5" strokeWidth={1.8} />
+                                <Mic className="h-5 w-5" strokeWidth={1.8} />
                               </button>
-
-                              {showStickerPicker && !recording && (
-                                <div
-                                  className="absolute bottom-full right-0 mb-3 z-50 w-[calc(100vw-1.5rem)] sm:w-[410px] max-w-[410px] h-[380px] sm:h-[450px] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl overflow-hidden"
-                                  onMouseEnter={handleStickerEnter}
-                                  onMouseLeave={handleStickerLeave}
-                                >
-                                  <StickerEmojiPicker
-                                    onSelectEmoji={(emoji) => {
-                                      setMsgText((prev) => prev + emoji);
-                                      messageInputRef.current?.focus();
-                                    }}
-                                    onSelectSticker={(stickerUrl) => void handleSendSticker(stickerUrl)}
-                                    onSelectGif={(gifUrl) => void handleSendGif(gifUrl)}
-                                    onClose={() => setShowStickerPicker(false)}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Telegram Circular Action Button: Send Paperplane or Voice Note Mic */}
-                          {msgText.trim() ? (
-                            <button
-                              type="submit"
-                              disabled={sending || uploadingMedia}
-                              aria-label="Send message"
-                              className="size-10 rounded-full bg-brand-900 text-white hover:opacity-90 inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 shadow-xs"
-                            >
-                              <Send className="h-4 w-4 ml-0.5" strokeWidth={2.2} />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={uploadingMedia}
-                              onClick={startVoiceRecording}
-                              title="Record voice note"
-                              aria-label="Record voice note"
-                              className="size-10 rounded-full bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc dark:bg-fill-sc/60 dark:hover:bg-fill-sc inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50"
-                            >
-                              <Mic className="h-5 w-5" strokeWidth={1.8} />
-                            </button>
-                          )}
-                        </form>
+                            )}
+                          </form>
+                        </div>
                       </div>
                     )}
                   </>
@@ -3897,8 +4010,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       </div>
 
       {/* Desktop Docked 3rd Column: Group Info or Direct Profile View (Resizable & Responsive) */}
-      {((activeChat?.type === 'group' && groupInfoOpen && !joinPreviewStatus) ||
-        (activeChat?.type === 'direct' && directInfoOpen && interlocutor)) && (
+      {!middleFullScreen &&
+        ((activeChat?.type === 'group' && groupInfoOpen && !joinPreviewStatus) ||
+          (activeChat?.type === 'direct' && directInfoOpen && interlocutor)) && (
           <>
             {/* Draggable Divider Handle between Middle Chat View and Right Info/Profile Panel */}
             <div
