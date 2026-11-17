@@ -184,6 +184,33 @@ export default function NotificationsPage() {
     };
   }, [loadNotifications, socket]);
 
+  // Automatically mark notifications as read when viewed without requiring manual item clicks
+  useEffect(() => {
+    if (!user || loading) return;
+    const hasUnread = items.some((n) => !n.readAt);
+    if (!hasUnread) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await apiFetch('/notifications', {
+          method: 'PATCH',
+          json: {},
+        });
+        setItems((prev) =>
+          prev.map((row) => (row.readAt ? row : { ...row, readAt: new Date().toISOString() }))
+        );
+        setCounters((prev) => ({ ...prev, unreadNotifications: 0 }));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('weto:notification-event'));
+        }
+      } catch {
+        // non-blocking
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [items, user, loading, setCounters]);
+
   const grouped = useMemo(() => {
     const map: Record<DateGroupKey, NotificationItem[]> = {
       today: [],

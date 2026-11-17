@@ -279,11 +279,34 @@ export function AppShell({
 
   const viewportLocked = Boolean(fullWidth && hideDesktopSidebar);
 
+  // Strictly lock viewport to prevent document-level scrolling on desktop & mobile in locked mode
+  useEffect(() => {
+    if (!viewportLocked || typeof document === 'undefined') return;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+    const prevBodyOverscroll = document.body.style.overscrollBehavior;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
+      document.body.style.overscrollBehavior = prevBodyOverscroll;
+    };
+  }, [viewportLocked]);
+
   return (
     <div
       className={cn(
         'bg-bg-pr text-lab-pr',
-        viewportLocked ? 'h-[100dvh] flex flex-col overflow-hidden' : 'min-h-screen'
+        viewportLocked
+          ? 'fixed inset-0 h-[100dvh] max-h-[100dvh] w-screen overflow-hidden overscroll-none flex flex-col z-0'
+          : 'min-h-screen'
       )}
     >
       {/* Mobile Sticky Top Header matching mobile/components/layout/ApplicationHeader.vue */}
@@ -362,19 +385,18 @@ export function AppShell({
           <div className="w-full max-w-[1260px] xl:max-w-[1300px] flex justify-center">
             {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
             {!hideDesktopSidebar && (
-              <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[275px] shrink-0">
-                {/* Main Nav Column */}
-                <div className="flex-1 h-full shrink-0 flex flex-col pt-6 px-3 xl:px-5 overflow-y-auto hidden-scroll">
-            {/* Logo Header — exact ApplicationSidebar.vue */}
-            <div className="mb-4">
-              <Link href="/" className="inline-block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logoSrc} alt={appName} className="h-7 w-auto object-contain" />
-              </Link>
-            </div>
+              <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[275px] shrink-0 flex-col justify-between overflow-hidden">
+                {/* Logo Header — exact ApplicationSidebar.vue */}
+                <div className="shrink-0 pt-6 px-3 xl:px-5 mb-2">
+                  <Link href="/" className="inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logoSrc} alt={appName} className="h-7 w-auto object-contain" />
+                  </Link>
+                </div>
 
-            {/* Primary Navigation — exact ApplicationNavbar.vue (22px icons, text-[19px], gap-3) */}
-            <nav className="flex flex-col gap-3">
+                {/* Main Nav Column (Scrollable within bounds) */}
+                <div className="flex-1 min-h-0 overflow-y-auto hidden-scroll px-3 xl:px-5 py-2">
+                  <nav className="flex flex-col gap-3">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = item.matchPrefix
@@ -591,53 +613,74 @@ export function AppShell({
                 )}
               </div>
             </nav>
+          </div>
 
-            {/* Exact ApplicationFooter.vue at bottom of sidebar */}
-            <div className="mt-auto mb-4 pt-6">
-              <div className="flex flex-wrap mb-2 leading-5">
-                {features?.businessAccounts !== false && (
-                  <Link href="/business" className="hover:underline text-cap-s text-lab-sc mr-2">
-                    Business account
-                  </Link>
-                )}
+          {/* Exact ApplicationFooter & Fixed Bottom-Left User Profile Pill */}
+          <div className="shrink-0 mt-auto px-3 xl:px-5 pb-4 pt-2 border-t border-bord-tr/60 bg-bg-pr">
+            {user && (
+              <div className="mb-2.5">
                 <button
                   type="button"
-                  onClick={toggleTheme}
-                  className="hover:underline text-cap-s text-lab-sc mr-2 cursor-pointer"
+                  onClick={() => setSwitcherOpen(true)}
+                  className="w-full flex items-center gap-2.5 p-1.5 -ml-1 rounded-full hover:bg-fill-qt transition-colors cursor-pointer group text-left"
+                  title={`Signed in as @${user.username} · Click to switch account`}
+                  aria-label="Account options"
                 >
-                  Theme
+                  <Avatar src={user.avatar} alt={user.username} size="sm" className="shrink-0 ring-1 ring-bord-pr" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-par-s font-semibold text-lab-pr truncate leading-snug">
+                      {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username}
+                    </p>
+                    <p className="text-cap-s text-lab-sc truncate leading-tight">@{user.username}</p>
+                  </div>
+                  <MoreHorizontal className="size-4 text-lab-tr group-hover:text-lab-pr shrink-0 mr-1" />
                 </button>
-                {features?.jobs !== false && (
-                  <Link href="/jobs" className="hover:underline text-cap-s text-lab-sc mr-2">
-                    Jobs
-                  </Link>
-                )}
-                <Link href="/document/help-center" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  Help center
-                </Link>
-                <Link href="/api/v1/docs" target="_blank" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  API
-                </Link>
-                <Link href="/document/privacy-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  Privacy policy
-                </Link>
-                <Link href="/document/cookies-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  Cookies policy
-                </Link>
-                <Link href="/document/terms-of-use" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  Terms
-                </Link>
-                {user && (
-                  <Link href="/settings" className="hover:underline text-cap-s text-lab-sc mr-2">
-                    Language
-                  </Link>
-                )}
               </div>
-              <div className="leading-5">
-                <span className="text-cap-s text-lab-sc">
-                  {appName} &copy; {new Date().getFullYear()}
-                </span>
-              </div>
+            )}
+
+            <div className="flex flex-wrap mb-2 leading-5">
+              {features?.businessAccounts !== false && (
+                <Link href="/business" className="hover:underline text-cap-s text-lab-sc mr-2">
+                  Business account
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="hover:underline text-cap-s text-lab-sc mr-2 cursor-pointer"
+              >
+                Theme
+              </button>
+              {features?.jobs !== false && (
+                <Link href="/jobs" className="hover:underline text-cap-s text-lab-sc mr-2">
+                  Jobs
+                </Link>
+              )}
+              <Link href="/document/help-center" className="hover:underline text-cap-s text-lab-sc mr-2">
+                Help center
+              </Link>
+              <Link href="/api/v1/docs" target="_blank" className="hover:underline text-cap-s text-lab-sc mr-2">
+                API
+              </Link>
+              <Link href="/document/privacy-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
+                Privacy policy
+              </Link>
+              <Link href="/document/cookies-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
+                Cookies policy
+              </Link>
+              <Link href="/document/terms-of-use" className="hover:underline text-cap-s text-lab-sc mr-2">
+                Terms
+              </Link>
+              {user && (
+                <Link href="/settings" className="hover:underline text-cap-s text-lab-sc mr-2">
+                  Language
+                </Link>
+              )}
+            </div>
+            <div className="leading-5">
+              <span className="text-cap-s text-lab-sc">
+                {appName} &copy; {new Date().getFullYear()}
+              </span>
             </div>
           </div>
         </aside>

@@ -12,25 +12,94 @@ import { ensureDefaultCurrenciesAndLocales } from '@/services/localization-seed.
 import { ensureDefaultCommunityGroups, syncAutoJoinGroupsForUser } from '@/services/group-seed.service';
 import { resolveMediaUrl } from '@/lib/media-url';
 
+let seedsCompleted = false;
+
+interface PublicGroupDoc {
+  _id: unknown;
+  chatUuid?: string;
+  group?: {
+    name?: string;
+    description?: string;
+    avatar?: string;
+    category?: string;
+    verified?: boolean;
+    isPinned?: boolean;
+    isPasswordProtected?: boolean;
+    isPaid?: boolean;
+    entryPrice?: number;
+  };
+  participants?: Array<{ userId?: unknown }>;
+  lastMessagePreview?: unknown;
+  lastActivity?: Date;
+}
+
+interface CurrencyDoc {
+  alpha3Code: string;
+  symbolNative?: string;
+  symbol?: string;
+  [key: string]: unknown;
+}
+
+interface LocaleDoc {
+  alpha2Code: string;
+  direction?: string;
+  [key: string]: unknown;
+}
+
+interface CachedPublicData {
+  currencies: CurrencyDoc[];
+  locales: LocaleDoc[];
+  publicGroupsRaw: PublicGroupDoc[];
+  expiresAt: number;
+}
+let cachedPublicData: CachedPublicData | null = null;
+const PUBLIC_CACHE_TTL_MS = 60_000;
+
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    await ensureDefaultCurrenciesAndLocales();
-    await ensureDefaultCommunityGroups();
-    const [config, authCtx, currencies, locales, publicGroupsRaw] = await Promise.all([
+    if (!seedsCompleted) {
+      await Promise.all([ensureDefaultCurrenciesAndLocales(), ensureDefaultCommunityGroups()]);
+      seedsCompleted = true;
+    }
+
+    const now = Date.now();
+    let currencies: CurrencyDoc[];
+    let locales: LocaleDoc[];
+    let publicGroupsRaw: PublicGroupDoc[];
+
+    if (cachedPublicData && cachedPublicData.expiresAt > now) {
+      currencies = cachedPublicData.currencies;
+      locales = cachedPublicData.locales;
+      publicGroupsRaw = cachedPublicData.publicGroupsRaw;
+    } else {
+      const [cur, loc, grp] = await Promise.all([
+        Currency.find({ status: true }).sort({ order: 1 }).lean(),
+        Locale.find({ status: true }).sort({ order: 1 }).lean(),
+        Chat.find({
+          type: ChatType.GROUP,
+          'group.status': GroupStatus.ACTIVE,
+          'group.visibility': GroupVisibility.PUBLIC,
+        })
+          .sort({ 'group.isPinned': -1, lastActivity: -1 })
+          .limit(6)
+          .select('_id chatUuid group participants lastMessagePreview lastActivity')
+          .lean(),
+      ]);
+      currencies = cur as unknown as CurrencyDoc[];
+      locales = loc as unknown as LocaleDoc[];
+      publicGroupsRaw = grp as unknown as PublicGroupDoc[];
+      cachedPublicData = {
+        currencies,
+        locales,
+        publicGroupsRaw,
+        expiresAt: now + PUBLIC_CACHE_TTL_MS,
+      };
+    }
+
+    const [config, authCtx] = await Promise.all([
       getPublicBootstrapConfig(),
       getOptionalAuth(req),
-      Currency.find({ status: true }).sort({ order: 1 }).lean(),
-      Locale.find({ status: true }).sort({ order: 1 }).lean(),
-      Chat.find({
-        type: ChatType.GROUP,
-        'group.status': GroupStatus.ACTIVE,
-        'group.visibility': GroupVisibility.PUBLIC,
-      })
-        .sort({ 'group.isPinned': -1, lastActivity: -1 })
-        .limit(6)
-        .select('_id chatUuid group participants lastMessagePreview lastActivity')
-        .lean(),
     ]);
 
     let unreadNotifications = 0;

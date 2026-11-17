@@ -2263,14 +2263,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   return (
     <div
       className={cn(
-        'flex overflow-hidden bg-bg-pr w-full max-w-full h-full',
+        'flex overflow-hidden bg-bg-pr w-full max-w-full h-full overscroll-none',
         (isDraggingLeft || isDraggingRight) && 'select-none cursor-col-resize'
       )}
     >
       {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden in Expand mode) */}
       <aside
         className={cn(
-          'hidden w-16 shrink-0 border-r border-bord-pr bg-bg-pr flex-col items-center justify-between py-5',
+          'hidden w-16 shrink-0 h-full max-h-full border-r border-bord-pr bg-bg-pr flex flex-col items-center justify-between py-5 overflow-hidden select-none',
           !middleFullScreen && 'md:flex'
         )}
       >
@@ -2363,7 +2363,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-3">
+        <div className="mt-auto shrink-0 flex flex-col items-center gap-3">
           <Link
             href="/settings"
             title="Settings"
@@ -2741,7 +2741,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       {/* Right Active Thread */}
       <div
         className={cn(
-          'flex-1 flex flex-col bg-bg-pr min-w-0 min-h-0 h-full max-w-full overflow-hidden',
+          'flex-1 flex flex-col bg-bg-pr min-w-0 min-h-0 h-full max-h-full overflow-hidden relative',
           activeChatId ? 'fixed inset-0 z-[60] md:static md:inset-auto md:z-auto' : 'hidden md:flex'
         )}
       >
@@ -3270,7 +3270,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 {/* Messages Timeline (Previous theme colors + Telegram layout & proper margins) */}
                 <div
                   className={cn(
-                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe sm:px-6 md:px-8 space-y-1 bg-fill-fv/35',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-4 px-3 px-safe sm:px-6 md:px-8 space-y-1 bg-fill-fv/35',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
@@ -3598,7 +3598,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                     {/* Composer (matches PHP ChatForm + AudioRecorder.vue) */}
                     {isGroupMuted || isReadOnlyRoom ? (
-                      <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-fill-qt flex items-center justify-center gap-2 text-cap-l text-lab-sc shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-fill-qt flex items-center justify-center gap-2 text-cap-l text-lab-sc shrink-0">
                         <MessageSquareOff className="h-4 w-4 text-lab-sc shrink-0" />
                         <span>
                           {isGroupMuted
@@ -3607,7 +3607,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         </span>
                       </div>
                     ) : recording ? (
-                      <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr flex items-center justify-between gap-3 bg-bg-pr shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr flex items-center justify-between gap-3 bg-bg-pr shrink-0">
                         <div className="flex items-center gap-2.5">
                           <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse" />
                           <span className="text-par-n font-semibold text-lab-pr tabular-nums">
@@ -3635,7 +3635,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         </div>
                       </div>
                     ) : (
-                      <div className="relative px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-bg-pr shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full relative px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-bg-pr shrink-0">
                         {mentionCandidates.length > 0 && (
                           <div className="absolute bottom-full left-4 right-4 sm:right-auto sm:w-72 mb-1.5 z-30 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl overflow-hidden divide-y divide-bord-pr">
                             {mentionCandidates.map((cand) => (

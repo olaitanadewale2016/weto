@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import {
+  getRedirectResult,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+} from 'firebase/auth';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { apiFetch } from '@/lib/api-client';
@@ -17,7 +22,7 @@ import { useToast } from '@/components/providers/ToastProvider';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { bootstrap, refreshBootstrap } = useApp();
+  const { bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
   const { error, success } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,6 +31,28 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const appName = bootstrap?.config?.appName || 'Weto';
+
+  // Handle Google OAuth redirect on PWA standalone & mobile
+  useEffect(() => {
+    if (!isFirebaseClientConfigured()) return;
+    try {
+      const auth = getFirebaseClientAuth();
+      getRedirectResult(auth)
+        .then(async (cred) => {
+          if (cred?.user) {
+            setLoading(true);
+            const idToken = await cred.user.getIdToken();
+            await completeSessionExchange(idToken);
+          }
+        })
+        .catch((err) => {
+          error('Google sign in failed', err instanceof Error ? err.message : undefined);
+        });
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function completeSessionExchange(idToken: string) {
     const res = await apiFetch<{
@@ -75,9 +102,34 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const auth = getFirebaseClientAuth();
-      const cred = await signInWithPopup(auth, googleAuthProvider);
-      const idToken = await cred.user.getIdToken();
-      await completeSessionExchange(idToken);
+      const isStandalone =
+        (typeof window !== 'undefined' &&
+          (window.matchMedia?.('(display-mode: standalone)').matches ||
+            (window.navigator as unknown as { standalone?: boolean })?.standalone === true)) ||
+        isPwaInstalled;
+
+      if (isStandalone) {
+        await signInWithRedirect(auth, googleAuthProvider);
+        return;
+      }
+
+      try {
+        const cred = await signInWithPopup(auth, googleAuthProvider);
+        const idToken = await cred.user.getIdToken();
+        await completeSessionExchange(idToken);
+      } catch (popupErr: unknown) {
+        const msg = popupErr instanceof Error ? popupErr.message : '';
+        const code = (popupErr as { code?: string })?.code;
+        if (
+          code === 'auth/popup-blocked' ||
+          code === 'auth/operation-not-supported-in-this-environment' ||
+          msg.includes('popup')
+        ) {
+          await signInWithRedirect(auth, googleAuthProvider);
+          return;
+        }
+        throw popupErr;
+      }
     } catch (err) {
       error('Google sign in failed', err instanceof Error ? err.message : undefined);
     } finally {

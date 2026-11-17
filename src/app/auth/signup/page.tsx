@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
   sendEmailVerification,
   signInWithPopup,
+  signInWithRedirect,
   updateProfile,
 } from 'firebase/auth';
 import { Eye, EyeOff } from 'lucide-react';
@@ -22,7 +24,7 @@ import { useToast } from '@/components/providers/ToastProvider';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { bootstrap, refreshBootstrap } = useApp();
+  const { bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
   const { error, success } = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,6 +33,28 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   const appName = bootstrap?.config?.appName || 'Weto';
+
+  // Handle Google OAuth redirect on PWA standalone & mobile
+  useEffect(() => {
+    if (!isFirebaseClientConfigured()) return;
+    try {
+      const auth = getFirebaseClientAuth();
+      getRedirectResult(auth)
+        .then(async (cred) => {
+          if (cred?.user) {
+            setLoading(true);
+            const idToken = await cred.user.getIdToken(true);
+            await completeSession(idToken);
+          }
+        })
+        .catch((err) => {
+          error('Google sign up failed', err instanceof Error ? err.message : undefined);
+        });
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function completeSession(idToken: string) {
     const res = await apiFetch<{ user: { status: string; onboardingStep?: string } }>('/auth/session', {
@@ -77,9 +101,34 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const auth = getFirebaseClientAuth();
-      const cred = await signInWithPopup(auth, googleAuthProvider);
-      const idToken = await cred.user.getIdToken();
-      await completeSession(idToken);
+      const isStandalone =
+        (typeof window !== 'undefined' &&
+          (window.matchMedia?.('(display-mode: standalone)').matches ||
+            (window.navigator as unknown as { standalone?: boolean })?.standalone === true)) ||
+        isPwaInstalled;
+
+      if (isStandalone) {
+        await signInWithRedirect(auth, googleAuthProvider);
+        return;
+      }
+
+      try {
+        const cred = await signInWithPopup(auth, googleAuthProvider);
+        const idToken = await cred.user.getIdToken();
+        await completeSession(idToken);
+      } catch (popupErr: unknown) {
+        const msg = popupErr instanceof Error ? popupErr.message : '';
+        const code = (popupErr as { code?: string })?.code;
+        if (
+          code === 'auth/popup-blocked' ||
+          code === 'auth/operation-not-supported-in-this-environment' ||
+          msg.includes('popup')
+        ) {
+          await signInWithRedirect(auth, googleAuthProvider);
+          return;
+        }
+        throw popupErr;
+      }
     } catch (err) {
       error('Google sign up failed', err instanceof Error ? err.message : undefined);
     } finally {
