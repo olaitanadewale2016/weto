@@ -518,23 +518,22 @@ export function AppProvider({
         if (fbUser) {
           try {
             const idToken = await fbUser.getIdToken();
-            try {
-              localStorage.setItem('cp_token', idToken);
-            } catch {
-              // ignore storage errors
-            }
             if (!bootstrapUserRef.current && !isLoggingOutRef.current) {
-              await apiFetch('/auth/session', { method: 'POST', json: { idToken } });
+              const res = await apiFetch<{ token?: string }>('/auth/session', {
+                method: 'POST',
+                json: { idToken },
+              });
+              if (res?.token && typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('cp_token', res.token);
+                } catch {
+                  // ignore
+                }
+              }
               await refreshBootstrap();
             }
           } catch {
             // session sync deferred to explicit login
-          }
-        } else if (!isLoggingOutRef.current) {
-          try {
-            localStorage.removeItem('cp_token');
-          } catch {
-            // ignore
           }
         }
       });

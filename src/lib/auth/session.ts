@@ -129,21 +129,51 @@ export async function requireAuth(
   // 2. Firebase Bearer Token or __session Cookie
   let firebaseUid: string | null = null;
   let authMethod: 'session' | 'bearer' = 'session';
+  const auth = getFirebaseAuth();
 
+  // Try Bearer token if present (can be a 14-day session token OR an ID token)
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    const idToken = authHeader.slice(7).trim();
-    const decoded = await getFirebaseAuth().verifyIdToken(idToken, true);
-    firebaseUid = decoded.uid;
-    authMethod = 'bearer';
-  } else {
+    const rawToken = authHeader.slice(7).trim();
+    if (rawToken) {
+      try {
+        const decoded = await auth.verifySessionCookie(rawToken);
+        firebaseUid = decoded.uid;
+        authMethod = 'session';
+      } catch {
+        try {
+          const decoded = await auth.verifyIdToken(rawToken);
+          firebaseUid = decoded.uid;
+          authMethod = 'bearer';
+        } catch {
+          // Bearer token invalid or expired; fall through to cookieStore
+        }
+      }
+    }
+  }
+
+  // Fall back to HTTP-only cookie if Bearer token wasn't provided or didn't resolve
+  if (!firebaseUid) {
     const cookieStore = req ? req.cookies : await cookies();
     const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-    if (!sessionCookie) {
-      throw new UnauthorizedError('Missing authentication session.');
+    if (sessionCookie) {
+      try {
+        const decoded = await auth.verifySessionCookie(sessionCookie);
+        firebaseUid = decoded.uid;
+        authMethod = 'session';
+      } catch {
+        try {
+          const decoded = await auth.verifyIdToken(sessionCookie);
+          firebaseUid = decoded.uid;
+          authMethod = 'bearer';
+        } catch {
+          // Cookie invalid or expired
+        }
+      }
     }
-    const decoded = await getFirebaseAuth().verifySessionCookie(sessionCookie, true);
-    firebaseUid = decoded.uid;
-    authMethod = 'session';
+  }
+
+  if (!firebaseUid) {
+    throw new UnauthorizedError('Missing authentication session.');
   }
 
   let user = await User.findOne({ firebaseUid, deletedAt: null });

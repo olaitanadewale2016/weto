@@ -64,18 +64,22 @@ export default function SignupPage() {
   }, []);
 
   async function completeSession(idToken: string) {
-    if (typeof window !== 'undefined') {
+    clearBootstrapCache();
+    const res = await apiFetch<{
+      token?: string;
+      user: { status: string; onboardingStep?: string };
+    }>('/auth/session', {
+      method: 'POST',
+      json: { idToken },
+    });
+    const sessionToken = res.token || idToken;
+    if (typeof window !== 'undefined' && sessionToken) {
       try {
-        localStorage.setItem('cp_token', idToken);
+        localStorage.setItem('cp_token', sessionToken);
       } catch {
         // ignore storage errors
       }
     }
-    clearBootstrapCache();
-    const res = await apiFetch<{ user: { status: string; onboardingStep?: string } }>('/auth/session', {
-      method: 'POST',
-      json: { idToken },
-    });
     await refreshBootstrap();
     success('Account created!');
     setTimeout(() => {
@@ -118,17 +122,6 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const auth = getFirebaseClientAuth();
-      const isStandalone =
-        (typeof window !== 'undefined' &&
-          (window.matchMedia?.('(display-mode: standalone)').matches ||
-            (window.navigator as unknown as { standalone?: boolean })?.standalone === true)) ||
-        isPwaInstalled;
-
-      if (isStandalone) {
-        await signInWithRedirect(auth, googleAuthProvider);
-        return;
-      }
-
       try {
         const cred = await signInWithPopup(auth, googleAuthProvider);
         const idToken = await cred.user.getIdToken();
@@ -138,6 +131,7 @@ export default function SignupPage() {
         const code = (popupErr as { code?: string })?.code;
         if (
           code === 'auth/popup-blocked' ||
+          code === 'auth/popup-closed-by-user' ||
           code === 'auth/operation-not-supported-in-this-environment' ||
           msg.includes('popup')
         ) {

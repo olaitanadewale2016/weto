@@ -1,12 +1,20 @@
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
+import {
+  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  Auth,
+  GoogleAuthProvider,
+} from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getMessaging, Messaging, isSupported } from 'firebase/messaging';
 import { publicEnv } from '../env';
 
 let appInstance: FirebaseApp | null = null;
+let authInstance: Auth | null = null;
 let firestoreDisabled = false;
 
 export function isFirebaseClientConfigured(): boolean {
@@ -38,7 +46,20 @@ export function getFirebaseClientApp(): FirebaseApp {
 }
 
 export function getFirebaseClientAuth(): Auth {
-  return getAuth(getFirebaseClientApp());
+  if (authInstance) return authInstance;
+  const app = getFirebaseClientApp();
+  if (typeof window !== 'undefined') {
+    try {
+      authInstance = initializeAuth(app, {
+        persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+      });
+      return authInstance;
+    } catch {
+      // If already initialized, getAuth returns the existing instance
+    }
+  }
+  authInstance = getAuth(app);
+  return authInstance;
 }
 
 export const googleAuthProvider = new GoogleAuthProvider();

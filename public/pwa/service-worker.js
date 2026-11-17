@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weto-pwa-v4';
+const CACHE_NAME = 'weto-pwa-v5';
 const MEDIA_CACHE_NAME = 'weto-media-cache-v1';
 const PRECACHE_ASSETS = [
   '/pwa/manifest.json',
@@ -96,24 +96,16 @@ self.addEventListener('fetch', (event) => {
 
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
-        .then((networkRes) => {
-          if (networkRes && networkRes.ok) {
-            const copy = networkRes.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => undefined);
-          }
-          return networkRes;
-        })
-        .catch(async () => {
-          const cached = await caches.match(req);
-          if (cached) return cached;
-          const rootCached = await caches.match('/');
-          if (rootCached) return rootCached;
-          return new Response(
-            '<!doctype html><html><body style="font-family:sans-serif;padding:2rem;text-align:center;"><h2>You are offline</h2><p>Waiting for internet connection to reload content...</p></body></html>',
-            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-          );
-        })
+      fetch(req).catch(async () => {
+        const cached = await caches.match(req);
+        if (cached) return cached;
+        const rootCached = await caches.match('/');
+        if (rootCached) return rootCached;
+        return new Response(
+          '<!doctype html><html><body style="font-family:sans-serif;padding:2rem;text-align:center;"><h2>You are offline</h2><p>Waiting for internet connection to reload content...</p></body></html>',
+          { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        );
+      })
     );
   }
 });

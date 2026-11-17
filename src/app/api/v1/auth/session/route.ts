@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     await assertIpNotBlacklisted(ip);
 
     const auth = getFirebaseAuth();
-    const decoded = await auth.verifyIdToken(body.idToken, true);
+    const decoded = await auth.verifyIdToken(body.idToken);
     const email = (decoded.email || '').toLowerCase();
 
     if (email && (await isEmailOrUsernameBlacklisted(email))) {
@@ -187,7 +187,8 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       status: 'success',
       data: {
-        token: body.idToken,
+        token: sessionCookie,
+        idToken: body.idToken,
         user: {
           id: String(user._id),
           username: user.username,

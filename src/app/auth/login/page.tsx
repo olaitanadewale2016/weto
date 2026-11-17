@@ -39,7 +39,10 @@ export default function LoginPage() {
         typeof window !== 'undefined'
           ? new URLSearchParams(window.location.search).get('redirect')
           : null;
-      const safeRedirect = nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/';
+      const safeRedirect =
+        nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//') && !nextUrl.startsWith('/auth')
+          ? nextUrl
+          : '/';
       window.location.assign(safeRedirect);
     }
   }, [user, appLoading]);
@@ -67,27 +70,32 @@ export default function LoginPage() {
   }, []);
 
   async function completeSessionExchange(idToken: string) {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('cp_token', idToken);
-      } catch {
-        // ignore
-      }
-    }
     clearBootstrapCache();
     const res = await apiFetch<{
+      token?: string;
       user: { status: string; onboardingStep?: string; firstName?: string; username?: string };
     }>('/auth/session', {
       method: 'POST',
       json: { idToken, remember },
     });
+    const sessionToken = res.token || idToken;
+    if (typeof window !== 'undefined' && sessionToken) {
+      try {
+        localStorage.setItem('cp_token', sessionToken);
+      } catch {
+        // ignore
+      }
+    }
     await refreshBootstrap();
     success(`Welcome back, ${res.user.firstName || res.user.username || 'user'}!`);
     const nextUrl =
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('redirect')
         : null;
-    const safeRedirect = nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/';
+    const safeRedirect =
+      nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//') && !nextUrl.startsWith('/auth')
+        ? nextUrl
+        : '/';
     setTimeout(() => {
       if (res.user.status === 'onboarding') {
         window.location.assign(`/onboarding/step/${res.user.onboardingStep || 'profile'}`);
@@ -124,17 +132,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const auth = getFirebaseClientAuth();
-      const isStandalone =
-        (typeof window !== 'undefined' &&
-          (window.matchMedia?.('(display-mode: standalone)').matches ||
-            (window.navigator as unknown as { standalone?: boolean })?.standalone === true)) ||
-        isPwaInstalled;
-
-      if (isStandalone) {
-        await signInWithRedirect(auth, googleAuthProvider);
-        return;
-      }
-
       try {
         const cred = await signInWithPopup(auth, googleAuthProvider);
         const idToken = await cred.user.getIdToken();
@@ -144,6 +141,7 @@ export default function LoginPage() {
         const code = (popupErr as { code?: string })?.code;
         if (
           code === 'auth/popup-blocked' ||
+          code === 'auth/popup-closed-by-user' ||
           code === 'auth/operation-not-supported-in-this-environment' ||
           msg.includes('popup')
         ) {
