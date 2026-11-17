@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function GamesPage() {
   return (
-    <AppShell hideMobileChrome>
+    <AppShell hideMobileChrome hideRightRail>
       <Suspense
         fallback={
           <div

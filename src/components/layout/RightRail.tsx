@@ -239,8 +239,8 @@ export function RightRail() {
   }
 
   return (
-    <aside className="hidden lg:block w-[320px] xl:w-[350px] shrink-0">
-      <div className="sticky top-4 max-h-screen overflow-y-auto hidden-scroll pb-12 space-y-5 pt-4">
+    <aside className="hidden lg:block flex-1 max-w-[360px] shrink-0">
+      <div className="sticky top-4 max-h-screen overflow-y-auto hidden-scroll pb-12 space-y-5 pt-4 pr-4">
         {/* Clean PHP SearchBar.vue */}
         <form onSubmit={handleSearch} className="relative rounded-full border border-bord-card/80 bg-bg-pr focus-within:border-bord-pr transition-colors">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-lab-sc" />
