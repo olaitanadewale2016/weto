@@ -412,7 +412,10 @@ export function VideoCallStage({
   const lastSignalIsoRef = useRef<string>('');
   const mountedRef = useRef(true);
   const exitedRef = useRef(false);
+  const pttLockedRef = useRef<boolean>(false);
+  const pttActiveRef = useRef<boolean>(false);
   const pttLastTapRef = useRef<number>(0);
+  const pttTouchActiveRef = useRef<boolean>(false);
   const pttKeyHeldRef = useRef<boolean>(false);
   const onExitRef = useRef(onExit);
 
@@ -627,6 +630,10 @@ export function VideoCallStage({
 
       // Immediately release hardware camera & microphone BEFORE network I/O
       stopAllMediaSync();
+      pttLockedRef.current = false;
+      pttActiveRef.current = false;
+      setPttLocked(false);
+      setPttActive(false);
 
       if (notifyServer) {
         await apiFetch(`/chats/${chatId}/call`, {
@@ -1147,42 +1154,81 @@ export function VideoCallStage({
     }
   }
 
-  const handlePttDoubleToggle = useCallback(() => {
-    setPushToTalkMode(true);
-    setPttLocked((prevLocked) => {
-      const nextLocked = !prevLocked;
-      setPttActive(nextLocked);
-      toggleMic(!nextLocked);
-      return nextLocked;
-    });
-  }, [toggleMic]);
-
-  const handlePttPressStart = useCallback(
-    (isTouch: boolean) => {
-      setPushToTalkMode(true);
-      if (isTouch) {
-        const now = Date.now();
-        const delta = now - pttLastTapRef.current;
-        pttLastTapRef.current = now;
-        if (delta > 0 && delta < 300) {
-          handlePttDoubleToggle();
-          return;
-        }
-      }
-      if (!pttLocked) {
-        setPttActive(true);
-        toggleMic(false);
-      }
+  const applyPttState = useCallback(
+    (active: boolean, locked: boolean) => {
+      pttActiveRef.current = active;
+      setPttActive(active);
+      pttLockedRef.current = locked;
+      setPttLocked(locked);
+      // When active or locked, unmuted (muted = false). When neither, muted (muted = true).
+      toggleMic(!active);
     },
-    [pttLocked, handlePttDoubleToggle, toggleMic]
+    [toggleMic]
   );
 
-  const handlePttPressEnd = useCallback(() => {
-    if (!pttLocked) {
-      setPttActive(false);
-      toggleMic(true);
-    }
-  }, [pttLocked, toggleMic]);
+  const handlePttDoubleToggle = useCallback(() => {
+    setPushToTalkMode(true);
+    const nextLocked = !pttLockedRef.current;
+    applyPttState(nextLocked, nextLocked);
+  }, [applyPttState]);
+
+  const handlePttPressStart = useCallback(
+    (isTouch: boolean, e?: React.SyntheticEvent) => {
+      setPushToTalkMode(true);
+      if (isTouch) {
+        if (e && e.cancelable) {
+          e.preventDefault();
+        }
+        pttTouchActiveRef.current = true;
+      } else if (pttTouchActiveRef.current) {
+        // Suppress simulated ghost mouse events from touch
+        return;
+      }
+
+      const now = Date.now();
+      const delta = now - pttLastTapRef.current;
+      pttLastTapRef.current = now;
+
+      // Double-tap or rapid double-click detection (30ms < delta < 420ms)
+      if (delta > 30 && delta < 420) {
+        handlePttDoubleToggle();
+        return;
+      }
+
+      // If already locked on, press down should not change lock state
+      if (pttLockedRef.current) {
+        return;
+      }
+
+      // Momentary push to talk
+      applyPttState(true, false);
+    },
+    [handlePttDoubleToggle, applyPttState]
+  );
+
+  const handlePttPressEnd = useCallback(
+    (isTouch: boolean, e?: React.SyntheticEvent) => {
+      if (isTouch) {
+        if (e && e.cancelable) {
+          e.preventDefault();
+        }
+        setTimeout(() => {
+          pttTouchActiveRef.current = false;
+        }, 350);
+      } else if (pttTouchActiveRef.current) {
+        return;
+      }
+
+      // CRITICAL: Synchronous check!
+      // If locked, finger lift or mouse release must NEVER turn off mic or lock state!
+      if (pttLockedRef.current) {
+        return;
+      }
+
+      applyPttState(false, false);
+    },
+    [applyPttState]
+  );
 
   // Full Grupo Push-to-Talk hotkey (`Space` hold or double-tap lock) matching middle.js + live_kit_video_chat.js
   useEffect(() => {
@@ -1205,7 +1251,7 @@ export function VideoCallStage({
       if (e.code === 'Space' && pttKeyHeldRef.current && !isEditableTarget(e.target)) {
         e.preventDefault();
         pttKeyHeldRef.current = false;
-        handlePttPressEnd();
+        handlePttPressEnd(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1477,6 +1523,8 @@ export function VideoCallStage({
             <button
               type="button"
               onClick={() => {
+                pttLockedRef.current = false;
+                pttActiveRef.current = false;
                 setPttLocked(false);
                 setPttActive(false);
                 toggleMic();
@@ -1529,13 +1577,17 @@ export function VideoCallStage({
           {chatType === 'group' && (
             <button
               type="button"
-              onMouseDown={() => handlePttPressStart(false)}
-              onMouseUp={handlePttPressEnd}
-              onMouseLeave={handlePttPressEnd}
-              onTouchStart={() => handlePttPressStart(true)}
-              onTouchEnd={handlePttPressEnd}
-              onTouchCancel={handlePttPressEnd}
-              onDoubleClick={handlePttDoubleToggle}
+              onMouseDown={(e) => handlePttPressStart(false, e)}
+              onMouseUp={(e) => handlePttPressEnd(false, e)}
+              onMouseLeave={(e) => handlePttPressEnd(false, e)}
+              onTouchStart={(e) => handlePttPressStart(true, e)}
+              onTouchEnd={(e) => handlePttPressEnd(true, e)}
+              onTouchCancel={(e) => handlePttPressEnd(true, e)}
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                handlePttDoubleToggle();
+              }}
+              onContextMenu={(e) => e.preventDefault()}
               title="Push to Talk (Hold or double-tap to lock, or hold Space)"
               aria-label="Push to Talk"
               className={cn(
