@@ -217,6 +217,9 @@ const createChatSchema = z.object({
   postingMode: z.enum(['everyone', 'admins_only']).optional(),
   requiresApproval: z.boolean().optional(),
   password: z.string().max(64).optional(),
+  isPaid: z.boolean().optional(),
+  entryPrice: z.number().min(0).max(10000000).optional(),
+  monetizationNote: z.string().max(240).optional(),
   memberIds: z.array(z.string()).optional(),
 });
 
@@ -277,6 +280,10 @@ export async function POST(req: NextRequest) {
       .replace(/^-+|-+$/g, '')
       .slice(0, 40);
 
+    const rawPrice = Number(body.entryPrice || 0);
+    const isPaid = Boolean(body.isPaid && rawPrice > 0);
+    const entryPrice = isPaid ? Number(rawPrice.toFixed(2)) : 0;
+
     const chat = await Chat.create({
       chatUuid: crypto.randomUUID(),
       type: ChatType.GROUP,
@@ -298,6 +305,9 @@ export async function POST(req: NextRequest) {
         requiresApproval: Boolean(body.requiresApproval),
         isPasswordProtected: hasPassword,
         passwordHash: hasPassword ? hashGroupPassword(rawPassword) : null,
+        isPaid,
+        entryPrice,
+        monetizationNote: body.monetizationNote?.trim() || '',
       },
       lastMessagePreview: 'Group created',
       lastActivity: new Date(),

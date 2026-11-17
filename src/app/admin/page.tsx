@@ -397,6 +397,9 @@ function AdminDashboardContent() {
     requiresApproval: false,
     password: '',
     welcomeMessage: '',
+    isPaid: false,
+    entryPrice: 500,
+    monetizationNote: '',
   });
   const [broadcastGroupModalOpen, setBroadcastGroupModalOpen] = useState(false);
   const [broadcastGroupText, setBroadcastGroupText] = useState('');
@@ -1206,6 +1209,9 @@ function AdminDashboardContent() {
                         requiresApproval: false,
                         password: '',
                         welcomeMessage: '',
+                        isPaid: false,
+                        entryPrice: 500,
+                        monetizationNote: '',
                       });
                       setGroupModalOpen(true);
                     }}
@@ -1752,6 +1758,9 @@ function AdminDashboardContent() {
                                       requiresApproval: Boolean(gMeta.requiresApproval),
                                       password: '',
                                       welcomeMessage: '',
+                                      isPaid: Boolean(gMeta.isPaid && Number(gMeta.entryPrice || 0) > 0),
+                                      entryPrice: Number(gMeta.entryPrice || 500),
+                                      monetizationNote: String(gMeta.monetizationNote || ''),
                                     });
                                     setGroupModalOpen(true);
                                   }}
@@ -2843,6 +2852,33 @@ function AdminDashboardContent() {
                 onCheckedChange={(v) => setGroupForm((f) => ({ ...f, unleavable: v }))}
               />
             </label>
+          </div>
+          <div className="rounded-xl border border-bord-pr bg-fill-qt/40 p-3 space-y-2.5">
+            <label className="flex items-center justify-between cursor-pointer text-cap-l font-semibold text-lab-pr">
+              <span>Monetize Group (Paid Entry Fee)</span>
+              <Switch
+                checked={groupForm.isPaid}
+                onCheckedChange={(v) => setGroupForm((f) => ({ ...f, isPaid: v }))}
+              />
+            </label>
+            {groupForm.isPaid && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <Input
+                  label="Entry Fee (NGN)"
+                  type="number"
+                  min={50}
+                  step={50}
+                  value={String(groupForm.entryPrice)}
+                  onChange={(e) => setGroupForm((f) => ({ ...f, entryPrice: Number(e.target.value || 0) }))}
+                />
+                <Input
+                  label="Perks Note (optional)"
+                  placeholder="VIP room benefits..."
+                  value={groupForm.monetizationNote}
+                  onChange={(e) => setGroupForm((f) => ({ ...f, monetizationNote: e.target.value }))}
+                />
+              </div>
+            )}
           </div>
           <AvatarPresetPicker
             selectedUrl={groupForm.avatar}

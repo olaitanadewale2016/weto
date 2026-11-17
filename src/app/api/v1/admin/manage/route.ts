@@ -489,10 +489,10 @@ export async function GET(req: NextRequest) {
         .lean();
       const filtered = re
         ? list.filter((item) => {
-            const u = item.userId as { username?: string; email?: string; firstName?: string; lastName?: string } | null;
-            const hay = `${u?.username || ''} ${u?.email || ''} ${u?.firstName || ''} ${u?.lastName || ''} ${item.status || ''}`;
-            return re.test(hay);
-          })
+          const u = item.userId as { username?: string; email?: string; firstName?: string; lastName?: string } | null;
+          const hay = `${u?.username || ''} ${u?.email || ''} ${u?.firstName || ''} ${u?.lastName || ''} ${item.status || ''}`;
+          return re.test(hay);
+        })
         : list;
       return apiSuccess(filtered);
     }
@@ -509,9 +509,9 @@ export async function GET(req: NextRequest) {
         .lean();
       const filtered = re
         ? cashouts.filter((c) => {
-            const u = c.userId as { username?: string; email?: string } | null;
-            return re.test(`${u?.username || ''} ${u?.email || ''} ${c.paymentMethod || ''} ${c.status || ''}`);
-          })
+          const u = c.userId as { username?: string; email?: string } | null;
+          return re.test(`${u?.username || ''} ${u?.email || ''} ${c.paymentMethod || ''} ${c.status || ''}`);
+        })
         : cashouts;
       return apiSuccess(filtered);
     }
@@ -1184,6 +1184,9 @@ export async function POST(req: NextRequest) {
           requiresApproval: Boolean(payload.requiresApproval),
           isPasswordProtected: rawPwd.length > 0,
           passwordHash: rawPwd.length > 0 ? hashGroupPassword(rawPwd) : null,
+          isPaid: Boolean(payload.isPaid && Number(payload.entryPrice || 0) > 0),
+          entryPrice: payload.isPaid ? Math.max(0, Number(payload.entryPrice || 0)) : 0,
+          monetizationNote: String(payload.monetizationNote || '').trim().slice(0, 240),
         },
         lastMessagePreview: String(payload.welcomeMessage || 'Community group created').slice(0, 120),
         lastActivity: new Date(),
@@ -1235,14 +1238,14 @@ export async function POST(req: NextRequest) {
         chatDoc.group.postingMode = payload.postingMode;
       }
       if (payload.visibility === GroupVisibility.PUBLIC || payload.visibility === GroupVisibility.PRIVATE) {
-        chatDoc.group.visibility = payload.visibility as GroupVisibility;
+        chatDoc.group.visibility = payload.visibility;
       }
       if (typeof payload.verified === 'boolean') {
         chatDoc.group.verified = payload.verified;
         chatDoc.group.verifiedAt = payload.verified ? new Date() : null;
       }
       if (payload.status === GroupStatus.ACTIVE || payload.status === GroupStatus.SUSPENDED) {
-        chatDoc.group.status = payload.status as GroupStatus;
+        chatDoc.group.status = payload.status;
       }
       if (payload.clearPassword) {
         chatDoc.group.isPasswordProtected = false;
@@ -1250,6 +1253,15 @@ export async function POST(req: NextRequest) {
       } else if (typeof payload.password === 'string' && payload.password.trim()) {
         chatDoc.group.isPasswordProtected = true;
         chatDoc.group.passwordHash = hashGroupPassword(payload.password.trim());
+      }
+      if (typeof payload.isPaid === 'boolean' || payload.entryPrice !== undefined) {
+        const nextPrice = Math.max(0, Number(payload.entryPrice ?? chatDoc.group.entryPrice ?? 0));
+        const nextPaid = payload.isPaid !== undefined ? Boolean(payload.isPaid && nextPrice > 0) : Boolean(chatDoc.group.isPaid && nextPrice > 0);
+        chatDoc.group.isPaid = nextPaid;
+        chatDoc.group.entryPrice = nextPaid ? Number(nextPrice.toFixed(2)) : 0;
+      }
+      if (typeof payload.monetizationNote === 'string') {
+        chatDoc.group.monetizationNote = payload.monetizationNote.trim().slice(0, 240);
       }
       await chatDoc.save();
       await ModerationAction.create({

@@ -554,3 +554,118 @@ export async function reviewCashout(params: {
 
   return cashout;
 }
+
+/** Atomically settles a paid group entry fee or member tip from payer wallet to group owner wallet */
+export async function settleGroupWalletPayment(params: {
+  payerId: string;
+  ownerId: string;
+  chatId: string;
+  groupName: string;
+  amount: number;
+  kind: 'group_entry' | 'group_tip';
+  note?: string;
+  idempotencyKey?: string;
+}) {
+  const cleanAmount = Number(Number(params.amount).toFixed(2));
+  if (!Number.isFinite(cleanAmount) || cleanAmount <= 0) {
+    throw new ValidationError('Payment amount must be positive.');
+  }
+  if (String(params.payerId) === String(params.ownerId)) {
+    return { skippedOwnGroup: true, gross: 0, net: 0, fee: 0, tnxRef: null };
+  }
+
+  await connectDB();
+  const [walletCfg, appCfg] = await Promise.all([
+    getSettingsGroup('wallet'),
+    getSettingsGroup('app'),
+  ]);
+  if (!walletCfg.enabled) throw new ValidationError('Wallet payments are currently disabled.');
+
+  const ownerWalletDoc = await ensureWallet(params.ownerId);
+  const { gross, fee, net } = calculateCommission(cleanAmount, walletCfg.commissionTransfer || 0);
+  const idemKey = params.idempotencyKey || `grp_${params.kind}_${params.chatId}_${params.payerId}_${crypto.randomUUID()}`;
+  const tnxRef = `GRP-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  const currency = ownerWalletDoc.currency || appCfg.defaultCurrency || 'NGN';
+
+  await withMongoTransaction(async (session) => {
+    const existing = await WalletTransaction.findOne({ idempotencyKey: `${idemKey}_out` }).session(
+      session
+    );
+    if (existing) return;
+
+    const payerWallet = await Wallet.findOneAndUpdate(
+      { userId: new Types.ObjectId(params.payerId), balance: { $gte: gross } },
+      { $inc: { balance: -gross } },
+      { new: true, session }
+    );
+    if (!payerWallet) {
+      throw new ValidationError(
+        `Insufficient wallet balance (${gross.toLocaleString()} ${currency} required). Top up in Wallet to continue.`
+      );
+    }
+
+    await Wallet.findOneAndUpdate(
+      { _id: ownerWalletDoc._id },
+      { $inc: { balance: net } },
+      { new: true, session }
+    );
+
+    const commonMeta = {
+      kind: params.kind,
+      chatId: params.chatId,
+      groupName: params.groupName,
+      payerId: params.payerId,
+      ownerId: params.ownerId,
+      note: params.note || undefined,
+      fee,
+      tnxRef,
+    };
+
+    await WalletTransaction.create(
+      [
+        {
+          walletId: payerWallet._id,
+          userId: new Types.ObjectId(params.payerId),
+          amount: gross,
+          commission: fee,
+          currency,
+          transactionType: TransactionType.PAYMENT,
+          isInternal: true,
+          direction: TransactionDirection.OUTGOING,
+          status: TransactionStatus.COMPLETED,
+          idempotencyKey: `${idemKey}_out`,
+          metadata: commonMeta,
+        },
+        {
+          walletId: ownerWalletDoc._id,
+          userId: new Types.ObjectId(params.ownerId),
+          amount: net,
+          commission: fee,
+          currency,
+          transactionType: TransactionType.PAYMENT,
+          isInternal: true,
+          direction: TransactionDirection.INCOMING,
+          status: TransactionStatus.COMPLETED,
+          idempotencyKey: `${idemKey}_in`,
+          metadata: commonMeta,
+        },
+      ],
+      { session }
+    );
+  });
+
+  await dispatchNotification({
+    recipientId: params.ownerId,
+    actorId: params.payerId,
+    type: 'GROUP_MONETIZATION',
+    category: 'important',
+    title: params.kind === 'group_entry' ? 'Paid Group Member Joined' : 'Group Tip Received',
+    message:
+      params.kind === 'group_entry'
+        ? `You earned ${net.toLocaleString()} ${currency} from a new paid member in ${params.groupName}.`
+        : `You received a ${net.toLocaleString()} ${currency} tip in ${params.groupName}.`,
+    actionUrl: `/messenger/c/${params.chatId}`,
+  }).catch(() => undefined);
+
+  return { skippedOwnGroup: false, gross, net, fee, tnxRef, currency };
+}

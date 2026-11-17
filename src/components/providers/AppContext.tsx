@@ -148,6 +148,8 @@ export interface CommunityGroupSummary {
   verified: boolean;
   isPinned: boolean;
   isPasswordProtected: boolean;
+  isPaid?: boolean;
+  entryPrice?: number;
   membersCount: number;
   isJoined: boolean;
 }

@@ -22,6 +22,7 @@ import {
 } from '@/services/group-seed.service';
 import { emitToChat, emitToUser } from '@/lib/realtime-emitter';
 import { dispatchNotification } from '@/services/notification.service';
+import { settleGroupWalletPayment } from '@/services/wallet.service';
 import {
   getActiveChatTypingUsers,
   publishChatRealtimeEvent,
@@ -107,14 +108,14 @@ export async function GET(
         .lean(),
       pinnedIds.length > 0
         ? Message.find({
-            _id: { $in: pinnedIds },
-            chatId: chat._id,
-            isDeleted: false,
-            hiddenForUserIds: { $ne: user._id },
-          })
-            .populate('senderId', 'username firstName lastName avatar verified')
-            .populate('mediaId')
-            .lean()
+          _id: { $in: pinnedIds },
+          chatId: chat._id,
+          isDeleted: false,
+          hiddenForUserIds: { $ne: user._id },
+        })
+          .populate('senderId', 'username firstName lastName avatar verified')
+          .populate('mediaId')
+          .lean()
         : Promise.resolve([]),
       ChatCall.findOne({
         chatId: chat._id,
@@ -125,13 +126,13 @@ export async function GET(
         .lean(),
       pendingIds.length > 0
         ? User.find({ _id: { $in: pendingIds } })
-            .select('_id username firstName lastName avatar verified')
-            .lean()
+          .select('_id username firstName lastName avatar verified')
+          .lean()
         : Promise.resolve([]),
       bannedIds.length > 0
         ? User.find({ _id: { $in: bannedIds } })
-            .select('_id username firstName lastName avatar verified')
-            .lean()
+          .select('_id username firstName lastName avatar verified')
+          .lean()
         : Promise.resolve([]),
     ]);
 
@@ -186,14 +187,14 @@ export async function GET(
       })),
       activeCall: activeCall
         ? {
-            id: String(activeCall._id),
-            callUuid: activeCall.callUuid,
-            audioOnly: Boolean(activeCall.audioOnly),
-            status: activeCall.status,
-            initiatorId: String(activeCall.initiatorId),
-            participantCount: activeCall.participants?.length || 0,
-            startedAt: activeCall.startedAt,
-          }
+          id: String(activeCall._id),
+          callUuid: activeCall.callUuid,
+          audioOnly: Boolean(activeCall.audioOnly),
+          status: activeCall.status,
+          initiatorId: String(activeCall.initiatorId),
+          participantCount: activeCall.participants?.length || 0,
+          startedAt: activeCall.startedAt,
+        }
         : null,
       typingUsers: getActiveChatTypingUsers(String(chat._id), String(user._id)),
     });
@@ -476,6 +477,7 @@ const patchChatSchema = z.object({
     'mute_participant',
     'ban_participant',
     'unban_participant',
+    'tip_group_owner',
   ]),
   lastReadMessageId: z.string().optional(),
   messageId: z.string().optional(),
@@ -491,6 +493,12 @@ const patchChatSchema = z.object({
   requiresApproval: z.boolean().optional(),
   password: z.string().max(64).optional(),
   clearPassword: z.boolean().optional(),
+  isPaid: z.boolean().optional(),
+  entryPrice: z.number().min(0).max(10000000).optional(),
+  monetizationNote: z.string().max(240).optional(),
+  payFromWallet: z.boolean().optional(),
+  tipAmount: z.number().min(50).max(10000000).optional(),
+  tipMessage: z.string().max(160).optional(),
   regenerateInviteCode: z.boolean().optional(),
   inviteCode: z.string().optional(),
   role: z.enum(['owner', 'admin', 'member']).optional(),
@@ -554,6 +562,33 @@ export async function PATCH(
           }
         }
         return apiSuccess({ joined: false, pending: true, status: 'pending' });
+      }
+
+      const entryPrice = Number(chat.group.entryPrice || 0);
+      const isPaidGroup = Boolean(chat.group.isPaid && entryPrice > 0);
+      const alreadyPaid =
+        String(chat.group.ownerId) === uid ||
+        (chat.group.paidMemberUserIds || []).some((id) => String(id) === uid);
+
+      if (isPaidGroup && !alreadyPaid) {
+        if (!body.payFromWallet) {
+          throw new ValidationError(
+            `This paid group requires an entry fee of NGN ${entryPrice.toLocaleString()}. Confirm wallet payment to join.`
+          );
+        }
+        const settlement = await settleGroupWalletPayment({
+          payerId: uid,
+          ownerId: String(chat.group.ownerId),
+          chatId: String(chat._id),
+          groupName: chat.group.name || 'Group',
+          amount: entryPrice,
+          kind: 'group_entry',
+          idempotencyKey: `grp_entry_${chat._id}_${uid}`,
+        });
+        chat.group.paidMemberUserIds = [...(chat.group.paidMemberUserIds || []), user._id];
+        if (!settlement.skippedOwnGroup) {
+          chat.group.revenueTotal = Number(((chat.group.revenueTotal || 0) + entryPrice).toFixed(2));
+        }
       }
 
       chat.participants.push({
@@ -672,10 +707,52 @@ export async function PATCH(
         chat.group.isPasswordProtected = true;
         chat.group.passwordHash = hashGroupPassword(body.password.trim());
       }
+      if (body.isPaid !== undefined || body.entryPrice !== undefined) {
+        const nextPrice = Math.max(0, Number(body.entryPrice ?? chat.group.entryPrice ?? 0));
+        const nextPaid = body.isPaid !== undefined ? Boolean(body.isPaid && nextPrice > 0) : Boolean(chat.group.isPaid && nextPrice > 0);
+        chat.group.isPaid = nextPaid;
+        chat.group.entryPrice = nextPaid ? Number(nextPrice.toFixed(2)) : 0;
+      }
+      if (body.monetizationNote !== undefined) {
+        chat.group.monetizationNote = body.monetizationNote.trim().slice(0, 240);
+      }
       if (body.regenerateInviteCode) {
         chat.group.inviteCode = generateGroupInviteCode(chat.group.name);
       }
       await chat.save();
+      await emitToChat(String(chat._id), 'chat:inbox:update', { chatId: String(chat._id) });
+    } else if (body.action === 'tip_group_owner' && chat.type === ChatType.GROUP && chat.group) {
+      if (!body.tipAmount || body.tipAmount <= 0) {
+        throw new ValidationError('Tip amount must be positive.');
+      }
+      const ownerId = String(chat.group.ownerId);
+      if (ownerId === uid) {
+        throw new ValidationError('You cannot tip your own group.');
+      }
+      const settlement = await settleGroupWalletPayment({
+        payerId: uid,
+        ownerId,
+        chatId: String(chat._id),
+        groupName: chat.group.name || 'Group',
+        amount: body.tipAmount,
+        kind: 'group_tip',
+        note: body.tipMessage?.trim(),
+      });
+      chat.group.revenueTotal = Number(((chat.group.revenueTotal || 0) + body.tipAmount).toFixed(2));
+      const tipMsg = await Message.create({
+        chatId: chat._id,
+        chatUuid: chat.chatUuid,
+        senderId: user._id,
+        type: MessageType.SYSTEM,
+        content: `@${user.username} supported this group with ${settlement.gross.toLocaleString()} ${settlement.currency || 'NGN'}${body.tipMessage?.trim() ? ` — "${body.tipMessage.trim()}"` : ''}`,
+        deliveredTo: [user._id],
+        readBy: [user._id],
+      });
+      chat.lastMessageId = tipMsg._id;
+      chat.lastMessagePreview = tipMsg.content;
+      chat.lastActivity = new Date();
+      await chat.save();
+      await emitToChat(String(chat._id), 'chat:message:new', { chatId: String(chat._id), messageId: String(tipMsg._id) });
       await emitToChat(String(chat._id), 'chat:inbox:update', { chatId: String(chat._id) });
     } else if (body.action === 'set_role' && chat.type === ChatType.GROUP && chat.group && body.targetUserId && body.role) {
       if (!isOwner) {

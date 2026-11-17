@@ -5,12 +5,14 @@ import Link from 'next/link';
 import {
   BadgeCheck,
   Check,
+  Coins,
   Copy,
   FileDown,
   Image as ImageIcon,
   Lock,
   LogOut,
   MessageSquareOff,
+  MoreHorizontal,
   Phone,
   RefreshCw,
   Settings,
@@ -74,6 +76,10 @@ export interface GroupInfoChat {
     postingMode?: 'everyone' | 'admins_only';
     requiresApproval?: boolean;
     isPasswordProtected?: boolean;
+    isPaid?: boolean;
+    entryPrice?: number;
+    monetizationNote?: string;
+    revenueTotal?: number;
   };
   participants?: GroupInfoParticipant[];
   pendingJoinUsers?: Array<{
@@ -171,6 +177,14 @@ export function GroupInfoPanel({
   );
   const [editApproval, setEditApproval] = useState(Boolean(g?.requiresApproval));
   const [editPassword, setEditPassword] = useState('');
+  const [editIsPaid, setEditIsPaid] = useState(Boolean(g?.isPaid && (g?.entryPrice || 0) > 0));
+  const [editEntryPrice, setEditEntryPrice] = useState(String(g?.entryPrice || 500));
+  const [editMonetizationNote, setEditMonetizationNote] = useState(g?.monetizationNote || '');
+  const [tipOpen, setTipOpen] = useState(false);
+  const [tipAmount, setTipAmount] = useState('500');
+  const [tipNote, setTipNote] = useState('');
+  const [sendingTip, setSendingTip] = useState(false);
+  const [openMemberMenuId, setOpenMemberMenuId] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -201,9 +215,34 @@ export function GroupInfoPanel({
     }
   }
 
+  async function handleSendTip(e: React.FormEvent) {
+    e.preventDefault();
+    const numeric = Number(tipAmount);
+    if (!Number.isFinite(numeric) || numeric < 50 || sendingTip) {
+      error('Enter an amount of at least ₦50');
+      return;
+    }
+    setSendingTip(true);
+    try {
+      await patchGroup(
+        {
+          action: 'tip_group_owner',
+          tipAmount: numeric,
+          tipMessage: tipNote.trim() || undefined,
+        },
+        `Sent ₦${numeric.toLocaleString()} tip to support this group`
+      );
+      setTipNote('');
+      setTipOpen(false);
+    } finally {
+      setSendingTip(false);
+    }
+  }
+
   async function handleSaveSettings(e: React.FormEvent) {
     e.preventDefault();
     if (!editName.trim() || savingSettings) return;
+    const numericPrice = Math.max(0, Number(editEntryPrice || 0));
     setSavingSettings(true);
     try {
       await patchGroup(
@@ -218,6 +257,9 @@ export function GroupInfoPanel({
           privacy: editApproval ? 'closed' : 'open',
           postingMode: editPostingMode,
           requiresApproval: editApproval,
+          isPaid: editIsPaid && numericPrice > 0,
+          entryPrice: editIsPaid ? numericPrice : 0,
+          monetizationNote: editMonetizationNote.trim(),
           ...(editPassword.trim() ? { password: editPassword.trim() } : {}),
         },
         'Group settings updated'
@@ -260,12 +302,12 @@ export function GroupInfoPanel({
   return (
     <aside className="flex flex-col h-full bg-bg-pr border-l border-bord-pr overflow-hidden">
       {/* Grupo Info Header */}
-      <div className="px-4 py-3 border-b border-bord-pr flex items-center justify-between gap-2 shrink-0">
-        <p className="text-par-n font-bold text-lab-pr truncate">Room Info</p>
+      <div className="px-4 py-3.5 border-b border-bord-pr flex items-center justify-between gap-2 shrink-0">
+        <p className="text-par-l font-bold text-lab-pr truncate">Room Info</p>
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+          className="size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
           aria-label="Close room info"
         >
           <X className="h-4 w-4" />
@@ -273,86 +315,162 @@ export function GroupInfoPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* Cover & Avatar Hero (matches Grupo info_panel.php) */}
+        {/* Cover & Avatar Hero (Grupo info_panel.php inspiration) */}
         <div className="relative">
-          <div className="h-24 w-full bg-gradient-to-r from-brand-900/25 via-brand-900/15 to-fill-qt overflow-hidden">
+          <div className="h-28 w-full bg-gradient-to-r from-brand-900/25 via-brand-900/15 to-fill-qt overflow-hidden">
             {g?.coverImage && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={g.coverImage} alt="" className="h-full w-full object-cover" />
             )}
           </div>
-          <div className="-mt-8 px-4 flex flex-col items-center text-center">
-            <div className="rounded-full ring-4 ring-bg-pr bg-bg-pr">
+          <div className="-mt-9 px-4 flex flex-col items-center text-center">
+            <div className="rounded-full ring-4 ring-bg-pr bg-bg-pr shadow-xs">
               <Avatar src={g?.avatar} alt={g?.name || 'Group'} size="lg" />
             </div>
-            <div className="flex items-center justify-center gap-1 mt-2">
-              <h3 className="text-par-l font-bold text-lab-pr">{g?.name || 'Group Chat'}</h3>
+            <div className="flex items-center justify-center gap-1.5 mt-2.5">
+              <h3 className="text-title-3 font-bold text-lab-pr">{g?.name || 'Group Chat'}</h3>
               {g?.verified && <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />}
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1">
+            <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">
               {g?.category && (
-                <span className="rounded-full bg-fill-qt px-2.5 py-0.5 text-[11px] font-semibold text-lab-sc">
+                <span className="rounded-full bg-fill-qt px-3 py-0.5 text-cap-l font-semibold text-lab-sc">
                   {g.category}
                 </span>
               )}
+              {g?.isPaid && (g?.entryPrice || 0) > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-3 py-0.5 text-cap-l font-semibold text-green-700 dark:text-green-400">
+                  <Coins className="h-3.5 w-3.5" /> ₦{Number(g.entryPrice).toLocaleString()} Entry
+                </span>
+              )}
               {g?.isPasswordProtected && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
-                  <Lock className="h-3 w-3" /> Password
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-cap-l font-semibold text-amber-600">
+                  <Lock className="h-3.5 w-3.5" /> Password
                 </span>
               )}
               {g?.postingMode === 'admins_only' && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-brand-900/10 px-2 py-0.5 text-[11px] font-semibold text-brand-900">
-                  <MessageSquareOff className="h-3 w-3" /> Announcements
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand-900/10 px-2.5 py-0.5 text-cap-l font-semibold text-brand-900">
+                  <MessageSquareOff className="h-3.5 w-3.5" /> Announcements
                 </span>
               )}
             </div>
             {g?.description && (
-              <p className="text-cap-l text-lab-sc mt-2 leading-relaxed">{g.description}</p>
+              <p className="text-par-s text-lab-sc mt-2 leading-relaxed">{g.description}</p>
+            )}
+            {g?.monetizationNote && (
+              <p className="text-cap-l font-medium text-brand-900 mt-1">{g.monetizationNote}</p>
             )}
           </div>
         </div>
 
-        {/* Quick Actions Bar */}
-        <div className="px-4 py-3 flex items-center justify-center gap-2 border-b border-bord-pr">
+        {/* Grupo-Inspired Clean Quick Controls Bar */}
+        <div className="px-4 py-3.5 flex flex-wrap items-center justify-center gap-2 border-b border-bord-pr">
           <button
             type="button"
             onClick={() => onStartCall('audio')}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-bord-pr py-2 text-cap-l font-semibold text-lab-pr hover:bg-fill-fv cursor-pointer"
+            className="flex-1 min-w-[72px] inline-flex items-center justify-center gap-1.5 rounded-full border border-bord-pr py-2 px-3 text-par-s font-semibold text-lab-pr hover:bg-fill-fv cursor-pointer"
           >
-            <Phone className="h-3.5 w-3.5 text-brand-900" /> Audio
+            <Phone className="h-4 w-4 text-brand-900" /> Audio
           </button>
           <button
             type="button"
             onClick={() => onStartCall('video')}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-bord-pr py-2 text-cap-l font-semibold text-lab-pr hover:bg-fill-fv cursor-pointer"
+            className="flex-1 min-w-[72px] inline-flex items-center justify-center gap-1.5 rounded-full border border-bord-pr py-2 px-3 text-par-s font-semibold text-lab-pr hover:bg-fill-fv cursor-pointer"
           >
-            <Video className="h-3.5 w-3.5 text-brand-900" /> Video
+            <Video className="h-4 w-4 text-brand-900" /> Video
           </button>
           <button
             type="button"
             onClick={handleCopyInviteLink}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-bord-pr py-2 text-cap-l font-semibold text-lab-pr hover:bg-fill-fv cursor-pointer"
+            className="flex-1 min-w-[72px] inline-flex items-center justify-center gap-1.5 rounded-full border border-bord-pr py-2 px-3 text-par-s font-semibold text-lab-pr hover:bg-fill-fv cursor-pointer"
             title="Copy invite link"
           >
-            {copiedInvite ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5 text-lab-sc" />}
+            {copiedInvite ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-lab-sc" />}
             Invite
           </button>
+          {!isOwner && (
+            <button
+              type="button"
+              onClick={() => setTipOpen((v) => !v)}
+              className="flex-1 min-w-[82px] inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-900 text-white py-2 px-3 text-par-s font-semibold hover:opacity-90 cursor-pointer"
+              title="Tip & support group creator"
+            >
+              <Coins className="h-4 w-4" /> Support
+            </button>
+          )}
         </div>
 
+        {/* Support / Tip Group Creator Box */}
+        {tipOpen && !isOwner && (
+          <form onSubmit={handleSendTip} className="mx-4 mt-3 p-3.5 rounded-2xl border border-brand-900/30 bg-brand-900/5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <p className="text-par-s font-bold text-lab-pr flex items-center gap-1.5">
+                <Coins className="h-4 w-4 text-brand-900" /> Support Group Creator
+              </p>
+              <button
+                type="button"
+                onClick={() => setTipOpen(false)}
+                className="text-cap-l text-lab-sc hover:text-lab-pr cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="flex gap-1.5">
+              {[200, 500, 1000, 2500].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setTipAmount(String(amt))}
+                  className={cn(
+                    'flex-1 rounded-full py-1 text-cap-l font-semibold border cursor-pointer',
+                    tipAmount === String(amt)
+                      ? 'bg-brand-900 border-brand-900 text-white'
+                      : 'bg-bg-pr border-bord-pr text-lab-pr hover:bg-fill-fv'
+                  )}
+                >
+                  ₦{amt.toLocaleString()}
+                </button>
+              ))}
+            </div>
+            <Input
+              type="number"
+              min={50}
+              step={50}
+              value={tipAmount}
+              onChange={(e) => setTipAmount(e.target.value)}
+              placeholder="Custom amount (NGN)"
+            />
+            <Input
+              value={tipNote}
+              onChange={(e) => setTipNote(e.target.value)}
+              placeholder="Short appreciation note (optional)"
+              maxLength={120}
+            />
+            <Button type="submit" variant="primary" className="w-full" disabled={sendingTip}>
+              {sendingTip ? 'Sending...' : `Send ₦${Number(tipAmount || 0).toLocaleString()} Tip`}
+            </Button>
+          </form>
+        )}
+
         {/* Statistics Row */}
-        <div className="grid grid-cols-3 divide-x divide-bord-pr border-b border-bord-pr text-center py-2.5">
+        <div className={cn('grid divide-x divide-bord-pr border-b border-bord-pr text-center py-3', isAdminOrOwner ? 'grid-cols-4' : 'grid-cols-3')}>
           <div>
-            <p className="text-par-n font-bold text-lab-pr">{chat.participants?.length || 0}</p>
-            <p className="text-[11px] text-lab-sc">Members</p>
+            <p className="text-par-m font-bold text-lab-pr">{chat.participants?.length || 0}</p>
+            <p className="text-cap-l text-lab-sc">Members</p>
           </div>
           <div>
-            <p className="text-par-n font-bold text-lab-pr">{mediaItems.length + fileItems.length}</p>
-            <p className="text-[11px] text-lab-sc">Media</p>
+            <p className="text-par-m font-bold text-lab-pr">{mediaItems.length + fileItems.length}</p>
+            <p className="text-cap-l text-lab-sc">Media</p>
           </div>
           <div>
-            <p className="text-par-n font-bold text-lab-pr">{pinnedCount}</p>
-            <p className="text-[11px] text-lab-sc">Pinned</p>
+            <p className="text-par-m font-bold text-lab-pr">{pinnedCount}</p>
+            <p className="text-cap-l text-lab-sc">Pinned</p>
           </div>
+          {isAdminOrOwner && (
+            <div>
+              <p className="text-par-m font-bold text-green-600">₦{Number(g?.revenueTotal || 0).toLocaleString()}</p>
+              <p className="text-cap-l text-lab-sc">Earned</p>
+            </div>
+          )}
         </div>
 
         {/* Sub-Tabs */}
@@ -361,38 +479,38 @@ export function GroupInfoPanel({
             type="button"
             onClick={() => setPanelTab('members')}
             className={cn(
-              'py-2.5 text-cap-l font-semibold border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1',
+              'py-3 text-par-s font-semibold border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5',
               panelTab === 'members'
                 ? 'border-brand-900 text-brand-900'
                 : 'border-transparent text-lab-sc hover:text-lab-pr'
             )}
           >
-            <Users className="h-3.5 w-3.5" /> Members
+            <Users className="h-4 w-4" /> Members
           </button>
           <button
             type="button"
             onClick={() => setPanelTab('media')}
             className={cn(
-              'py-2.5 text-cap-l font-semibold border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1',
+              'py-3 text-par-s font-semibold border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5',
               panelTab === 'media'
                 ? 'border-brand-900 text-brand-900'
                 : 'border-transparent text-lab-sc hover:text-lab-pr'
             )}
           >
-            <ImageIcon className="h-3.5 w-3.5" /> Media
+            <ImageIcon className="h-4 w-4" /> Media
           </button>
           {isAdminOrOwner && (
             <button
               type="button"
               onClick={() => setPanelTab('settings')}
               className={cn(
-                'py-2.5 text-cap-l font-semibold border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1',
+                'py-3 text-par-s font-semibold border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5',
                 panelTab === 'settings'
                   ? 'border-brand-900 text-brand-900'
                   : 'border-transparent text-lab-sc hover:text-lab-pr'
               )}
             >
-              <Settings className="h-3.5 w-3.5" /> Settings
+              <Settings className="h-4 w-4" /> Settings
             </button>
           )}
         </div>
@@ -445,10 +563,10 @@ export function GroupInfoPanel({
               value={memberSearch}
               onChange={(e) => setMemberSearch(e.target.value)}
               placeholder="Filter members..."
-              className="w-full h-8 rounded-full bg-fill-qt border border-bord-card px-3 text-cap-l text-lab-pr placeholder:text-lab-tr focus:outline-none focus:border-bord-pr"
+              className="w-full h-10 rounded-full bg-fill-qt border border-bord-card px-4 text-par-s text-lab-pr placeholder:text-lab-tr focus:outline-none focus:border-bord-pr"
             />
 
-            <div className="space-y-2">
+            <div className="divide-y divide-bord-tr">
               {filteredParticipants.map((p) => {
                 const pid = String(p.user._id);
                 const isSelf = pid === currentUserId;
@@ -456,117 +574,129 @@ export function GroupInfoPanel({
                   !isSelf &&
                   p.role !== 'owner' &&
                   (isOwner || (myRole === 'admin' && p.role === 'member'));
+                const menuOpen = openMemberMenuId === pid;
 
                 return (
-                  <div
-                    key={pid}
-                    className="rounded-2xl border border-bord-card bg-fill-qt/40 p-2.5 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <Link
-                        href={`/@${p.user.username}`}
-                        className="flex items-center gap-2.5 min-w-0"
-                      >
-                        <Avatar
-                          src={p.user.avatar}
-                          alt={p.user.username}
-                          online={onlineUsers.has(pid)}
-                          size="sm"
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1">
-                            <p className="text-cap-l font-semibold text-lab-pr truncate">
-                              {`${p.user.firstName || ''} ${p.user.lastName || ''}`.trim() ||
-                                `@${p.user.username}`}
-                            </p>
-                            {p.user.verified && <BadgeCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[11px] text-lab-sc">
-                            <span className="truncate">@{p.user.username}</span>
-                            {p.role === 'owner' && (
-                              <span className="rounded bg-brand-900/15 text-brand-900 px-1.5 py-0.2 font-semibold">
-                                Owner
-                              </span>
-                            )}
-                            {p.role === 'admin' && (
-                              <span className="rounded bg-green-600/15 text-green-600 px-1.5 py-0.2 font-semibold">
-                                Admin
-                              </span>
-                            )}
-                            {p.isMuted && (
-                              <span className="inline-flex items-center gap-0.5 rounded bg-red-500/15 text-red-600 px-1.5 py-0.2 font-semibold">
-                                <VolumeX className="h-2.5 w-2.5" /> Muted
-                              </span>
-                            )}
-                          </div>
+                  <div key={pid} className="relative flex items-center justify-between gap-2 py-2.5">
+                    <Link
+                      href={`/@${p.user.username}`}
+                      className="flex items-center gap-3 min-w-0 flex-1"
+                    >
+                      <Avatar
+                        src={p.user.avatar}
+                        alt={p.user.username}
+                        online={onlineUsers.has(pid)}
+                        size="sm"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <p className="text-par-n font-semibold text-lab-pr truncate">
+                            {`${p.user.firstName || ''} ${p.user.lastName || ''}`.trim() ||
+                              `@${p.user.username}`}
+                          </p>
+                          {p.user.verified && <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />}
                         </div>
-                      </Link>
-                    </div>
+                        <div className="flex items-center gap-1.5 text-cap-l text-lab-sc">
+                          <span className="truncate">@{p.user.username}</span>
+                          {p.role === 'owner' && (
+                            <span className="rounded-full bg-brand-900/15 text-brand-900 px-2 py-0.2 font-semibold">
+                              Owner
+                            </span>
+                          )}
+                          {p.role === 'admin' && (
+                            <span className="rounded-full bg-green-600/15 text-green-600 px-2 py-0.2 font-semibold">
+                              Admin
+                            </span>
+                          )}
+                          {p.isMuted && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-red-500/15 text-red-600 px-2 py-0.2 font-semibold">
+                              <VolumeX className="h-3 w-3" /> Muted
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
 
                     {canModerateThisUser && (
-                      <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-bord-pr/60">
-                        {isOwner && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void patchGroup(
-                                {
-                                  action: 'set_role',
-                                  targetUserId: pid,
-                                  role: p.role === 'admin' ? 'member' : 'admin',
-                                },
-                                p.role === 'admin'
-                                  ? `Removed admin role from @${p.user.username}`
-                                  : `Promoted @${p.user.username} to Admin`
-                              )
-                            }
-                            className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-pr px-2 py-0.5 text-[11px] font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
-                          >
-                            <Shield className="h-3 w-3 text-brand-900" />
-                            {p.role === 'admin' ? 'Demote' : 'Make Admin'}
-                          </button>
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMemberMenuId((prev) => (prev === pid ? null : pid))}
+                          className="size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
+                          aria-label="Member actions"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                        {menuOpen && (
+                          <div className="absolute right-0 top-9 z-30 w-44 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl py-1">
+                            {isOwner && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMemberMenuId(null);
+                                  void patchGroup(
+                                    {
+                                      action: 'set_role',
+                                      targetUserId: pid,
+                                      role: p.role === 'admin' ? 'member' : 'admin',
+                                    },
+                                    p.role === 'admin'
+                                      ? `Removed admin role from @${p.user.username}`
+                                      : `Promoted @${p.user.username} to Admin`
+                                  );
+                                }}
+                                className="w-full px-3 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr flex items-center gap-2 cursor-pointer"
+                              >
+                                <Shield className="h-4 w-4 text-brand-900" />
+                                {p.role === 'admin' ? 'Demote admin' : 'Make admin'}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMemberMenuId(null);
+                                void patchGroup(
+                                  {
+                                    action: 'mute_participant',
+                                    targetUserId: pid,
+                                    muted: !p.isMuted,
+                                  },
+                                  p.isMuted ? `Unmuted @${p.user.username}` : `Muted @${p.user.username}`
+                                );
+                              }}
+                              className="w-full px-3 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr flex items-center gap-2 cursor-pointer"
+                            >
+                              <VolumeX className="h-4 w-4 text-lab-sc" />
+                              {p.isMuted ? 'Unmute' : 'Mute'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMemberMenuId(null);
+                                void patchGroup(
+                                  { action: 'remove_participant', targetUserId: pid },
+                                  `Removed @${p.user.username}`
+                                );
+                              }}
+                              className="w-full px-3 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr flex items-center gap-2 cursor-pointer"
+                            >
+                              <LogOut className="h-4 w-4 text-lab-sc" /> Remove
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMemberMenuId(null);
+                                void patchGroup(
+                                  { action: 'ban_participant', targetUserId: pid },
+                                  `Banned @${p.user.username}`
+                                );
+                              }}
+                              className="w-full px-3 py-2 text-left text-par-s text-red-600 hover:bg-fill-pr flex items-center gap-2 cursor-pointer"
+                            >
+                              <ShieldAlert className="h-4 w-4" /> Ban user
+                            </button>
+                          </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void patchGroup(
-                              {
-                                action: 'mute_participant',
-                                targetUserId: pid,
-                                muted: !p.isMuted,
-                              },
-                              p.isMuted ? `Unmuted @${p.user.username}` : `Muted @${p.user.username}`
-                            )
-                          }
-                          className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-pr px-2 py-0.5 text-[11px] font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
-                        >
-                          <VolumeX className="h-3 w-3" />
-                          {p.isMuted ? 'Unmute' : 'Mute'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void patchGroup(
-                              { action: 'remove_participant', targetUserId: pid },
-                              `Removed @${p.user.username}`
-                            )
-                          }
-                          className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-pr px-2 py-0.5 text-[11px] font-medium text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
-                        >
-                          Kick
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void patchGroup(
-                              { action: 'ban_participant', targetUserId: pid },
-                              `Banned @${p.user.username}`
-                            )
-                          }
-                          className="inline-flex items-center gap-1 rounded-full bg-red-500/10 border border-red-500/30 px-2 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-500/20 cursor-pointer"
-                        >
-                          <ShieldAlert className="h-3 w-3" /> Ban
-                        </button>
                       </div>
                     )}
                   </div>
@@ -762,8 +892,8 @@ export function GroupInfoPanel({
               </select>
             </div>
 
-            <label className="flex items-center justify-between gap-2 rounded-xl border border-bord-pr px-3 py-2 cursor-pointer">
-              <span className="text-cap-l font-medium text-lab-pr">Require admin approval to join</span>
+            <label className="flex items-center justify-between gap-2 rounded-xl border border-bord-pr px-3 py-2.5 cursor-pointer">
+              <span className="text-par-s font-medium text-lab-pr">Require admin approval to join</span>
               <input
                 type="checkbox"
                 checked={editApproval}
@@ -771,6 +901,44 @@ export function GroupInfoPanel({
                 className="accent-brand-900"
               />
             </label>
+
+            {/* Group Monetization (Paid Entry + Wallet Earnings) */}
+            <div className="rounded-2xl border border-bord-pr bg-fill-qt/40 p-3.5 space-y-3">
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="text-par-s font-bold text-lab-pr flex items-center gap-1.5">
+                  <Coins className="h-4 w-4 text-brand-900" /> Monetize Group (Paid Entry)
+                </span>
+                <input
+                  type="checkbox"
+                  checked={editIsPaid}
+                  onChange={(e) => setEditIsPaid(e.target.checked)}
+                  className="accent-brand-900"
+                />
+              </label>
+              {editIsPaid && (
+                <div className="space-y-2.5">
+                  <Input
+                    label="Entry Fee (NGN)"
+                    type="number"
+                    min={50}
+                    step={50}
+                    value={editEntryPrice}
+                    onChange={(e) => setEditEntryPrice(e.target.value)}
+                    placeholder="500"
+                  />
+                  <Input
+                    label="Member Perks Note (Optional)"
+                    value={editMonetizationNote}
+                    onChange={(e) => setEditMonetizationNote(e.target.value)}
+                    placeholder="VIP weekly voice calls & exclusive files"
+                    maxLength={240}
+                  />
+                </div>
+              )}
+              <p className="text-cap-l text-lab-sc">
+                Total earned: <span className="font-bold text-green-600">₦{Number(g?.revenueTotal || 0).toLocaleString()}</span> (credited straight to owner Weto Wallet).
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Input

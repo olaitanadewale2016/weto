@@ -13,6 +13,7 @@ import {
   CheckCheck,
   ChevronLeft,
   ChevronRight,
+  Coins,
   Compass,
   Copy,
   CornerUpLeft,
@@ -99,6 +100,10 @@ interface ChatGroupMeta {
   postingMode?: 'everyone' | 'admins_only';
   requiresApproval?: boolean;
   isPasswordProtected?: boolean;
+  isPaid?: boolean;
+  entryPrice?: number;
+  monetizationNote?: string;
+  revenueTotal?: number;
 }
 
 interface ChatSummary {
@@ -316,6 +321,50 @@ interface MessengerThreadCacheEntry {
 let messengerInboxCache: MessengerInboxCacheEntry | null = null;
 const messengerThreadCache = new Map<string, MessengerThreadCacheEntry>();
 
+/** Exact Grupo Pro `.toggle_middle_full_screen` SVGs from layouts/chat_page/chatbox.php */
+function GrupoExpandChatIcon({ expanded, className = 'size-[19px]' }: { expanded: boolean; className?: string }) {
+  return expanded ? (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M15 15V14H14V15H15ZM20.2929 21.7071C20.6834 22.0976 21.3166 22.0976 21.7071 21.7071C22.0976 21.3166 22.0976 20.6834 21.7071 20.2929L20.2929 21.7071ZM15 9H14V10H15V9ZM21.7071 3.70711C22.0976 3.31658 22.0976 2.68342 21.7071 2.29289C21.3166 1.90237 20.6834 1.90237 20.2929 2.29289L21.7071 3.70711ZM9 15H10V14H9V15ZM2.29289 20.2929C1.90237 20.6834 1.90237 21.3166 2.29289 21.7071C2.68342 22.0976 3.31658 22.0976 3.70711 21.7071L2.29289 20.2929ZM9 9V10H10V9H9ZM3.70711 2.29289C3.31658 1.90237 2.68342 1.90237 2.29289 2.29289C1.90237 2.68342 1.90237 3.31658 2.29289 3.70711L3.70711 2.29289ZM16 20V15H14V20H16ZM15 16H20V14H15V16ZM14.2929 15.7071L20.2929 21.7071L21.7071 20.2929L15.7071 14.2929L14.2929 15.7071ZM14 4V9H16V4H14ZM15 10H20V8H15V10ZM15.7071 9.70711L21.7071 3.70711L20.2929 2.29289L14.2929 8.29289L15.7071 9.70711ZM10 20V15H8V20H10ZM9 14H4V16H9V14ZM8.29289 14.2929L2.29289 20.2929L3.70711 21.7071L9.70711 15.7071L8.29289 14.2929ZM8 4V9H10V4H8ZM9 8H4V10H9V8ZM9.70711 8.29289L3.70711 2.29289L2.29289 3.70711L8.29289 9.70711L9.70711 8.29289Z" fill="currentColor" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M20 20V21H21V20H20ZM15.7071 14.2929C15.3166 13.9024 14.6834 13.9024 14.2929 14.2929C13.9024 14.6834 13.9024 15.3166 14.2929 15.7071L15.7071 14.2929ZM19 14V20H21V14H19ZM20 19H14V21H20V19ZM20.7071 19.2929L15.7071 14.2929L14.2929 15.7071L19.2929 20.7071L20.7071 19.2929Z" fill="currentColor" />
+      <path d="M4 20H3V21H4V20ZM9.70711 15.7071C10.0976 15.3166 10.0976 14.6834 9.70711 14.2929C9.31658 13.9024 8.68342 13.9024 8.29289 14.2929L9.70711 15.7071ZM3 14V20H5V14H3ZM4 21H10V19H4V21ZM4.70711 20.7071L9.70711 15.7071L8.29289 14.2929L3.29289 19.2929L4.70711 20.7071Z" fill="currentColor" />
+      <path d="M20 4H21V3H20V4ZM14.2929 8.29289C13.9024 8.68342 13.9024 9.31658 14.2929 9.70711C14.6834 10.0976 15.3166 10.0976 15.7071 9.70711L14.2929 8.29289ZM21 10V4H19V10H21ZM20 3H14V5H20V3ZM19.2929 3.29289L14.2929 8.29289L15.7071 9.70711L20.7071 4.70711L19.2929 3.29289Z" fill="currentColor" />
+      <path d="M4 4V3H3V4H4ZM8.29289 9.70711C8.68342 10.0976 9.31658 10.0976 9.70711 9.70711C10.0976 9.31658 10.0976 8.68342 9.70711 8.29289L8.29289 9.70711ZM5 10V4H3V10H5ZM4 5H10V3H4V5ZM3.29289 4.70711L8.29289 9.70711L9.70711 8.29289L4.70711 3.29289L3.29289 4.70711Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Exact Grupo Pro chat header icons from layouts/chat_page/chatbox.php */
+function GrupoVoiceCallIcon({ className = 'size-[19px]' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M21.97 18.33C21.97 18.69 21.89 19.06 21.72 19.42C21.55 19.78 21.33 20.12 21.04 20.44C20.55 20.98 20.01 21.37 19.4 21.62C18.8 21.87 18.15 22 17.45 22C16.43 22 15.34 21.76 14.19 21.27C13.04 20.78 11.89 20.12 10.75 19.29C9.6 18.45 8.51 17.52 7.47 16.49C6.44 15.45 5.51 14.36 4.68 13.22C3.86 12.08 3.2 10.94 2.72 9.81C2.24 8.67 2 7.58 2 6.54C2 5.86 2.12 5.21 2.36 4.61C2.6 4 2.98 3.44 3.51 2.94C4.15 2.31 4.85 2 5.59 2C5.87 2 6.15 2.06 6.4 2.18C6.66 2.3 6.89 2.48 7.07 2.74L9.39 6.01C9.57 6.26 9.7 6.49 9.79 6.71C9.88 6.92 9.93 7.13 9.93 7.32C9.93 7.56 9.86 7.8 9.72 8.03C9.59 8.26 9.4 8.5 9.16 8.74L8.4 9.53C8.29 9.64 8.24 9.77 8.24 9.93C8.24 10.01 8.25 10.08 8.27 10.16C8.3 10.24 8.33 10.3 8.35 10.36C8.53 10.69 8.84 11.12 9.28 11.64C9.73 12.16 10.21 12.69 10.73 13.22C11.27 13.75 11.79 14.24 12.32 14.69C12.84 15.13 13.27 15.43 13.61 15.61C13.66 15.63 13.72 15.66 13.79 15.69C13.87 15.72 13.95 15.73 14.04 15.73C14.21 15.73 14.34 15.67 14.45 15.56L15.21 14.81C15.46 14.56 15.7 14.37 15.93 14.25C16.16 14.11 16.39 14.04 16.64 14.04C16.83 14.04 17.03 14.08 17.25 14.17C17.47 14.26 17.7 14.39 17.95 14.56L21.26 16.91C21.52 17.09 21.7 17.3 21.81 17.55C21.91 17.8 21.97 18.05 21.97 18.33Z" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" />
+      <path d="M18.5 9C18.5 8.4 18.03 7.48 17.33 6.73C16.69 6.04 15.84 5.5 15 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M22 9C22 5.13 18.87 2 15 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GrupoVideoCallIcon({ className = 'size-[20px]' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 1024 1024" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M713.6 780.8v-537.6h-604.8v537.6h604.8zM780.8 344l201.6-100.8v537.6l-201.6-100.8v134.4c0 18.557-15.043 33.6-33.6 33.6v0h-672c-18.557 0-33.6-15.043-33.6-33.6v0-604.8c0-18.557 15.043-33.6 33.6-33.6v0h672c18.557 0 33.6 15.043 33.6 33.6v0 134.4zM780.8 419.13v185.74l134.4 67.2v-320.14l-134.4 67.2zM176 310.4h201.6v67.2h-201.6v-67.2z" />
+    </svg>
+  );
+}
+
+function GrupoOptionsIcon({ className = 'size-[19px]' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M8 8H16M16 12H8M8 16H12M20 12V6C20 4.89543 19.1046 4 18 4H6C4.89543 4 4 4.89543 4 6V18C4 19.1046 4.89543 20 6 20H12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      <path d="M18 15V18M18 21V18M18 18H21M18 18H15" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+    </svg>
+  );
+}
+
 export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const router = useRouter();
   const { user, bootstrap, theme, socket, onlineUsers, locale, setCounters } = useApp();
@@ -394,8 +443,20 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const [groupPostingMode, setGroupPostingMode] = useState<'everyone' | 'admins_only'>('everyone');
   const [groupApproval, setGroupApproval] = useState(false);
   const [groupPassword, setGroupPassword] = useState('');
+  const [groupIsPaid, setGroupIsPaid] = useState(false);
+  const [groupEntryPrice, setGroupEntryPrice] = useState('500');
+  const [groupMonetizationNote, setGroupMonetizationNote] = useState('');
   const [groupAvatar, setGroupAvatar] = useState('/assets/avatars/presets/avatar-h2mjRO.png');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [middleFullScreen, setMiddleFullScreen] = useState(false);
+  const [joinPaidModal, setJoinPaidModal] = useState<{
+    id: string;
+    name: string;
+    price: number;
+    note?: string;
+    isPasswordProtected?: boolean;
+  } | null>(null);
+  const [joinPaidPassword, setJoinPaidPassword] = useState('');
 
   const [inviteUserQuery, setInviteUserQuery] = useState('');
   const [inviteUserResults, setInviteUserResults] = useState<UserSearchResult[]>([]);
@@ -1484,6 +1545,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   async function createGroupChat(e?: React.SyntheticEvent) {
     e?.preventDefault();
     if (!groupName.trim()) return;
+    const numericPrice = Math.max(0, Number(groupEntryPrice || 0));
     try {
       const res = await apiFetch<{ id: string }>('/chats', {
         method: 'POST',
@@ -1496,6 +1558,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           postingMode: groupPostingMode,
           requiresApproval: groupApproval,
           password: groupPassword.trim() || undefined,
+          isPaid: groupIsPaid && numericPrice > 0,
+          entryPrice: groupIsPaid ? numericPrice : 0,
+          monetizationNote: groupMonetizationNote.trim() || undefined,
           avatar: groupAvatar,
           memberIds: selectedMembers,
         },
@@ -1504,6 +1569,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       setGroupName('');
       setGroupDescription('');
       setGroupPassword('');
+      setGroupIsPaid(false);
+      setGroupEntryPrice('500');
+      setGroupMonetizationNote('');
       setSelectedMembers([]);
       success('Group created!');
       router.push(`/messenger/c/${res.id}`);
@@ -1514,8 +1582,29 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   async function handleJoinGroup(
     chatId: string,
-    opts?: { password?: string; isPasswordProtected?: boolean; name?: string; inviteCode?: string }
+    opts?: {
+      password?: string;
+      isPasswordProtected?: boolean;
+      isPaid?: boolean;
+      entryPrice?: number;
+      monetizationNote?: string;
+      payFromWallet?: boolean;
+      name?: string;
+      inviteCode?: string;
+    }
   ) {
+    const price = Number(opts?.entryPrice || 0);
+    if (opts?.isPaid && price > 0 && !opts?.payFromWallet) {
+      setJoinPaidPassword('');
+      setJoinPaidModal({
+        id: chatId,
+        name: opts.name || 'Paid Group',
+        price,
+        note: opts.monetizationNote,
+        isPasswordProtected: opts.isPasswordProtected,
+      });
+      return;
+    }
     if (opts?.isPasswordProtected && !opts?.password) {
       setJoinPasswordInput('');
       setJoinPasswordModal({ id: chatId, name: opts.name || 'Protected Group' });
@@ -1533,11 +1622,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         json: {
           action: 'join_group',
           password: opts?.password,
+          payFromWallet: Boolean(opts?.payFromWallet),
           inviteCode: urlInviteCode,
         },
       });
       setJoinPasswordModal(null);
       setJoinPasswordInput('');
+      setJoinPaidModal(null);
+      setJoinPaidPassword('');
       if (res.pending) {
         success('Join request sent to group admins');
         setJoinPreviewStatus('pending');
@@ -1883,14 +1975,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
         {m.content && (
           <div className="space-y-1 min-w-0 max-w-full">
-            <p className="text-par-n text-lab-pr whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
+            <p className="text-par-m text-lab-pr whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
               {msgTranslations[m.id] || m.content}
             </p>
             {msgTranslations[m.id] && (
               <button
                 type="button"
                 onClick={() => setMsgTranslations((prev) => ({ ...prev, [m.id]: null }))}
-                className="text-[10px] text-lab-sc underline cursor-pointer"
+                className="text-cap-l text-lab-sc underline cursor-pointer"
               >
                 Translated · Show original
               </button>
@@ -1972,8 +2064,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         activeChatId ? 'h-[100dvh]' : 'h-[calc(100dvh-7rem)] md:h-screen'
       )}
     >
-      {/* Desktop Far-Left Vertical Action Bar (matches PHP MessengerActionBar.vue) */}
-      <aside className="hidden md:flex w-16 shrink-0 border-r border-bord-pr bg-bg-pr flex-col items-center justify-between py-5">
+      {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden in Expand mode) */}
+      <aside
+        className={cn(
+          'hidden w-16 shrink-0 border-r border-bord-pr bg-bg-pr flex-col items-center justify-between py-5',
+          !middleFullScreen && 'md:flex'
+        )}
+      >
         <div className="flex flex-col items-center">
           <Link
             href="/"
@@ -2029,6 +2126,25 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             </button>
             <button
               type="button"
+              onClick={() => setTab('invites')}
+              title="Group Invites"
+              aria-label="Group Invites"
+              className={cn(
+                'relative size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
+                tab === 'invites'
+                  ? 'bg-fill-sc text-brand-900'
+                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+              )}
+            >
+              <Users className="size-5" />
+              {inviteCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-brand-900 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                  {inviteCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => setTab('archive')}
               title="Archive"
               aria-label="Archive"
@@ -2059,54 +2175,55 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </div>
       </aside>
 
-      {/* Left Conversation List (matches PHP MessengerNavbar.vue + HistoryList) */}
+      {/* Left Conversation List (Simplified Grupo aside + Homepage typography) */}
       <div
         className={cn(
-          'w-full md:w-[320px] lg:w-[360px] shrink-0 md:border-r border-bord-pr flex flex-col bg-bg-pr min-w-0',
-          activeChatId ? 'hidden md:flex' : 'flex'
+          'w-full md:w-[340px] lg:w-[380px] shrink-0 md:border-r border-bord-pr flex flex-col bg-bg-pr min-w-0',
+          activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
-        <div className="px-4 pt-3.5 pb-0 border-b border-bord-pr space-y-3 shrink-0">
+        <div className="px-4 pt-3.5 pb-3 border-b border-bord-pr space-y-3 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Link
                 href="/"
-                className="inline-flex items-center justify-center size-8 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv transition-colors shrink-0"
+                className="inline-flex items-center justify-center size-9 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv transition-colors shrink-0"
                 title="Back to Home"
                 aria-label="Back to Home"
               >
-                <ArrowLeft className="size-4" />
+                <ArrowLeft className="size-5" />
               </Link>
-              <h1 className="text-title-3 font-bold text-lab-pr truncate">Messages</h1>
+              <h1 className="text-title-3 font-bold text-lab-pr truncate">
+                {tab === 'archive' ? 'Archived' : tab === 'invites' ? 'Invites' : 'Messages'}
+              </h1>
             </div>
             <button
               type="button"
               onClick={() => setNewChatOpen(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-lab-pr text-bg-pr text-cap-l font-semibold hover:opacity-90 transition-opacity cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-lab-pr text-bg-pr text-par-s font-semibold hover:opacity-90 transition-opacity cursor-pointer shrink-0"
             >
-              <Plus className="h-3.5 w-3.5" /> New
+              <Plus className="h-4 w-4" /> New
             </button>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-tr" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-tr" />
             <input
               type="search"
               value={searchQ}
               onChange={(e) => setSearchQ(e.target.value)}
-              placeholder="Search conversations..."
-              className="w-full h-9 rounded-full bg-fill-qt border border-transparent focus:border-bord-pr pl-9 pr-3 text-[16px] md:text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none"
+              placeholder="Search chats & rooms..."
+              className="w-full h-10 rounded-full bg-fill-qt border border-transparent focus:border-bord-pr pl-10 pr-4 text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none"
             />
           </div>
 
-          <div className="grid grid-cols-5 -mx-4 px-2">
+          {/* Simplified 3-Pill Switcher + Mobile Invites/Archive access */}
+          <div className="flex items-center gap-1.5 overflow-x-auto hidden-scroll">
             {(
               [
-                { key: 'chats', label: 'Chats' },
+                { key: 'chats', label: 'All Chats' },
                 { key: 'groups', label: 'Groups' },
                 { key: 'discover', label: 'Discover' },
-                { key: 'invites', label: inviteCount > 0 ? `Invites (${inviteCount})` : 'Invites' },
-                { key: 'archive', label: 'Archive' },
               ] as const
             ).map((item) => {
               const active = tab === item.key;
@@ -2116,23 +2233,49 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   type="button"
                   onClick={() => setTab(item.key)}
                   className={cn(
-                    'py-2.5 text-center text-[12px] font-medium border-b-2 transition-colors truncate px-0.5 cursor-pointer',
+                    'flex-1 min-w-fit rounded-full px-3.5 py-2 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
                     active
-                      ? 'border-brand-900 text-brand-900 font-semibold'
-                      : 'border-transparent text-lab-sc hover:text-lab-pr'
+                      ? 'bg-brand-900 text-white'
+                      : 'bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc'
                   )}
                 >
                   {item.label}
                 </button>
               );
             })}
+            {(inviteCount > 0 || tab === 'invites') && (
+              <button
+                type="button"
+                onClick={() => setTab('invites')}
+                className={cn(
+                  'md:hidden shrink-0 rounded-full px-3 py-2 text-par-s font-semibold transition-colors cursor-pointer',
+                  tab === 'invites'
+                    ? 'bg-brand-900 text-white'
+                    : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                )}
+              >
+                Invites{inviteCount > 0 ? ` (${inviteCount})` : ''}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setTab(tab === 'archive' ? 'chats' : 'archive')}
+              className={cn(
+                'md:hidden shrink-0 rounded-full px-3 py-2 text-par-s font-semibold transition-colors cursor-pointer',
+                tab === 'archive'
+                  ? 'bg-brand-900 text-white'
+                  : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+              )}
+            >
+              Archive
+            </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto divide-y divide-bord-pr">
           {tab === 'discover' ? (
-            <div className="p-3 space-y-3">
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <div className="p-3.5 space-y-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 hidden-scroll">
                 {['All', 'General', 'Tech & Creators', 'Marketplace', 'Gaming', 'Music & Culture', 'Support'].map(
                   (cat) => (
                     <button
@@ -2140,7 +2283,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       type="button"
                       onClick={() => setDiscoverCategory(cat)}
                       className={cn(
-                        'shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors cursor-pointer',
+                        'shrink-0 rounded-full px-3.5 py-1.5 text-cap-l font-semibold transition-colors cursor-pointer',
                         discoverCategory === cat
                           ? 'bg-brand-900 text-white'
                           : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
@@ -2155,7 +2298,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               {loadingDiscover ? (
                 <p className="p-4 text-center text-lab-sc text-par-n">Loading rooms...</p>
               ) : discoverGroups.length === 0 ? (
-                <div className="p-6 text-center space-y-2">
+                <div className="p-6 text-center space-y-2.5">
                   <p className="text-par-n text-lab-sc">No public groups found in this category.</p>
                   <Button
                     size="sm"
@@ -2169,39 +2312,46 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {discoverGroups.map((item) => {
                     const g = item.group;
+                    const entryPrice = Number(g?.entryPrice || 0);
+                    const isPaidGroup = Boolean(g?.isPaid && entryPrice > 0);
                     return (
                       <div
                         key={item.id}
-                        className="rounded-2xl border border-bord-card bg-fill-qt/40 p-3 space-y-2.5"
+                        className="rounded-2xl border border-bord-card bg-fill-qt/40 p-3.5 space-y-2.5"
                       >
-                        <div className="flex items-start gap-2.5">
+                        <div className="flex items-start gap-3">
                           <Avatar src={g?.avatar} alt={g?.name || 'Group'} size="md" />
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1 flex-wrap">
-                              <p className="text-par-n font-bold text-lab-pr truncate">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-par-m font-bold text-lab-pr truncate">
                                 {g?.name || 'Community Group'}
                               </p>
-                              {g?.verified && <BadgeCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />}
-                              {g?.isPinned && <Pin className="h-3 w-3 text-brand-900 shrink-0" />}
+                              {g?.verified && <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />}
+                              {g?.isPinned && <Pin className="h-3.5 w-3.5 text-brand-900 shrink-0" />}
                               {g?.isPasswordProtected && (
-                                <Lock className="h-3 w-3 text-amber-600 shrink-0" />
+                                <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              )}
+                              {isPaidGroup && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-cap-s font-bold text-green-700 dark:text-green-400">
+                                  <Coins className="h-3 w-3" /> ₦{entryPrice.toLocaleString()}
+                                </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-lab-sc">
+                            <p className="text-cap-l text-lab-sc mt-0.5">
                               {g?.category || 'General'} · {item.membersCount}{' '}
                               {item.membersCount === 1 ? 'member' : 'members'}
                             </p>
                             {g?.description && (
-                              <p className="text-cap-l text-lab-sc mt-1 line-clamp-2">{g.description}</p>
+                              <p className="text-par-s text-lab-sc mt-1 line-clamp-2">{g.description}</p>
                             )}
                           </div>
                         </div>
                         <div className="flex items-center justify-end gap-2">
                           {item.isBanned ? (
-                            <span className="text-[11px] font-semibold text-red-600">Banned</span>
+                            <span className="text-par-s font-semibold text-red-600">Banned</span>
                           ) : item.isJoined ? (
                             <Button
                               size="sm"
@@ -2226,15 +2376,20 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               onClick={() =>
                                 void handleJoinGroup(item.id, {
                                   isPasswordProtected: Boolean(g?.isPasswordProtected),
+                                  isPaid: isPaidGroup,
+                                  entryPrice,
+                                  monetizationNote: g?.monetizationNote,
                                   name: g?.name,
                                 })
                               }
                             >
-                              {g?.requiresApproval
-                                ? 'Request Join'
-                                : g?.isPasswordProtected
-                                  ? 'Unlock & Join'
-                                  : 'Join Group'}
+                              {isPaidGroup
+                                ? `Pay ₦${entryPrice.toLocaleString()} & Join`
+                                : g?.requiresApproval
+                                  ? 'Request Join'
+                                  : g?.isPasswordProtected
+                                    ? 'Unlock & Join'
+                                    : 'Join Group'}
                             </Button>
                           )}
                         </div>
@@ -2254,11 +2409,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
               {tab === 'invites' &&
                 invites.map((inv) => (
-                  <div key={inv._id} className="p-4 space-y-2">
-                    <p className="text-par-n font-semibold text-lab-pr">
+                  <div key={inv._id} className="p-4 space-y-2.5">
+                    <p className="text-par-m font-semibold text-lab-pr">
                       {inv.chatId?.group?.name || 'Group Chat'}
                     </p>
-                    <p className="text-cap-l text-lab-sc">
+                    <p className="text-par-s text-lab-sc">
                       Invited by @{inv.senderId?.username}
                     </p>
                     <div className="flex gap-2">
@@ -2273,7 +2428,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 ))}
 
               {tab !== 'invites' && !loadingList && visibleChats.length === 0 && (
-                <div className="p-6 text-center space-y-2">
+                <div className="p-6 text-center space-y-3">
                   <p className="text-lab-sc text-par-n">
                     {tab === 'groups' ? 'No group chats yet.' : 'No conversations yet.'}
                   </p>
@@ -2304,32 +2459,32 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       key={c.id}
                       href={`/messenger/c/${c.id}`}
                       className={cn(
-                        'flex items-center gap-3 p-3.5 hover:bg-fill-pr transition-colors',
+                        'flex items-center gap-3.5 px-4 py-3.5 hover:bg-fill-pr transition-colors',
                         activeChatId === c.id && 'bg-fill-sc'
                       )}
                     >
                       <Avatar src={avatarSrc} alt={title} online={isOnline} size="md" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1 min-w-0">
-                            <p className="text-par-n font-bold text-lab-pr truncate">{title}</p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-par-m font-semibold text-lab-pr truncate">{title}</p>
                             {c.type === 'group' && c.group?.verified && (
-                              <BadgeCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+                              <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />
                             )}
                             {c.type === 'group' && c.group?.isPinned && (
-                              <Pin className="h-3 w-3 text-brand-900 shrink-0" />
+                              <Pin className="h-3.5 w-3.5 text-brand-900 shrink-0" />
                             )}
                           </div>
-                          <span className="text-cap-s text-lab-tr shrink-0">
+                          <span className="text-cap-l text-lab-tr shrink-0">
                             {formatRelativeTime(c.lastActivity, locale)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-2 mt-0.5">
-                          <p className="text-cap-l text-lab-sc truncate">
+                          <p className="text-par-s text-lab-sc truncate">
                             {c.lastMessagePreview || 'No messages yet'}
                           </p>
                           {c.unreadCount > 0 && (
-                            <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-brand-900 text-white text-cap-s font-bold flex items-center justify-center">
+                            <span className="h-5 min-w-[22px] px-1.5 rounded-full bg-brand-900 text-white text-cap-s font-bold flex items-center justify-center">
                               {c.unreadCount}
                             </span>
                           )}
@@ -2424,23 +2579,23 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                           <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />
                         )}
                         {activeChat.type === 'group' && activeChat.group?.category && (
-                          <span className="hidden sm:inline-flex rounded-full bg-fill-qt px-2 py-0.5 text-[10px] font-semibold text-lab-sc shrink-0">
+                          <span className="hidden sm:inline-flex rounded-full bg-fill-qt px-2.5 py-0.5 text-cap-s font-semibold text-lab-sc shrink-0">
                             {activeChat.group.category}
                           </span>
                         )}
                       </div>
                       {typingUsers.length > 0 ? (
-                        <p className="text-cap-s text-green-600 font-medium animate-pulse truncate">
+                        <p className="text-par-s text-green-600 font-medium animate-pulse truncate">
                           {activeChat.type === 'group' ? `${typingNames} typing...` : 'typing...'}
                         </p>
                       ) : activeChat.type === 'group' ? (
-                        <p className="text-cap-s text-lab-sc truncate">
+                        <p className="text-par-s text-lab-sc truncate">
                           {activeChat.participants?.length ?? activeChat.membersCount ?? 0} members · Click to view info
                         </p>
                       ) : interlocutorOnline ? (
-                        <p className="text-cap-s text-green-600 font-medium truncate">Online</p>
+                        <p className="text-par-s text-green-600 font-medium truncate">Online</p>
                       ) : (
-                        <p className="text-cap-s text-lab-sc truncate">
+                        <p className="text-par-s text-lab-sc truncate">
                           {interlocutor?.lastActive
                             ? `Active ${formatRelativeTime(interlocutor.lastActive, locale)}`
                             : interlocutor?.username
@@ -2458,43 +2613,63 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     type="button"
                     onClick={() => handleStartCall('audio')}
                     className={cn(
-                      'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                      'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
                       (callMode === 'audio' || activeCall?.audioOnly) &&
                         'bg-green-600/15 text-green-600'
-                      )}
-                      title={activeCall?.audioOnly ? 'Join active audio call' : 'Start audio call'}
-                      aria-label="Audio call"
-                    >
-                      <Phone className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                    </button>
+                    )}
+                    title={activeCall?.audioOnly ? 'Join active audio call' : 'Start audio call'}
+                    aria-label="Audio call"
+                  >
+                    <GrupoVoiceCallIcon className="size-[19px]" />
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleStartCall('video')}
-                      className={cn(
-                        'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                        (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
+                  <button
+                    type="button"
+                    onClick={() => handleStartCall('video')}
+                    className={cn(
+                      'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                      (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
                         'bg-brand-900/15 text-brand-900'
-                      )}
-                      title={
-                        activeCall && !activeCall.audioOnly ? 'Join active video call' : 'Start video call'
-                      }
-                      aria-label="Video call"
-                    >
-                      <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                    </button>
+                    )}
+                    title={
+                      activeCall && !activeCall.audioOnly ? 'Join active video call' : 'Start video call'
+                    }
+                    aria-label="Video call"
+                  >
+                    <GrupoVideoCallIcon className="size-[20px]" />
+                  </button>
+
+                  {/* Exact Grupo Pro Expand Chat Icon & toggle_middle_full_screen Usage */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMiddleFullScreen((prev) => {
+                        const next = !prev;
+                        if (next) setGroupInfoOpen(false);
+                        return next;
+                      });
+                    }}
+                    className={cn(
+                      'hidden md:inline-flex size-9 rounded-full items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                      middleFullScreen && 'bg-brand-900/15 text-brand-900'
+                    )}
+                    title={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
+                    aria-label={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
+                  >
+                    <GrupoExpandChatIcon expanded={middleFullScreen} className="size-[19px]" />
+                  </button>
 
                   <button
                     type="button"
                     onClick={() => setThreadMenuOpen((prev) => !prev)}
                     className={cn(
-                      'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                      'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
                       threadMenuOpen && 'bg-fill-sc text-lab-pr'
                     )}
-                    title="More options"
+                    title="Conversation options"
                     aria-label="Conversation options"
                   >
-                    <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                    <GrupoOptionsIcon className="size-[19px]" />
                   </button>
 
                     {threadMenuOpen && (
@@ -2629,30 +2804,40 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   <div className="flex justify-center">
                     <Avatar src={activeAvatar} alt={activeTitle} size="lg" />
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-center gap-1.5">
                       <h2 className="text-title-3 font-bold text-lab-pr">{activeTitle}</h2>
                       {activeChat.group?.verified && (
                         <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />
                       )}
                     </div>
-                    <p className="text-cap-l text-lab-sc">
+                    <p className="text-par-s text-lab-sc">
                       {activeChat.group?.category || 'General'} · {activeChat.membersCount ?? 0} members
                     </p>
+                    {activeChat.group?.isPaid && (activeChat.group?.entryPrice || 0) > 0 && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-green-600/15 px-3 py-1 text-par-s font-bold text-green-700 dark:text-green-400">
+                        <Coins className="h-4 w-4" /> Paid Group · ₦{Number(activeChat.group.entryPrice).toLocaleString()} Entry
+                      </div>
+                    )}
                   </div>
                   {activeChat.group?.description && (
                     <p className="text-par-n text-lab-sc leading-relaxed">
                       {activeChat.group.description}
                     </p>
                   )}
+                  {activeChat.group?.monetizationNote && (
+                    <p className="text-par-s font-medium text-brand-900">
+                      {activeChat.group.monetizationNote}
+                    </p>
+                  )}
 
                   {joinPreviewStatus === 'banned' ? (
-                    <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-3 text-cap-l font-semibold text-red-600">
+                    <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-3 text-par-s font-semibold text-red-600">
                       You have been banned from joining this group.
                     </div>
                   ) : joinPreviewStatus === 'pending' ? (
                     <div className="space-y-2">
-                      <p className="text-cap-l font-medium text-brand-900">
+                      <p className="text-par-s font-medium text-brand-900">
                         Your join request is awaiting admin approval.
                       </p>
                       <Button
@@ -2672,15 +2857,20 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       onClick={() =>
                         void handleJoinGroup(activeChat.id, {
                           isPasswordProtected: Boolean(activeChat.group?.isPasswordProtected),
+                          isPaid: Boolean(activeChat.group?.isPaid && (activeChat.group?.entryPrice || 0) > 0),
+                          entryPrice: activeChat.group?.entryPrice,
+                          monetizationNote: activeChat.group?.monetizationNote,
                           name: activeTitle,
                         })
                       }
                     >
-                      {activeChat.group?.isPasswordProtected
-                        ? 'Enter Password & Join Group'
-                        : activeChat.group?.requiresApproval
-                          ? 'Request to Join Group'
-                          : 'Join Community Group'}
+                      {activeChat.group?.isPaid && (activeChat.group?.entryPrice || 0) > 0
+                        ? `Pay ₦${Number(activeChat.group.entryPrice).toLocaleString()} & Join`
+                        : activeChat.group?.isPasswordProtected
+                          ? 'Enter Password & Join Group'
+                          : activeChat.group?.requiresApproval
+                            ? 'Request to Join Group'
+                            : 'Join Community Group'}
                     </Button>
                   )}
                 </div>
@@ -2762,10 +2952,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         <Pin className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold text-brand-900 truncate">
+                        <p className="text-cap-l font-bold text-brand-900 truncate">
                           Pinned Message {pinnedMessages.length > 1 ? `(${safePinIdx + 1}/${pinnedMessages.length})` : ''}
                         </p>
-                        <p className="text-cap-l text-lab-pr truncate">
+                        <p className="text-par-s text-lab-pr truncate">
                           {getMessagePreviewLabel(currentPinned)}
                         </p>
                       </div>
@@ -2805,10 +2995,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </div>
                 )}
 
-                {/* Messages Timeline (PHP ChatOverview + Desktop Grouped ChatMessage + Mobile Bubbles) */}
+                {/* Messages Timeline (Grupo Pro chatbox canvas + Homepage typography) */}
                 <div
                   className={cn(
-                    'flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 px-safe md:px-0 md:py-4 space-y-2.5 md:space-y-0.5',
+                    'flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe md:px-0 md:py-5 space-y-2.5 md:space-y-1 bg-fill-fv/35',
                     callMode && !callMinimized && !showChatInCall && 'hidden'
                   )}
                 >
@@ -2891,13 +3081,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         <span id={`msg-${m.id}`} className="sr-only" />
                         {showDateDivider && (
                           <div className="flex justify-center py-3">
-                            <span className="px-3 py-1 rounded-full bg-fill-sc text-cap-s text-lab-sc font-medium">
+                            <span className="px-3.5 py-1 rounded-full bg-fill-sc text-par-s text-lab-sc font-medium">
                               {formatDateDivider(m.createdAt, locale)}
                             </span>
                           </div>
                         )}
 
-                        {/* DESKTOP MESSAGE ROW (matches PHP desktop ChatMessage.vue) */}
+                        {/* DESKTOP MESSAGE ROW (Grupo chatbox + PHP ChatMessage parity) */}
                         <div
                           onDoubleClick={() => {
                             if (m.isDeleted) return;
@@ -2905,12 +3095,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             messageInputRef.current?.focus();
                           }}
                           className={cn(
-                            'hidden md:flex items-start gap-3 px-5 hover:bg-fill-fv transition-colors group relative',
-                            isCompacted ? 'py-0.5' : 'pt-2.5 pb-1'
+                            'hidden md:flex items-start gap-3.5 px-6 hover:bg-fill-fv transition-colors group relative',
+                            isCompacted ? 'py-0.5' : 'pt-3 pb-1'
                           )}
                         >
                           {isCompacted ? (
-                            <div className="w-[38px] shrink-0 text-[10px] text-lab-tr opacity-0 group-hover:opacity-100 select-none text-right pt-1 tabular-nums">
+                            <div className="w-[38px] shrink-0 text-cap-s text-lab-tr opacity-0 group-hover:opacity-100 select-none text-right pt-1 tabular-nums">
                               {formatMessageTime(m.createdAt, locale)}
                             </div>
                           ) : (
@@ -2921,23 +3111,23 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                           <div className="flex-1 min-w-0 space-y-1">
                             {!isCompacted && (
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-2">
                                 <span className="text-par-n font-bold text-lab-pr truncate">{senderName}</span>
-                                <span className="text-cap-s text-lab-tr shrink-0">
+                                <span className="text-cap-l text-lab-tr shrink-0">
                                   {formatMessageTime(m.createdAt, locale)}
                                 </span>
                                 {mine &&
                                   (readByOther ? (
-                                    <CheckCheck className="h-3 w-3 text-brand-900 shrink-0" />
+                                    <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />
                                   ) : (
-                                    <Check className="h-3 w-3 text-lab-tr shrink-0" />
+                                    <Check className="h-3.5 w-3.5 text-lab-tr shrink-0" />
                                   ))}
                               </div>
                             )}
 
                             {m.parentId && !m.isDeleted && (
-                              <div className="rounded-r-lg border-l-2 border-brand-900 bg-fill-qt px-2.5 py-1 text-cap-l text-lab-sc max-w-lg">
-                                <p className="text-cap-s font-semibold text-lab-pr truncate">
+                              <div className="rounded-r-lg border-l-2 border-brand-900 bg-fill-qt px-3 py-1.5 text-par-s text-lab-sc max-w-lg">
+                                <p className="text-cap-l font-semibold text-lab-pr truncate">
                                   {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
                                 </p>
                                 <p className="truncate">{getMessagePreviewLabel(m.parentId)}</p>
@@ -2953,7 +3143,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                     key={rs.unifiedId}
                                     type="button"
                                     onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-fill-qt border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                    className="inline-flex items-center gap-1 rounded-full bg-fill-qt border border-bord-card px-2.5 py-0.5 text-cap-l text-lab-pr hover:bg-fill-sc cursor-pointer"
                                   >
                                     <span>{rs.nativeSymbol}</span>
                                     <span className="font-semibold text-lab-sc">{rs.count}</span>
@@ -3086,19 +3276,19 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                           <div className={cn('min-w-0 max-w-[82%] overflow-hidden space-y-1', mine && 'items-end flex flex-col')}>
                             <div
                               className={cn(
-                                'w-fit max-w-full min-w-0 overflow-hidden rounded-2xl px-3 py-2 space-y-1.5 relative border',
+                                'w-fit max-w-full min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 space-y-1.5 relative border',
                                 mine
                                   ? 'bg-fill-qt border-fill-fv text-lab-pr rounded-br-sm'
                                   : 'bg-bg-pr border-bord-pr text-lab-pr rounded-bl-sm'
                               )}
                             >
                               {!mine && activeChat.type === 'group' && (
-                                <p className="text-cap-s font-bold text-lab-sc truncate">@{m.sender?.username}</p>
+                                <p className="text-cap-l font-bold text-lab-sc truncate">@{m.sender?.username}</p>
                               )}
 
                               {m.parentId && !m.isDeleted && (
-                                <div className="max-w-full min-w-0 overflow-hidden rounded-lg px-2 py-1 border-l-2 border-brand-900 bg-bg-pr/70 text-cap-l text-lab-sc">
-                                  <p className="text-cap-s font-semibold text-lab-pr truncate">
+                                <div className="max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-2 border-brand-900 bg-bg-pr/70 text-par-s text-lab-sc">
+                                  <p className="text-cap-l font-semibold text-lab-pr truncate">
                                     {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
                                   </p>
                                   <p className="truncate">{getMessagePreviewLabel(m.parentId)}</p>
@@ -3107,13 +3297,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                               {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
 
-                              <div className="flex items-center justify-end gap-1 text-[10px] text-lab-sc">
+                              <div className="flex items-center justify-end gap-1 text-cap-s text-lab-sc">
                                 <span>{formatMessageTime(m.createdAt, locale)}</span>
                                 {mine &&
                                   (readByOther ? (
-                                    <CheckCheck className="h-3 w-3 text-brand-900" />
+                                    <CheckCheck className="h-3.5 w-3.5 text-brand-900" />
                                   ) : (
-                                    <Check className="h-3 w-3 text-lab-sc" />
+                                    <Check className="h-3.5 w-3.5 text-lab-sc" />
                                   ))}
                               </div>
 
@@ -3322,7 +3512,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         {attachMenuOpen && (
                           <div className="absolute bottom-full left-3 mb-2 z-30 w-52 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5">
                             <label
-                              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-cap-l font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
+                              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
                             >
                               <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
                               <span>Photo or Video</span>
@@ -3339,7 +3529,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             </label>
 
                             <label
-                              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-cap-l font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
+                              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
                             >
                               <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
                               <span>Attach File</span>
@@ -3363,7 +3553,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 setShowStickerPicker(false);
                                 setShowGifPicker(true);
                               }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-cap-l font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                             >
                               <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
                               <span>GIFs</span>
@@ -3377,7 +3567,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 setShowGifPicker(false);
                                 setShowStickerPicker(true);
                               }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-cap-l font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                             >
                               <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
                               <span>Stickers & Emoji</span>
@@ -3392,7 +3582,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 setPollOptions(['', '']);
                                 setPollModalOpen(true);
                               }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-cap-l font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                             >
                               <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
                               <span>Create Poll</span>
@@ -3405,7 +3595,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 setAttachMenuOpen(false);
                                 void handleShareLocation();
                               }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-cap-l font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                             >
                               <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
                               <span>Share Location</span>
@@ -3418,7 +3608,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 setAttachMenuOpen(false);
                                 void startVoiceRecording();
                               }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-cap-l font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                             >
                               <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
                               <span>Voice Message</span>
@@ -3456,7 +3646,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               emitTypingChange(val.length > 0);
                             }}
                             placeholder="Write a message..."
-                            className="flex-1 min-w-[80px] bg-transparent border-0 px-2 py-1.5 text-[16px] md:text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none"
+                            className="flex-1 min-w-[80px] bg-transparent border-0 px-2 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
                           />
 
                           <button
@@ -3626,7 +3816,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   onChange={(e) => setGroupPassword(e.target.value)}
                 />
               </div>
-              <label className="flex items-center justify-between gap-2 text-cap-l text-lab-pr cursor-pointer">
+              <label className="flex items-center justify-between gap-2 text-par-s text-lab-pr cursor-pointer">
                 <span>Require admin approval to join</span>
                 <input
                   type="checkbox"
@@ -3635,6 +3825,41 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   className="accent-brand-900"
                 />
               </label>
+
+              {/* Group Monetization (Paid Entry Setup) */}
+              <div className="rounded-xl border border-bord-pr bg-bg-pr p-3 space-y-2.5">
+                <label className="flex items-center justify-between gap-2 text-par-s font-semibold text-lab-pr cursor-pointer">
+                  <span className="flex items-center gap-1.5">
+                    <Coins className="h-4 w-4 text-brand-900" /> Monetize Group (Paid Entry)
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={groupIsPaid}
+                    onChange={(e) => setGroupIsPaid(e.target.checked)}
+                    className="accent-brand-900"
+                  />
+                </label>
+                {groupIsPaid && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Input
+                      label="Entry Fee (NGN)"
+                      type="number"
+                      min={50}
+                      step={50}
+                      value={groupEntryPrice}
+                      onChange={(e) => setGroupEntryPrice(e.target.value)}
+                      placeholder="500"
+                    />
+                    <Input
+                      label="Perks Note (Optional)"
+                      value={groupMonetizationNote}
+                      onChange={(e) => setGroupMonetizationNote(e.target.value)}
+                      placeholder="VIP calls & guides"
+                      maxLength={240}
+                    />
+                  </div>
+                )}
+              </div>
               <AvatarPresetPicker
                 selectedUrl={groupAvatar}
                 onSelect={(url) => setGroupAvatar(url)}
@@ -3775,6 +4000,77 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             >
               Unlock & Join
             </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Paid Group Checkout Confirmation Modal */}
+      <Modal
+        open={Boolean(joinPaidModal)}
+        onClose={() => {
+          setJoinPaidModal(null);
+          setJoinPaidPassword('');
+        }}
+        title={`Paid Group Access · ${joinPaidModal?.name || 'Group'}`}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!joinPaidModal) return;
+            void handleJoinGroup(joinPaidModal.id, {
+              isPaid: true,
+              entryPrice: joinPaidModal.price,
+              payFromWallet: true,
+              password: joinPaidModal.isPasswordProtected ? joinPaidPassword : undefined,
+            });
+          }}
+          className="space-y-4"
+        >
+          <div className="rounded-2xl border border-bord-pr bg-fill-qt p-4 space-y-1.5">
+            <p className="text-cap-l font-semibold text-lab-sc">One-time Wallet Entry Fee</p>
+            <p className="text-title-2 font-bold text-lab-pr">
+              ₦{Number(joinPaidModal?.price || 0).toLocaleString()}
+            </p>
+            {joinPaidModal?.note && (
+              <p className="text-par-s text-lab-sc pt-1">{joinPaidModal.note}</p>
+            )}
+          </div>
+          {joinPaidModal?.isPasswordProtected && (
+            <Input
+              label="Room Password"
+              type="password"
+              placeholder="Enter group password..."
+              value={joinPaidPassword}
+              onChange={(e) => setJoinPaidPassword(e.target.value)}
+              required
+            />
+          )}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <Link
+              href="/wallet"
+              className="text-par-s font-semibold text-brand-900 hover:underline"
+            >
+              Top up Wallet
+            </Link>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setJoinPaidModal(null);
+                  setJoinPaidPassword('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={Boolean(joinPaidModal && joiningGroupId === joinPaidModal.id)}
+              >
+                Pay ₦{Number(joinPaidModal?.price || 0).toLocaleString()} & Join
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>

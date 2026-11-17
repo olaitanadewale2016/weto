@@ -44,6 +44,11 @@ export interface IChatGroupMeta {
   requiresApproval?: boolean;
   isPasswordProtected?: boolean;
   passwordHash?: string | null;
+  isPaid?: boolean;
+  entryPrice?: number;
+  monetizationNote?: string;
+  paidMemberUserIds?: Types.ObjectId[];
+  revenueTotal?: number;
   pendingJoinUserIds?: Types.ObjectId[];
   bannedUserIds?: Types.ObjectId[];
 }
@@ -112,6 +117,11 @@ const ChatSchema = new Schema<IChatDocument>(
         requiresApproval: { type: Boolean, default: false },
         isPasswordProtected: { type: Boolean, default: false },
         passwordHash: { type: String, default: null },
+        isPaid: { type: Boolean, default: false },
+        entryPrice: { type: Number, default: 0, min: 0 },
+        monetizationNote: { type: String, default: '' },
+        paidMemberUserIds: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
+        revenueTotal: { type: Number, default: 0, min: 0 },
         pendingJoinUserIds: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
         bannedUserIds: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
       },

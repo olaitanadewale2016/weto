@@ -159,6 +159,8 @@ export async function GET(req: NextRequest) {
       verified: Boolean(g.group?.verified),
       isPinned: Boolean(g.group?.isPinned),
       isPasswordProtected: Boolean(g.group?.isPasswordProtected),
+      isPaid: Boolean(g.group?.isPaid && Number(g.group?.entryPrice || 0) > 0),
+      entryPrice: Number(g.group?.entryPrice || 0),
       membersCount: Array.isArray(g.participants) ? g.participants.length : 0,
       isJoined: viewerId
         ? (g.participants || []).some((p) => String(p.userId) === viewerId)

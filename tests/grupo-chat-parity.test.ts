@@ -42,6 +42,7 @@ const {
   mockChatCallCreate,
   mockEmitToChat,
   mockEmitToUser,
+  mockSettleGroupWalletPayment,
 } = vi.hoisted(() => ({
   mockChatFind: vi.fn(),
   mockChatFindById: vi.fn(),
@@ -56,6 +57,18 @@ const {
   mockChatCallCreate: vi.fn(),
   mockEmitToChat: vi.fn().mockResolvedValue(undefined),
   mockEmitToUser: vi.fn().mockResolvedValue(undefined),
+  mockSettleGroupWalletPayment: vi.fn().mockResolvedValue({
+    skippedOwnGroup: false,
+    gross: 1500,
+    net: 1500,
+    fee: 0,
+    tnxRef: 'GRP-TEST1234',
+    currency: 'NGN',
+  }),
+}));
+
+vi.mock('@/services/wallet.service', () => ({
+  settleGroupWalletPayment: (...args: unknown[]) => mockSettleGroupWalletPayment(...args),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -653,5 +666,90 @@ describe('Grupo Pro Parity (Avatars, Stickers, Polls, Location, Pin, Forward & C
     );
     expect(banRes.status).toBe(200);
     expect(groupDoc.group.bannedUserIds.map(String)).toContain(String(user2Id));
+  });
+
+  it('enforces paid group wallet entry settlement and supports member tips', async () => {
+    const paidGroupDoc = {
+      _id: chat2Id,
+      chatUuid: 'paid-grp-uuid',
+      type: 'group',
+      participants: [{ userId: user1Id, role: 'owner', isMuted: false }],
+      group: {
+        ownerId: user1Id,
+        name: 'VIP Creators Circle',
+        visibility: 'public',
+        status: 'active',
+        isPaid: true,
+        entryPrice: 1500,
+        monetizationNote: 'Exclusive creator masterclasses',
+        paidMemberUserIds: [] as Types.ObjectId[],
+        revenueTotal: 0,
+        bannedUserIds: [] as Types.ObjectId[],
+        pendingJoinUserIds: [] as Types.ObjectId[],
+      },
+      lastMessagePreview: '',
+      lastActivity: new Date(),
+      save: vi.fn().mockResolvedValue(undefined),
+    };
+    mockChatFindById.mockResolvedValue(paidGroupDoc);
+    mockSettleGroupWalletPayment.mockClear();
+
+    const { PATCH } = await import('@/app/api/v1/chats/[chatId]/route');
+
+    // Unpaid join without confirmation is rejected
+    authUser = { ...authUser, _id: user2Id, username: 'bob' };
+    const unpaidRes = await PATCH(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat2Id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'join_group', payFromWallet: false }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat2Id) }) }
+    );
+    expect(unpaidRes.status).toBe(422);
+    expect(mockSettleGroupWalletPayment).not.toHaveBeenCalled();
+
+    // Paid join with wallet confirmation settles and admits member
+    const paidRes = await PATCH(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat2Id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'join_group', payFromWallet: true }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat2Id) }) }
+    );
+    expect(paidRes.status).toBe(200);
+    expect(mockSettleGroupWalletPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payerId: String(user2Id),
+        ownerId: String(user1Id),
+        amount: 1500,
+        kind: 'group_entry',
+      })
+    );
+    expect(paidGroupDoc.participants.some((p) => String(p.userId) === String(user2Id))).toBe(true);
+    expect(paidGroupDoc.group.revenueTotal).toBe(1500);
+
+    // Member sends a tip to group owner
+    mockMessageCreate.mockResolvedValueOnce({ _id: msg1Id, content: 'Tip' });
+    const tipRes = await PATCH(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat2Id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          action: 'tip_group_owner',
+          tipAmount: 500,
+          tipMessage: 'Great session!',
+        }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat2Id) }) }
+    );
+    expect(tipRes.status).toBe(200);
+    expect(mockSettleGroupWalletPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payerId: String(user2Id),
+        ownerId: String(user1Id),
+        amount: 500,
+        kind: 'group_tip',
+      })
+    );
+    expect(paidGroupDoc.group.revenueTotal).toBe(2000);
   });
 });
