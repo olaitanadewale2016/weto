@@ -120,6 +120,35 @@ async function bootstrap() {
       socket.leave(`chat:${chatId}`);
     });
 
+    socket.on(
+      'chat:call:signal',
+      (payload: { chatId: string; callId: string; toUserId: string; kind: string; payload: unknown }) => {
+        if (!payload?.toUserId || !payload?.chatId) return;
+        io.to(`user:${payload.toUserId}`).emit('chat:call:signal', {
+          chatId: payload.chatId,
+          callId: payload.callId,
+          fromUserId: userId,
+          kind: payload.kind,
+          payload: payload.payload,
+        });
+      }
+    );
+
+    socket.on(
+      'chat:call:state',
+      (payload: { chatId: string; callId: string; muted?: boolean; cameraEnabled?: boolean; screenSharing?: boolean }) => {
+        if (!payload?.chatId) return;
+        socket.to(`chat:${payload.chatId}`).emit('chat:call:update', {
+          chatId: payload.chatId,
+          callId: payload.callId,
+          userId,
+          muted: payload.muted,
+          cameraEnabled: payload.cameraEnabled,
+          screenSharing: payload.screenSharing,
+        });
+      }
+    );
+
     socket.on('chat:typing:start', (payload: { chatId: string }) => {
       if (!payload?.chatId) return;
       socket.to(`chat:${payload.chatId}`).emit('chat:typing', {

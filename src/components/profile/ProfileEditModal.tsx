@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Camera, ChevronRight, Loader2, Pencil, Settings, X } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { ActionSheet, ActionSheetGroup, ActionSheetItem } from '@/components/mobile/ActionSheet';
+import { AvatarPresetPicker } from '@/components/profile/AvatarPresetPicker';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { normalizeAvatarSrc, normalizeCoverSrc } from '@/components/ui/avatar';
 import { useApp } from '@/components/providers/AppContext';
@@ -87,6 +88,29 @@ export function ProfileEditModal({
       setUploadingKind(null);
       setUploadProgress(0);
       setTimeout(() => URL.revokeObjectURL(previewUrl), 2500);
+    }
+  }
+
+  async function handlePresetAvatarSelect(presetUrl: string) {
+    if (uploadingKind !== null) return;
+    setDraftMedia((prev) => ({ ...prev, avatar: presetUrl }));
+    setUploadingKind('avatar');
+    setUploadProgress(50);
+    try {
+      await apiFetch('/settings', {
+        method: 'PATCH',
+        json: { section: 'avatar', data: { url: presetUrl } },
+      });
+      updateUserPatch({ avatar: presetUrl });
+      onUpdated({ avatar: presetUrl });
+      success('Avatar updated!');
+      void refreshBootstrap();
+    } catch (err) {
+      setDraftMedia((prev) => ({ ...prev, avatar: undefined }));
+      error('Could not update avatar', err instanceof Error ? err.message : undefined);
+    } finally {
+      setUploadingKind(null);
+      setUploadProgress(0);
     }
   }
 
@@ -189,13 +213,17 @@ export function ProfileEditModal({
       </div>
 
       {/* PHP Image Guidance & Resolution Specs (keeping readable par-s / par-n font scale) */}
-      <div className="px-4 pb-6 md:pb-8 text-par-s text-lab-sc">
-        <p className="mb-2">
-          Upload a clear profile photo and cover banner so others can easily recognize your account.
+      <div className="px-4 pb-5 space-y-4 text-par-s text-lab-sc">
+        <AvatarPresetPicker
+          selectedUrl={draftMedia.avatar ?? initial.avatar}
+          onSelect={(url) => void handlePresetAvatarSelect(url)}
+          disabled={uploadingKind !== null}
+          compact
+        />
+        <div className="h-px bg-bord-pr" />
+        <p className="mb-1">
+          Or upload a custom profile photo & cover banner (JPG, JPEG, PNG, GIF, or WebP · 400×400 px avatar, 1500×500 px cover).
         </p>
-        <p className="mb-2">Supported image formats: JPG, JPEG, PNG, GIF, or WebP.</p>
-        <div className="h-px bg-bord-pr my-2.5" />
-        <p>Recommended sizes: 400×400 px for avatar and 1500×500 px for cover image.</p>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ import { publicEnv } from '@/lib/env';
 import { useToast } from './ToastProvider';
 import { NetworkStatusBar } from '@/components/layout/NetworkStatusBar';
 import { PwaInstallPrompt } from '@/components/pwa/PwaInstallPrompt';
+import { IncomingCallOverlay } from '@/components/messenger/IncomingCallOverlay';
 
 export interface BootstrapUser {
   id: string;
@@ -630,6 +631,17 @@ export function AppProvider({
         Boolean(chatId) &&
         window.location.pathname === `/messenger/c/${chatId}`;
 
+      if (
+        eventType === 'CHAT_CALL' ||
+        eventType === 'chat:call:incoming' ||
+        eventType === 'chat:call:ended'
+      ) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('weto:call-event', { detail: data }));
+        }
+        return;
+      }
+
       if (eventType === 'CHAT_MESSAGE' || eventType === 'chat:inbox:update') {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('weto:chat-event', { detail: data }));
@@ -942,6 +954,7 @@ export function AppProvider({
       {children}
       <NetworkStatusBar onReconnect={handleNetworkReconnect} />
       <PwaInstallPrompt />
+      <IncomingCallOverlay userId={bootstrap?.user?.id} socket={socket} />
     </AppContext.Provider>
   );
 }

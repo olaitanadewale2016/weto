@@ -1,13 +1,15 @@
+import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import { requireAuth } from '@/lib/auth/session';
 import { apiError, apiSuccess, ForbiddenError, NotFoundError, ValidationError } from '@/lib/api-response';
-import { Chat, ChatInvite, Message } from '@/models/Messaging';
+import { Chat, ChatCall, ChatInvite, Message } from '@/models/Messaging';
 import { Media } from '@/models/Media';
 import { ChatInviteStatus, ChatType, MediaType, MessageType } from '@/types/enums';
 import { extractUrls } from '@/lib/utils';
+import { isValidStickerUrl } from '@/lib/stickers';
 import { fetchLinkSnapshot } from '@/services/link-preview.service';
 import { serializeMedia } from '@/services/media.service';
 import { emitToChat, emitToUser } from '@/lib/realtime-emitter';
@@ -45,16 +47,39 @@ export async function GET(
       ...(q ? { content: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } } : {}),
     };
 
-    const messages = await Message.find(msgFilter)
-      .sort({ createdAt: 1 })
-      .limit(100)
-      .populate('senderId', 'username firstName lastName avatar verified')
-      .populate('mediaId')
-      .populate({
-        path: 'parentId',
-        populate: { path: 'senderId', select: 'username firstName lastName' },
+    const pinnedIds = Array.isArray(chat.pinnedMessageIds) ? chat.pinnedMessageIds : [];
+    const activeCallCutoff = new Date(Date.now() - 4 * 60 * 1000);
+
+    const [messages, pinnedRaw, activeCall] = await Promise.all([
+      Message.find(msgFilter)
+        .sort({ createdAt: 1 })
+        .limit(100)
+        .populate('senderId', 'username firstName lastName avatar verified')
+        .populate('mediaId')
+        .populate({
+          path: 'parentId',
+          populate: { path: 'senderId', select: 'username firstName lastName' },
+        })
+        .lean(),
+      pinnedIds.length > 0
+        ? Message.find({
+            _id: { $in: pinnedIds },
+            chatId: chat._id,
+            isDeleted: false,
+            hiddenForUserIds: { $ne: user._id },
+          })
+            .populate('senderId', 'username firstName lastName avatar verified')
+            .populate('mediaId')
+            .lean()
+        : Promise.resolve([]),
+      ChatCall.findOne({
+        chatId: chat._id,
+        status: { $in: ['ringing', 'active'] },
+        lastActivityAt: { $gt: activeCallCutoff },
       })
-      .lean();
+        .select('_id callUuid audioOnly status initiatorId participants startedAt')
+        .lean(),
+    ]);
 
     return apiSuccess({
       chat: {
@@ -63,6 +88,7 @@ export async function GET(
         type: chat.type,
         group: chat.group,
         isArchived: Boolean(mePart.isArchived),
+        pinnedMessageIds: pinnedIds.map((id) => String(id)),
         participants: chat.participants.map((p) => ({
           user: p.userId,
           role: p.role,
@@ -75,6 +101,23 @@ export async function GET(
         sender: m.senderId,
         media: m.mediaId ? serializeMedia(m.mediaId as never) : null,
       })),
+      pinnedMessages: pinnedRaw.map((m) => ({
+        ...m,
+        id: String(m._id),
+        sender: m.senderId,
+        media: m.mediaId ? serializeMedia(m.mediaId as never) : null,
+      })),
+      activeCall: activeCall
+        ? {
+            id: String(activeCall._id),
+            callUuid: activeCall.callUuid,
+            audioOnly: Boolean(activeCall.audioOnly),
+            status: activeCall.status,
+            initiatorId: String(activeCall.initiatorId),
+            participantCount: activeCall.participants?.length || 0,
+            startedAt: activeCall.startedAt,
+          }
+        : null,
       typingUsers: getActiveChatTypingUsers(String(chat._id), String(user._id)),
     });
   } catch (err) {
@@ -87,6 +130,16 @@ const sendMessageSchema = z.object({
   content: z.string().max(5000).optional(),
   mediaId: z.string().optional(),
   gifUrl: z.string().url().optional(),
+  stickerUrl: z.string().min(1).max(300).optional(),
+  pollQuestion: z.string().trim().min(1).max(300).optional(),
+  pollOptions: z.array(z.string().trim().min(1).max(120)).min(2).max(10).optional(),
+  location: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+      label: z.string().max(240).optional(),
+    })
+    .optional(),
   parentId: z.string().optional(),
   contextRef: z
     .object({
@@ -114,18 +167,62 @@ export async function POST(
     const isMember = chat.participants.some((p) => String(p.userId) === String(user._id));
     if (!isMember) throw new ForbiddenError('Not a participant.');
 
-    if (!body.content?.trim() && !body.mediaId && !body.gifUrl) {
-      throw new ValidationError('Message content, GIF, or attachment is required.');
+    if (
+      !body.content?.trim() &&
+      !body.mediaId &&
+      !body.gifUrl &&
+      !body.stickerUrl &&
+      !(body.pollQuestion && body.pollOptions?.length) &&
+      !body.location
+    ) {
+      throw new ValidationError('Message content, GIF, sticker, poll, location, or attachment is required.');
     }
 
     const urls = body.content ? extractUrls(body.content) : [];
     const linkSnapshot =
-      urls.length > 0 && !body.mediaId && !body.gifUrl ? await fetchLinkSnapshot(urls[0]) : null;
+      urls.length > 0 && !body.mediaId && !body.gifUrl && !body.stickerUrl
+        ? await fetchLinkSnapshot(urls[0])
+        : null;
 
     let resolvedMediaId = body.mediaId ? new Types.ObjectId(body.mediaId) : null;
     let resolvedType = body.type;
+    let stickerUrl: string | null = null;
+    let pollPayload:
+      | { question: string; options: Array<{ id: string; text: string; voterIds: Types.ObjectId[] }> }
+      | null = null;
+    let locationPayload: { lat: number; lng: number; label?: string } | null = null;
 
-    if (body.gifUrl && !resolvedMediaId) {
+    if (body.stickerUrl) {
+      if (!isValidStickerUrl(body.stickerUrl)) {
+        throw new ValidationError('Invalid sticker asset selected.');
+      }
+      stickerUrl = body.stickerUrl.trim();
+      resolvedType = MessageType.STICKER;
+    } else if (body.pollQuestion && body.pollOptions && body.pollOptions.length >= 2) {
+      const cleanedOptions = body.pollOptions
+        .map((opt) => opt.trim())
+        .filter(Boolean)
+        .slice(0, 10);
+      if (cleanedOptions.length < 2) {
+        throw new ValidationError('A poll requires at least 2 choices.');
+      }
+      pollPayload = {
+        question: body.pollQuestion.trim(),
+        options: cleanedOptions.map((text, idx) => ({
+          id: `opt-${idx + 1}-${crypto.randomBytes(3).toString('hex')}`,
+          text,
+          voterIds: [],
+        })),
+      };
+      resolvedType = MessageType.POLL;
+    } else if (body.location) {
+      locationPayload = {
+        lat: body.location.lat,
+        lng: body.location.lng,
+        label: body.location.label?.trim() || '',
+      };
+      resolvedType = MessageType.LOCATION;
+    } else if (body.gifUrl && !resolvedMediaId) {
       const gifMedia = await Media.create({
         ownerId: user._id,
         targetType: 'message',
@@ -148,6 +245,9 @@ export async function POST(
       type: resolvedType,
       content: body.content?.trim() || null,
       mediaId: resolvedMediaId,
+      stickerUrl,
+      poll: pollPayload,
+      location: locationPayload,
       linkSnapshot,
       contextRef: body.contextRef || null,
       deliveredTo: [user._id],
@@ -163,15 +263,21 @@ export async function POST(
 
     const preview =
       body.content?.trim() ||
-      (resolvedType === MessageType.GIF
-        ? 'GIF'
-        : resolvedType === MessageType.IMAGE
-          ? 'Photo'
-          : resolvedType === MessageType.AUDIO
-            ? 'Voice message'
-            : resolvedType === MessageType.VIDEO_CIRCLE
-              ? 'Video message'
-              : 'Attachment');
+      (resolvedType === MessageType.STICKER
+        ? 'Sticker'
+        : resolvedType === MessageType.POLL
+          ? `Poll: ${pollPayload?.question || ''}`
+          : resolvedType === MessageType.LOCATION
+            ? locationPayload?.label || 'Shared location'
+            : resolvedType === MessageType.GIF
+              ? 'GIF'
+              : resolvedType === MessageType.IMAGE
+                ? 'Photo'
+                : resolvedType === MessageType.AUDIO
+                  ? 'Voice message'
+                  : resolvedType === MessageType.VIDEO_CIRCLE
+                    ? 'Video message'
+                    : 'Attachment');
 
     chat.lastMessageId = msg._id;
     chat.lastMessagePreview = preview.slice(0, 120);
@@ -256,8 +362,13 @@ const patchChatSchema = z.object({
     'leave_group',
     'invite_respond',
     'invite_send',
+    'pin_message',
+    'unpin_message',
+    'forward_message',
   ]),
   lastReadMessageId: z.string().optional(),
+  messageId: z.string().optional(),
+  targetChatIds: z.array(z.string()).optional(),
   groupName: z.string().optional(),
   groupDescription: z.string().optional(),
   groupAvatar: z.string().optional(),
@@ -376,6 +487,92 @@ export async function PATCH(
         message: `@${user.username} invited you to ${chat.group?.name || 'a group'}.`,
         actionUrl: '/messenger',
       });
+    } else if (body.action === 'pin_message' && body.messageId) {
+      const targetMsg = await Message.findOne({
+        _id: body.messageId,
+        chatId: chat._id,
+        isDeleted: false,
+      });
+      if (!targetMsg) throw new NotFoundError('Message not found.');
+      await Chat.updateOne(
+        { _id: chat._id },
+        { $addToSet: { pinnedMessageIds: targetMsg._id } }
+      );
+      await emitToChat(String(chat._id), 'chat:pinned:updated', { chatId: String(chat._id) });
+      publishChatRealtimeEvent(String(chat._id), 'pinned', { messageId: body.messageId });
+    } else if (body.action === 'unpin_message' && body.messageId) {
+      await Chat.updateOne(
+        { _id: chat._id },
+        { $pull: { pinnedMessageIds: new Types.ObjectId(body.messageId) } }
+      );
+      await emitToChat(String(chat._id), 'chat:pinned:updated', { chatId: String(chat._id) });
+      publishChatRealtimeEvent(String(chat._id), 'unpinned', { messageId: body.messageId });
+    } else if (body.action === 'forward_message' && body.messageId && Array.isArray(body.targetChatIds)) {
+      const sourceMsg = await Message.findOne({
+        _id: body.messageId,
+        chatId: chat._id,
+        isDeleted: false,
+      }).lean();
+      if (!sourceMsg) throw new NotFoundError('Source message not found.');
+
+      const targetIds = body.targetChatIds
+        .filter((id) => Types.ObjectId.isValid(id))
+        .slice(0, 10);
+      let forwardedCount = 0;
+
+      for (const targetId of targetIds) {
+        const destChat = await Chat.findById(targetId);
+        if (!destChat) continue;
+        const isDestMember = destChat.participants.some((p) => String(p.userId) === String(user._id));
+        if (!isDestMember) continue;
+
+        const fwdMsg = await Message.create({
+          chatId: destChat._id,
+          chatUuid: destChat.chatUuid,
+          senderId: user._id,
+          forwardedFromId: sourceMsg._id,
+          type: sourceMsg.type,
+          content: sourceMsg.content || null,
+          mediaId: sourceMsg.mediaId || null,
+          stickerUrl: sourceMsg.stickerUrl || null,
+          location: sourceMsg.location || null,
+          linkSnapshot: sourceMsg.linkSnapshot || null,
+          deliveredTo: [user._id],
+          readBy: [user._id],
+        });
+
+        const preview =
+          sourceMsg.content?.trim() ||
+          (sourceMsg.type === MessageType.STICKER
+            ? 'Forwarded sticker'
+            : sourceMsg.type === MessageType.LOCATION
+              ? 'Forwarded location'
+              : 'Forwarded message');
+        destChat.lastMessageId = fwdMsg._id;
+        destChat.lastMessagePreview = preview.slice(0, 120);
+        destChat.lastActivity = new Date();
+        destChat.participants = destChat.participants.map((p) => ({
+          ...p,
+          isHidden: false,
+        }));
+        await destChat.save();
+
+        await emitToChat(String(destChat._id), 'chat:message:received', { chatId: String(destChat._id) });
+        publishChatRealtimeEvent(String(destChat._id), 'message', { lastMessageId: String(fwdMsg._id) });
+        for (const p of destChat.participants) {
+          if (String(p.userId) === String(user._id)) continue;
+          await emitToUser(String(p.userId), 'chat:inbox:update', {
+            chatId: String(destChat._id),
+            lastMessagePreview: destChat.lastMessagePreview,
+          });
+          publishUserRealtimeEvent(String(p.userId), 'chat:inbox:update', {
+            chatId: String(destChat._id),
+          });
+        }
+        forwardedCount += 1;
+      }
+
+      return apiSuccess({ forwarded: forwardedCount });
     }
 
     return apiSuccess({ updated: true });

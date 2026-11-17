@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { AccountSwitcherModal } from '@/components/modals/AccountSwitcherModal';
+import { AvatarPresetPicker } from '@/components/profile/AvatarPresetPicker';
 import { Avatar, normalizeCoverSrc } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -425,6 +426,18 @@ export default function SettingsPage() {
                         <input type="file" accept="image/*" className="hidden" disabled={uploadingImage !== null} onChange={(e) => uploadProfileImage('cover', e)} />
                       </label>
                     </div>
+                  </div>
+                  <div className="border-t border-bord-pr px-4 py-3.5 bg-fill-fv/30">
+                    <AvatarPresetPicker
+                      selectedUrl={accountForm.avatar}
+                      disabled={uploadingImage !== null || saving}
+                      compact
+                      onSelect={(presetUrl) => {
+                        setAccountForm((prev) => (prev ? { ...prev, avatar: presetUrl } : prev));
+                        updateUserPatch({ avatar: presetUrl });
+                        void patchSection('avatar', { url: presetUrl }, 'Avatar updated!');
+                      }}
+                    />
                   </div>
                 </div>
 

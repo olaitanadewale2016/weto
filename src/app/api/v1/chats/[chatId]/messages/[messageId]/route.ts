@@ -1,16 +1,23 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireAuth } from '@/lib/auth/session';
-import { apiError, apiSuccess, ForbiddenError, NotFoundError } from '@/lib/api-response';
+import { apiError, apiSuccess, ForbiddenError, NotFoundError, ValidationError } from '@/lib/api-response';
 import { Message, Chat } from '@/models/Messaging';
 import { Reaction } from '@/models/Post';
 import { emitToChat } from '@/lib/realtime-emitter';
 import { publishChatRealtimeEvent } from '@/lib/firebase/realtime';
 
-const reactSchema = z.object({
-  unifiedId: z.string().min(1),
-  nativeSymbol: z.string().min(1),
-});
+const messagePostSchema = z.union([
+  z.object({
+    action: z.literal('vote_poll'),
+    optionId: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal('react').optional(),
+    unifiedId: z.string().min(1),
+    nativeSymbol: z.string().min(1),
+  }),
+]);
 
 export async function POST(
   req: NextRequest,
@@ -19,15 +26,53 @@ export async function POST(
   try {
     const { user } = await requireAuth(req);
     const { chatId, messageId } = await context.params;
-    const body = reactSchema.parse(await req.json());
+    const body = messagePostSchema.parse(await req.json());
     const msg = await Message.findOne({ _id: messageId, chatId });
     if (!msg) throw new NotFoundError('Message not found.');
 
+    if ('action' in body && body.action === 'vote_poll') {
+      if (!msg.poll || !Array.isArray(msg.poll.options)) {
+        throw new ValidationError('This message does not contain an active poll.');
+      }
+      const hasOption = msg.poll.options.some((o) => o.id === body.optionId);
+      if (!hasOption) throw new ValidationError('Poll option not found.');
+
+      const uid = String(user._id);
+      const nextOptions = msg.poll.options.map((opt) => {
+        const filtered = (opt.voterIds || []).filter((v) => String(v) !== uid);
+        if (opt.id === body.optionId) {
+          filtered.push(user._id);
+        }
+        return {
+          id: opt.id,
+          text: opt.text,
+          voterIds: filtered,
+        };
+      });
+
+      msg.poll = {
+        question: msg.poll.question,
+        options: nextOptions,
+      };
+      msg.markModified('poll');
+      await msg.save();
+
+      await emitToChat(chatId, 'chat:message:poll', {
+        chatId,
+        messageId,
+        poll: msg.poll,
+      });
+      publishChatRealtimeEvent(chatId, 'poll', { messageId });
+
+      return apiSuccess({ poll: msg.poll });
+    }
+
+    const reactBody = body as { unifiedId: string; nativeSymbol: string };
     const existing = await Reaction.findOne({
       targetType: 'message',
       targetId: msg._id,
       userId: user._id,
-      unifiedId: body.unifiedId,
+      unifiedId: reactBody.unifiedId,
     });
 
     if (existing) await Reaction.deleteOne({ _id: existing._id });
@@ -36,8 +81,8 @@ export async function POST(
         targetType: 'message',
         targetId: msg._id,
         userId: user._id,
-        unifiedId: body.unifiedId,
-        nativeSymbol: body.nativeSymbol,
+        unifiedId: reactBody.unifiedId,
+        nativeSymbol: reactBody.nativeSymbol,
       });
     }
 

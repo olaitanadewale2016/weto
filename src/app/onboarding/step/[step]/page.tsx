@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { AuthShell } from '@/components/auth/AuthShell';
+import { AvatarPresetPicker } from '@/components/profile/AvatarPresetPicker';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { COUNTRIES } from '@/data/world';
 import { useApp } from '@/components/providers/AppContext';
@@ -152,33 +153,42 @@ export default function OnboardingStepPage() {
             className="space-y-4"
           >
             <h1 className="text-title-1 font-bold text-lab-pr">Tell us about yourself</h1>
-            <div className="flex items-center gap-4 rounded-2xl border border-bord-pr bg-fill-fv/40 p-3.5">
-              <Avatar src={avatarUrl || user?.avatar} alt={firstName || 'Profile'} size="lg" />
-              <label className="inline-flex items-center gap-2 rounded-full border border-bord-pr bg-bg-pr px-4 py-2 text-cap-l font-semibold text-lab-pr cursor-pointer hover:bg-fill-pr">
-                <Upload className="h-4 w-4" />
-                {uploadingAvatar ? 'Uploading photo...' : 'Upload Profile Photo'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
+            <div className="rounded-2xl border border-bord-pr bg-fill-fv/40 p-3.5 space-y-3">
+              <div className="flex items-center gap-4">
+                <Avatar src={avatarUrl || user?.avatar} alt={firstName || 'Profile'} size="lg" />
+                <label className="inline-flex items-center gap-2 rounded-full border border-bord-pr bg-bg-pr px-4 py-2 text-cap-l font-semibold text-lab-pr cursor-pointer hover:bg-fill-pr">
+                  <Upload className="h-4 w-4" />
+                  {uploadingAvatar ? 'Uploading photo...' : 'Upload Profile Photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingAvatar}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      setUploadingAvatar(true);
+                      try {
+                        const uploaded = await uploadFileToR2(file, 'avatars', 'user_avatar');
+                        setAvatarUrl(uploaded.publicUrl);
+                        success('Profile photo uploaded');
+                      } catch (err) {
+                        error('Upload failed', err instanceof Error ? err.message : undefined);
+                      } finally {
+                        setUploadingAvatar(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="border-t border-bord-pr pt-3">
+                <AvatarPresetPicker
+                  selectedUrl={avatarUrl || user?.avatar}
+                  onSelect={(url) => setAvatarUrl(url)}
                   disabled={uploadingAvatar}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!file) return;
-                    setUploadingAvatar(true);
-                    try {
-                      const uploaded = await uploadFileToR2(file, 'avatars', 'user_avatar');
-                      setAvatarUrl(uploaded.publicUrl);
-                      success('Profile photo uploaded');
-                    } catch (err) {
-                      error('Upload failed', err instanceof Error ? err.message : undefined);
-                    } finally {
-                      setUploadingAvatar(false);
-                    }
-                  }}
                 />
-              </label>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input

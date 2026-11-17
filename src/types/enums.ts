@@ -194,6 +194,10 @@ export enum MessageType {
   VIDEO_CIRCLE = 'video_circle',
   DOCUMENT = 'document',
   GIF = 'gif',
+  STICKER = 'sticker',
+  POLL = 'poll',
+  LOCATION = 'location',
+  SYSTEM = 'system',
 }
 
 export enum CategoryStatus {

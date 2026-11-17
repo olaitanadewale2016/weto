@@ -8,21 +8,29 @@ import {
   Archive,
   ArrowLeft,
   BadgeCheck,
+  BarChart2,
   Check,
   CheckCheck,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   CornerUpLeft,
   ExternalLink,
   FileDown,
   Film,
+  Forward,
   Image as ImageIcon,
   Info,
   Languages,
   LogOut,
+  MapPin,
   MessageCircle,
   Mic,
   MoreHorizontal,
   Paperclip,
+  Phone,
+  Pin,
+  PinOff,
   Plus,
   Search,
   Send,
@@ -31,6 +39,9 @@ import {
   Trash2,
   UserPlus,
   Users,
+  Video,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
@@ -39,6 +50,8 @@ import { Input } from '@/components/ui/input';
 import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState } from '@/components/ui/empty-state';
+import { VideoCallStage } from '@/components/messenger/VideoCallStage';
+import { StickerEmojiPicker } from '@/components/messenger/StickerEmojiPicker';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { GiphyAttribution, GiphyPicker } from '@/components/feed/GiphyPicker';
 import { useApp } from '@/components/providers/AppContext';
@@ -72,6 +85,7 @@ interface ChatSummary {
   isArchived?: boolean;
   interlocutor?: ChatUserSummary | null;
   participants?: Array<{ user: ChatUserSummary; role: string; lastReadAt?: string }>;
+  pinnedMessageIds?: string[];
   lastMessagePreview?: string;
   lastActivity: string;
   unreadCount: number;
@@ -86,6 +100,32 @@ interface ParentMessageRef {
   senderId?: { _id?: string; username?: string; firstName?: string; lastName?: string } | null;
 }
 
+interface ChatPollOption {
+  id: string;
+  text: string;
+  voterIds: string[];
+}
+
+interface ChatPoll {
+  question: string;
+  options: ChatPollOption[];
+}
+
+interface ChatLocationData {
+  lat: number;
+  lng: number;
+  label?: string;
+}
+
+interface ActiveCallSummary {
+  id: string;
+  callUuid: string;
+  audioOnly: boolean;
+  status: string;
+  initiatorId: string;
+  participantCount: number;
+}
+
 interface ChatMessage {
   id: string;
   type: string;
@@ -93,6 +133,10 @@ interface ChatMessage {
   senderId: string;
   sender?: ChatUserSummary;
   parentId?: ParentMessageRef | null;
+  stickerUrl?: string | null;
+  forwardedFromId?: string | null;
+  poll?: ChatPoll | null;
+  location?: ChatLocationData | null;
   media?: {
     publicUrl?: string;
     url?: string;
@@ -184,9 +228,19 @@ function formatMessageTime(isoDate: string, locale: string): string {
   }
 }
 
-function getMessagePreviewLabel(msg: { type?: string; content?: string | null; isDeleted?: boolean }): string {
+function getMessagePreviewLabel(msg: {
+  type?: string;
+  content?: string | null;
+  isDeleted?: boolean;
+  poll?: { question?: string } | null;
+  location?: { label?: string } | null;
+}): string {
   if (msg.isDeleted) return 'Message deleted';
   if (msg.content?.trim()) return msg.content.trim();
+  if (msg.type === 'sticker') return 'Sticker';
+  if (msg.type === 'poll') return msg.poll?.question ? `Poll: ${msg.poll.question}` : 'Poll';
+  if (msg.type === 'location') return msg.location?.label ? `Location: ${msg.location.label}` : 'Shared location';
+  if (msg.type === 'system') return 'Call update';
   if (msg.type === 'gif') return 'GIF';
   if (msg.type === 'image') return 'Photo';
   if (msg.type === 'video' || msg.type === 'video_circle') return 'Video';
@@ -250,8 +304,23 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
   const [deleteMenuMsgId, setDeleteMenuMsgId] = useState<string | null>(null);
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [msgTranslations, setMsgTranslations] = useState<Record<string, string | null>>({});
   const [translatingMsgId, setTranslatingMsgId] = useState<string | null>(null);
+
+  const [callMode, setCallMode] = useState<'video' | 'audio' | null>(null);
+  const [showChatInCall, setShowChatInCall] = useState(false);
+  const [activeCall, setActiveCall] = useState<ActiveCallSummary | null>(null);
+  const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
+  const [pinIndex, setPinIndex] = useState(0);
+  const [chatMuted, setChatMuted] = useState(false);
+  const [pollModalOpen, setPollModalOpen] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+  const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
+  const [forwardTargets, setForwardTargets] = useState<string[]>([]);
+  const [forwarding, setForwarding] = useState(false);
+  const [sendingLocation, setSendingLocation] = useState(false);
 
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newChatMode, setNewChatMode] = useState<'direct' | 'group'>('direct');
@@ -271,6 +340,26 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingPingRef = useRef<number>(0);
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const chatMutedRef = useRef(chatMuted);
+
+  useEffect(() => {
+    chatMutedRef.current = chatMuted;
+  }, [chatMuted]);
+
+  const playChatSound = useCallback((kind: 'received' | 'sent') => {
+    if (chatMutedRef.current || typeof window === 'undefined') return;
+    try {
+      const src =
+        kind === 'sent'
+          ? '/assets/sounds/chats/chat-message-sent.mp3'
+          : '/assets/sounds/chats/active-chat-message-received.mp3';
+      const audio = new Audio(src);
+      audio.volume = 0.55;
+      void audio.play().catch(() => undefined);
+    } catch {
+      // ignore audio autoplay restriction
+    }
+  }, []);
 
   useEffect(() => {
     if (tab !== 'chats' || searchQ.trim() || loadingList) return;
@@ -328,19 +417,35 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           chat: ChatSummary;
           messages: ChatMessage[];
           typingUsers?: TypingUserInfo[];
+          pinnedMessages?: ChatMessage[];
+          activeCall?: ActiveCallSummary | null;
         }>(`/chats/${chatId}${qs}`);
         setActiveChat(res.chat);
         if (Array.isArray(res.typingUsers)) {
           setTypingUsers(res.typingUsers);
         }
+        if (Array.isArray(res.pinnedMessages)) {
+          setPinnedMessages(res.pinnedMessages);
+          setPinIndex((idx) => (idx >= res.pinnedMessages!.length ? 0 : idx));
+        } else if (!queryText.trim()) {
+          setPinnedMessages([]);
+        }
+        setActiveCall(res.activeCall ?? null);
         const list = res.messages || [];
         let addedNew = false;
+        let receivedFromOther = false;
         setMessages((prev) => {
           const prevLastId = prev[prev.length - 1]?.id;
           const nextLast = list[list.length - 1];
           addedNew = Boolean(nextLast && nextLast.id !== prevLastId);
+          receivedFromOther = Boolean(
+            addedNew && nextLast && String(nextLast.sender?._id || nextLast.senderId) !== currentUserId
+          );
           return list;
         });
+        if (silent && receivedFromOther) {
+          playChatSound('received');
+        }
         if (!queryText.trim()) {
           messengerThreadCache.set(chatId, {
             chat: res.chat,
@@ -370,7 +475,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         setLoadingThread(false);
       }
     },
-    [error, currentUserId]
+    [error, currentUserId, playChatSound]
   );
 
   useEffect(() => {
@@ -401,8 +506,25 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         setReactionPickerMsgId(null);
         setDeleteMenuMsgId(null);
         setTypingUsers([]);
+        setShowGifPicker(false);
+        setShowStickerPicker(false);
+        setCallMode(null);
+        setShowChatInCall(false);
+        setActiveCall(null);
+        setPinnedMessages([]);
+        setPinIndex(0);
       }
       if (activeChatId && user) {
+        const qsParams =
+          typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const answerMode = qsParams?.get('answerCall');
+        if (answerMode === 'video' || answerMode === 'audio') {
+          setCallMode(answerMode);
+          qsParams?.delete('answerCall');
+          const nextSearch = qsParams?.toString();
+          const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+          window.history.replaceState(null, '', nextUrl);
+        }
         if (!threadSearchOpen) {
           const cached = messengerThreadCache.get(activeChatId);
           const summary = cached?.chat || chatsRef.current.find((c) => c.id === activeChatId) || null;
@@ -436,8 +558,19 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         void loadConversation(activeChatId, '', true);
       }
     };
+    const onCallEvent = (ev: Event) => {
+      const detail = (ev as CustomEvent<Record<string, unknown>>).detail || {};
+      const eventChatId = detail.chatId ? String(detail.chatId) : undefined;
+      if (activeChatId && (!eventChatId || eventChatId === activeChatId)) {
+        void loadConversation(activeChatId, '', true);
+      }
+    };
     window.addEventListener('weto:chat-event', onChatEvent);
-    return () => window.removeEventListener('weto:chat-event', onChatEvent);
+    window.addEventListener('weto:call-event', onCallEvent);
+    return () => {
+      window.removeEventListener('weto:chat-event', onChatEvent);
+      window.removeEventListener('weto:call-event', onCallEvent);
+    };
   }, [user, activeChatId, threadSearchOpen, loadInbox, loadConversation]);
 
   // Firebase Firestore live room listener (sub-second messages, read receipts, reactions & typing when Firestore is enabled)
@@ -520,6 +653,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 40);
 
       if (String(incoming.sender?._id || incoming.senderId) !== user?.id) {
+        playChatSound('received');
         apiFetch(`/chats/${activeChatId}`, {
           method: 'PATCH',
           json: { action: 'read', lastReadMessageId: incoming.id },
@@ -570,11 +704,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       );
     };
 
+    const onCallState = (payload: { chatId?: string; status?: string }) => {
+      if (payload.chatId && payload.chatId !== activeChatId) return;
+      void loadConversation(activeChatId, '', true);
+    };
+
     socket.on('chat:message:received', onMessageReceived);
     socket.on('chat:typing', onTyping);
     socket.on('chat:message:deleted', onMessageDeleted);
     socket.on('chat:message:read', onMessageRead);
     socket.on('chat:message:reaction', onMessageReaction);
+    socket.on('chat:call:state', onCallState);
 
     return () => {
       if (typingStopTimerRef.current) {
@@ -588,8 +728,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       socket.off('chat:message:deleted', onMessageDeleted);
       socket.off('chat:message:read', onMessageRead);
       socket.off('chat:message:reaction', onMessageReaction);
+      socket.off('chat:call:state', onCallState);
     };
-  }, [socket, activeChatId, user?.id, loadInbox]);
+  }, [socket, activeChatId, user?.id, loadInbox, loadConversation, playChatSound]);
 
   // Polling fallback when deployed without a standalone Socket.IO server (e.g. pure Vercel)
   useEffect(() => {
@@ -712,6 +853,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       setMsgText('');
       setReplyTo(null);
       emitTypingChange(false);
+      playChatSound('sent');
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 40);
       void loadInbox();
     } catch (err) {
@@ -951,12 +1093,178 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       });
       setReplyTo(null);
       setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+      playChatSound('sent');
       void loadInbox();
     } catch (err) {
       error('Could not send GIF', err instanceof Error ? err.message : undefined);
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleSendSticker(stickerUrl: string) {
+    if (!activeChatId || sending) return;
+    setShowStickerPicker(false);
+    setSending(true);
+    try {
+      const sent = await apiFetch<ChatMessage>(`/chats/${activeChatId}`, {
+        method: 'POST',
+        json: {
+          type: 'sticker',
+          stickerUrl,
+          parentId: replyTo?.id,
+        },
+      });
+      setReplyTo(null);
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+      playChatSound('sent');
+      void loadInbox();
+    } catch (err) {
+      error('Could not send sticker', err instanceof Error ? err.message : undefined);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleCreatePoll(e: React.FormEvent) {
+    e.preventDefault();
+    if (!activeChatId || sending) return;
+    const question = pollQuestion.trim();
+    const cleanedOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
+    if (!question || cleanedOptions.length < 2) {
+      error('Please enter a poll question and at least 2 options.');
+      return;
+    }
+    setSending(true);
+    try {
+      const sent = await apiFetch<ChatMessage>(`/chats/${activeChatId}`, {
+        method: 'POST',
+        json: {
+          type: 'poll',
+          pollQuestion: question,
+          pollOptions: cleanedOptions,
+          parentId: replyTo?.id,
+        },
+      });
+      setReplyTo(null);
+      setPollModalOpen(false);
+      setPollQuestion('');
+      setPollOptions(['', '']);
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+      playChatSound('sent');
+      void loadInbox();
+    } catch (err) {
+      error('Could not create poll', err instanceof Error ? err.message : undefined);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleVotePoll(messageId: string, optionId: string) {
+    if (!activeChatId) return;
+    try {
+      const res = await apiFetch<{ poll: ChatPoll }>(
+        `/chats/${activeChatId}/messages/${messageId}`,
+        {
+          method: 'POST',
+          json: { action: 'vote_poll', optionId },
+        }
+      );
+      if (res.poll) {
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, poll: res.poll } : m)));
+      }
+    } catch (err) {
+      error('Vote failed', err instanceof Error ? err.message : undefined);
+    }
+  }
+
+  async function handleShareLocation() {
+    if (!activeChatId || sendingLocation) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      error('Geolocation is not supported in this browser.');
+      return;
+    }
+    setSendingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = Number(pos.coords.latitude.toFixed(6));
+          const lng = Number(pos.coords.longitude.toFixed(6));
+          const sent = await apiFetch<ChatMessage>(`/chats/${activeChatId}`, {
+            method: 'POST',
+            json: {
+              type: 'location',
+              location: { lat, lng, label: `${lat}, ${lng}` },
+              parentId: replyTo?.id,
+            },
+          });
+          setReplyTo(null);
+          setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+          playChatSound('sent');
+          void loadInbox();
+        } catch (err) {
+          error('Could not share location', err instanceof Error ? err.message : undefined);
+        } finally {
+          setSendingLocation(false);
+        }
+      },
+      () => {
+        setSendingLocation(false);
+        error('Location permission denied or unavailable.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  async function handlePinToggle(messageId: string) {
+    if (!activeChatId) return;
+    const isPinned = pinnedMessages.some((pm) => pm.id === messageId);
+    try {
+      const res = await apiFetch<{ pinnedMessages?: ChatMessage[] }>(`/chats/${activeChatId}`, {
+        method: 'PATCH',
+        json: { action: isPinned ? 'unpin_message' : 'pin_message', messageId },
+      });
+      if (Array.isArray(res.pinnedMessages)) {
+        setPinnedMessages(res.pinnedMessages);
+        setPinIndex(0);
+      } else {
+        void loadConversation(activeChatId, '', true);
+      }
+      success(isPinned ? 'Message unpinned' : 'Message pinned');
+    } catch (err) {
+      error('Could not update pin', err instanceof Error ? err.message : undefined);
+    }
+  }
+
+  async function handleForwardSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!activeChatId || !forwardMsg || forwardTargets.length === 0 || forwarding) return;
+    setForwarding(true);
+    try {
+      const res = await apiFetch<{ forwarded?: number; forwardedCount?: number }>(`/chats/${activeChatId}`, {
+        method: 'PATCH',
+        json: {
+          action: 'forward_message',
+          messageId: forwardMsg.id,
+          targetChatIds: forwardTargets,
+        },
+      });
+      const sentCount = res.forwarded ?? res.forwardedCount ?? forwardTargets.length;
+      success(`Forwarded to ${sentCount} chat(s)`);
+      setForwardMsg(null);
+      setForwardTargets([]);
+      void loadInbox();
+    } catch (err) {
+      error('Forward failed', err instanceof Error ? err.message : undefined);
+    } finally {
+      setForwarding(false);
+    }
+  }
+
+  function handleStartCall(mode: 'video' | 'audio') {
+    if (!activeChatId) return;
+    setShowChatInCall(false);
+    setCallMode(mode);
   }
 
   async function handleToggleReaction(messageId: string, unifiedId: string, nativeSymbol: string) {
@@ -1150,10 +1458,31 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         ? [{ url: lightboxImageUrl, alt: 'Attachment preview' }]
         : [];
   const lightboxInitialIndex = matchedLightboxIdx >= 0 ? matchedLightboxIdx : 0;
+  const safePinIdx = pinnedMessages.length > 0 ? Math.min(pinIndex, pinnedMessages.length - 1) : 0;
+  const currentPinned = pinnedMessages[safePinIdx] || pinnedMessages[0] || null;
 
   const renderMessageBody = (m: ChatMessage, variant: 'desktop' | 'mobile-mine' | 'mobile-other') => {
     if (m.isDeleted) {
       return <p className="text-cap-l italic text-lab-sc">Message deleted</p>;
+    }
+
+    if (m.type === 'system') {
+      const label =
+        m.content === 'user_initiated_video_call'
+          ? 'Started a video call'
+          : m.content === 'user_initiated_audio_call'
+            ? 'Started an audio call'
+            : m.content || 'Call update';
+      return (
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-fill-qt border border-bord-card px-3 py-1 text-cap-s text-lab-sc">
+          {m.content === 'user_initiated_video_call' ? (
+            <Video className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+          ) : (
+            <Phone className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+          )}
+          <span>{label}</span>
+        </div>
+      );
     }
 
     const mediaUrl = m.media?.publicUrl || m.media?.url;
@@ -1164,8 +1493,107 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         ? 'bg-bg-pr/70 border-bord-pr text-lab-pr'
         : 'bg-fill-qt border-bord-card text-lab-pr';
 
+    const totalPollVotes = m.poll
+      ? m.poll.options.reduce((sum, opt) => sum + (opt.voterIds?.length || 0), 0)
+      : 0;
+
     return (
       <>
+        {m.forwardedFromId && (
+          <div className="inline-flex items-center gap-1 text-[11px] font-medium text-lab-sc">
+            <Forward className="h-3 w-3" />
+            <span>Forwarded</span>
+          </div>
+        )}
+
+        {m.type === 'sticker' && m.stickerUrl && (
+          <div className="inline-block py-0.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={m.stickerUrl}
+              alt="Sticker"
+              loading="lazy"
+              decoding="async"
+              className="h-28 w-28 object-contain"
+            />
+          </div>
+        )}
+
+        {m.type === 'poll' && m.poll && (
+          <div
+            className={cn(
+              'rounded-2xl border p-3 space-y-2 w-full max-w-full sm:w-80 text-left',
+              boxClass
+            )}
+          >
+            <div className="flex items-start gap-2">
+              <BarChart2 className="h-4 w-4 text-brand-900 shrink-0 mt-0.5" />
+              <p className="text-par-n font-bold text-lab-pr leading-snug">{m.poll.question}</p>
+            </div>
+            <div className="space-y-1.5">
+              {m.poll.options.map((opt) => {
+                const count = opt.voterIds?.length || 0;
+                const pct = totalPollVotes > 0 ? Math.round((count / totalPollVotes) * 100) : 0;
+                const voted = Boolean(
+                  currentUserId && opt.voterIds?.some((vid) => String(vid) === currentUserId)
+                );
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => void handleVotePoll(m.id, opt.id)}
+                    className={cn(
+                      'relative w-full overflow-hidden rounded-xl border px-3 py-2 text-left transition-colors cursor-pointer',
+                      voted
+                        ? 'border-brand-900 bg-brand-900/10'
+                        : 'border-bord-card bg-bg-pr/70 hover:bg-fill-fv'
+                    )}
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0 bg-brand-900/15 transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                    <div className="relative flex items-center justify-between gap-2 text-cap-l">
+                      <span className={cn('truncate', voted ? 'font-bold text-brand-900' : 'text-lab-pr')}>
+                        {opt.text}
+                      </span>
+                      <span className="shrink-0 text-cap-s font-semibold text-lab-sc tabular-nums">
+                        {pct}% ({count})
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-lab-sc">
+              {totalPollVotes} {totalPollVotes === 1 ? 'vote' : 'votes'} · Tap an option to vote
+            </p>
+          </div>
+        )}
+
+        {m.type === 'location' && m.location && (
+          <a
+            href={`https://www.google.com/maps?q=${encodeURIComponent(`${m.location.lat},${m.location.lng}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'flex items-center gap-2.5 rounded-xl px-3 py-2.5 border transition-opacity hover:opacity-90 w-full max-w-full sm:w-72',
+              boxClass
+            )}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-900/15 text-brand-900">
+              <MapPin className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="text-cap-l font-semibold text-lab-pr truncate">Shared Location</p>
+              <p className="text-[11px] text-lab-sc truncate">
+                {m.location.label || `${m.location.lat.toFixed(4)}, ${m.location.lng.toFixed(4)}`}
+              </p>
+            </div>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-lab-sc" />
+          </a>
+        )}
+
         {mediaUrl && (
           <>
             {(m.type === 'image' || m.type === 'gif') && (
@@ -1650,6 +2078,49 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 <div className="flex items-center gap-1 shrink-0 relative">
                   <button
                     type="button"
+                    onClick={() => handleStartCall('audio')}
+                    className={cn(
+                      'p-2 rounded-full text-lab-sc hover:bg-fill-sc cursor-pointer transition-colors',
+                      (callMode === 'audio' || activeCall?.audioOnly) &&
+                        'bg-green-600/15 text-green-600 ring-1 ring-green-600/40'
+                    )}
+                    title={activeCall?.audioOnly ? 'Join active audio call' : 'Start audio call'}
+                    aria-label="Audio call"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleStartCall('video')}
+                    className={cn(
+                      'p-2 rounded-full text-lab-sc hover:bg-fill-sc cursor-pointer transition-colors',
+                      (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
+                        'bg-brand-900/15 text-brand-900 ring-1 ring-brand-900/40'
+                    )}
+                    title={
+                      activeCall && !activeCall.audioOnly ? 'Join active video call' : 'Start video call'
+                    }
+                    aria-label="Video call"
+                  >
+                    <Video className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setChatMuted((prev) => !prev)}
+                    className={cn(
+                      'hidden sm:inline-flex p-2 rounded-full text-lab-sc hover:bg-fill-sc cursor-pointer',
+                      chatMuted && 'text-red-500 bg-fill-sc'
+                    )}
+                    title={chatMuted ? 'Unmute chat sounds' : 'Mute chat sounds'}
+                    aria-label={chatMuted ? 'Unmute chat sounds' : 'Mute chat sounds'}
+                  >
+                    {chatMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setThreadSearchOpen((prev) => {
                         if (prev) setThreadSearchQ('');
@@ -1757,8 +2228,125 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               )}
             </div>
 
+            {/* Active incoming/ongoing call join strip */}
+            {activeCall && !callMode && (
+              <div className="px-4 py-2 border-b border-bord-pr bg-green-600/10 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-600 animate-pulse shrink-0" />
+                  <p className="text-cap-l font-semibold text-lab-pr truncate">
+                    {activeCall.audioOnly ? 'Live Audio Call' : 'Live Video Call'} in progress (
+                    {activeCall.participantCount} joined)
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  onClick={() => handleStartCall(activeCall.audioOnly ? 'audio' : 'video')}
+                >
+                  {activeCall.audioOnly ? (
+                    <Phone className="h-3.5 w-3.5" />
+                  ) : (
+                    <Video className="h-3.5 w-3.5" />
+                  )}
+                  Join
+                </Button>
+              </div>
+            )}
+
+            {/* WebRTC Video / Audio / Screen-Sharing Stage */}
+            {callMode && (
+              <VideoCallStage
+                chatId={activeChat.id}
+                chatType={activeChat.type}
+                audioOnly={callMode === 'audio'}
+                currentUser={{
+                  id: user.id,
+                  username: user.username,
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                  avatar: user.avatar,
+                }}
+                isGroupAdmin={
+                  activeChat.type === 'group' &&
+                  (myParticipantRole === 'owner' || myParticipantRole === 'admin')
+                }
+                socket={socket}
+                chatWindowVisible={showChatInCall}
+                onToggleChatWindow={() => setShowChatInCall((v) => !v)}
+                onExit={() => {
+                  setCallMode(null);
+                  setShowChatInCall(false);
+                  void loadConversation(activeChat.id, '', true);
+                }}
+              />
+            )}
+
+            {/* Pinned Messages Carousel (Grupo Pro parity) */}
+            {currentPinned && pinnedMessages.length > 0 && (!callMode || showChatInCall) && (
+                <div className="px-3 sm:px-4 py-2 border-b border-bord-card bg-fill-qt flex items-center justify-between gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById(`msg-${currentPinned.id}`);
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+                  >
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-900/15 text-brand-900">
+                      <Pin className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold text-brand-900 truncate">
+                        Pinned Message {pinnedMessages.length > 1 ? `(${safePinIdx + 1}/${pinnedMessages.length})` : ''}
+                      </p>
+                      <p className="text-cap-l text-lab-pr truncate">
+                        {getMessagePreviewLabel(currentPinned)}
+                      </p>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {pinnedMessages.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPinIndex((prev) => (prev - 1 + pinnedMessages.length) % pinnedMessages.length)
+                          }
+                          className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
+                          title="Previous pinned message"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPinIndex((prev) => (prev + 1) % pinnedMessages.length)}
+                          className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
+                          title="Next pinned message"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handlePinToggle(currentPinned.id)}
+                      className="p-1 rounded-full text-lab-sc hover:text-red-600 hover:bg-fill-fv cursor-pointer"
+                      title="Unpin message"
+                    >
+                      <PinOff className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+            )}
+
             {/* Messages Timeline (PHP ChatOverview + Desktop Grouped ChatMessage + Mobile Bubbles) */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 px-safe md:px-0 md:py-4 space-y-2.5 md:space-y-0.5">
+            <div
+              className={cn(
+                'flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 px-safe md:px-0 md:py-4 space-y-2.5 md:space-y-0.5',
+                callMode && !showChatInCall && 'hidden'
+              )}
+            >
               {!loadingThread && !threadSearchQ && (
                 <div className="border-b border-bord-card px-4 py-7 mb-3 text-center">
                   <div className="flex justify-center mb-3">
@@ -1835,6 +2423,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                 return (
                   <React.Fragment key={m.id}>
+                    <span id={`msg-${m.id}`} className="sr-only" />
                     {showDateDivider && (
                       <div className="flex justify-center py-3">
                         <span className="px-3 py-1 rounded-full bg-fill-sc text-cap-s text-lab-sc font-medium">
@@ -1909,7 +2498,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         )}
                       </div>
 
-                      {!m.isDeleted && (
+                      {!m.isDeleted && m.type !== 'system' && (
                         <div className="absolute -top-3 right-5 z-10 flex items-center gap-0.5 rounded-full border border-bord-pr bg-bg-pr px-1.5 py-0.5 shadow-sm opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                           <button
                             type="button"
@@ -1929,6 +2518,36 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             title="Reply"
                           >
                             <CornerUpLeft className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handlePinToggle(m.id)}
+                            className={cn(
+                              'p-1 rounded-full hover:bg-fill-fv cursor-pointer',
+                              pinnedMessages.some((pm) => pm.id === m.id)
+                                ? 'text-brand-900'
+                                : 'text-lab-sc hover:text-lab-pr'
+                            )}
+                            title={
+                              pinnedMessages.some((pm) => pm.id === m.id) ? 'Unpin message' : 'Pin message'
+                            }
+                          >
+                            {pinnedMessages.some((pm) => pm.id === m.id) ? (
+                              <PinOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Pin className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForwardMsg(m);
+                              setForwardTargets([]);
+                            }}
+                            className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
+                            title="Forward message"
+                          >
+                            <Forward className="h-3.5 w-3.5" />
                           </button>
                           {!mine && m.content?.trim() && (
                             <button
@@ -2071,7 +2690,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         )}
                       </div>
 
-                      {!m.isDeleted && (
+                      {!m.isDeleted && m.type !== 'system' && (
                         <button
                           type="button"
                           onClick={() => setMobileActionMsg(m)}
@@ -2104,6 +2723,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               <div ref={messagesEndRef} />
             </div>
 
+            {(!callMode || showChatInCall) && (
+              <>
             {/* Reply Preview Banner */}
             {replyTo && (
               <div className="px-4 py-2 border-t border-bord-pr bg-fill-qt flex items-center justify-between gap-3">
@@ -2144,6 +2765,19 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 <GiphyPicker
                   onSelect={(url) => void handleSendGif(url)}
                   onClose={() => setShowGifPicker(false)}
+                />
+              </div>
+            )}
+
+            {showStickerPicker && !recording && (
+              <div className="md:px-3 md:py-2 md:border-t md:border-bord-pr md:bg-bg-pr shrink-0">
+                <StickerEmojiPicker
+                  onSelectEmoji={(emoji) => {
+                    setMsgText((prev) => prev + emoji);
+                    messageInputRef.current?.focus();
+                  }}
+                  onSelectSticker={(stickerUrl) => void handleSendSticker(stickerUrl)}
+                  onClose={() => setShowStickerPicker(false)}
                 />
               </div>
             )}
@@ -2220,7 +2854,27 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   <button
                     type="button"
                     disabled={uploadingMedia}
-                    onClick={() => setShowGifPicker((v) => !v)}
+                    onClick={() => {
+                      setShowGifPicker(false);
+                      setShowStickerPicker((v) => !v);
+                    }}
+                    className={cn(
+                      'p-1 sm:p-1.5 rounded-full hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0',
+                      msgText.trim() && 'hidden sm:inline-flex',
+                      showStickerPicker ? 'text-brand-900 bg-fill-pr' : 'text-lab-sc hover:text-lab-pr'
+                    )}
+                    title="Emoji & Stickers"
+                  >
+                    <Smile className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={uploadingMedia}
+                    onClick={() => {
+                      setShowStickerPicker(false);
+                      setShowGifPicker((v) => !v);
+                    }}
                     className={cn(
                       'p-1 sm:p-1.5 rounded-full hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0',
                       msgText.trim() && 'hidden sm:inline-flex',
@@ -2229,6 +2883,36 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     title="Send GIF"
                   >
                     <Film className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={uploadingMedia || sending}
+                    onClick={() => {
+                      setPollQuestion('');
+                      setPollOptions(['', '']);
+                      setPollModalOpen(true);
+                    }}
+                    className={cn(
+                      'p-1 sm:p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0',
+                      msgText.trim() && 'hidden sm:inline-flex'
+                    )}
+                    title="Create Poll"
+                  >
+                    <BarChart2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={uploadingMedia || sendingLocation}
+                    onClick={() => void handleShareLocation()}
+                    className={cn(
+                      'p-1 sm:p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50 shrink-0',
+                      msgText.trim() && 'hidden sm:inline-flex'
+                    )}
+                    title="Share Location"
+                  >
+                    <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
 
                   <button
@@ -2272,6 +2956,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </button>
                 </form>
               </div>
+            )}
+              </>
             )}
           </>
         )}
@@ -2569,6 +3255,42 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 Reply
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  const targetId = mobileActionMsg.id;
+                  setMobileActionMsg(null);
+                  void handlePinToggle(targetId);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-lab-pr hover:bg-fill-pr cursor-pointer"
+              >
+                {pinnedMessages.some((pm) => pm.id === mobileActionMsg.id) ? (
+                  <>
+                    <PinOff className="h-4 w-4 text-brand-900" />
+                    Unpin message
+                  </>
+                ) : (
+                  <>
+                    <Pin className="h-4 w-4 text-lab-sc" />
+                    Pin message
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = mobileActionMsg;
+                  setMobileActionMsg(null);
+                  setForwardMsg(target);
+                  setForwardTargets([]);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-lab-pr hover:bg-fill-pr cursor-pointer"
+              >
+                <Forward className="h-4 w-4 text-lab-sc" />
+                Forward message
+              </button>
+
               {mobileActionMsg.content && (
                 <>
                   <button
@@ -2632,6 +3354,155 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           </div>
         </Modal>
       )}
+
+      {/* Create Poll Modal (Grupo Pro parity) */}
+      <Modal
+        open={pollModalOpen}
+        onClose={() => setPollModalOpen(false)}
+        title="Create In-Chat Poll"
+      >
+        <form onSubmit={handleCreatePoll} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-cap-l font-semibold text-lab-pr">Question</label>
+            <Input
+              value={pollQuestion}
+              onChange={(e) => setPollQuestion(e.target.value)}
+              placeholder="Ask the chat a question..."
+              maxLength={240}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-cap-l font-semibold text-lab-pr">Options</label>
+            {pollOptions.map((opt, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Input
+                  value={opt}
+                  onChange={(e) => {
+                    const next = [...pollOptions];
+                    next[idx] = e.target.value;
+                    setPollOptions(next);
+                  }}
+                  placeholder={`Option ${idx + 1}`}
+                  maxLength={120}
+                  required={idx < 2}
+                />
+                {pollOptions.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))}
+                    className="p-2 rounded-full text-lab-sc hover:text-red-600 hover:bg-fill-fv cursor-pointer"
+                    aria-label="Remove option"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {pollOptions.length < 6 && (
+              <button
+                type="button"
+                onClick={() => setPollOptions((prev) => [...prev, ''])}
+                className="inline-flex items-center gap-1.5 text-cap-l font-semibold text-brand-900 hover:underline cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add option
+              </button>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setPollModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={sending}>
+              Post Poll
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Forward Message Modal (Grupo Pro parity) */}
+      <Modal
+        open={Boolean(forwardMsg)}
+        onClose={() => {
+          setForwardMsg(null);
+          setForwardTargets([]);
+        }}
+        title="Forward Message"
+      >
+        <form onSubmit={handleForwardSubmit} className="space-y-4">
+          {forwardMsg && (
+            <div className="rounded-xl border border-bord-card bg-fill-qt px-3 py-2 text-cap-l text-lab-sc truncate">
+              {getMessagePreviewLabel(forwardMsg)}
+            </div>
+          )}
+          <div className="max-h-64 overflow-y-auto divide-y divide-bord-pr rounded-xl border border-bord-pr">
+            {chats.length === 0 ? (
+              <p className="p-4 text-center text-par-n text-lab-sc">No conversations found.</p>
+            ) : (
+              chats.map((c) => {
+                const label =
+                  c.type === 'group'
+                    ? c.group?.name || 'Group Chat'
+                    : c.interlocutor
+                      ? `${c.interlocutor.firstName || ''} ${c.interlocutor.lastName || ''}`.trim() ||
+                        `@${c.interlocutor.username}`
+                      : 'Direct Chat';
+                const avatarSrc = c.type === 'group' ? c.group?.avatar : c.interlocutor?.avatar;
+                const checked = forwardTargets.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() =>
+                      setForwardTargets((prev) =>
+                        checked ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                      )
+                    }
+                    className={cn(
+                      'w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors cursor-pointer',
+                      checked ? 'bg-brand-900/10' : 'hover:bg-fill-fv'
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar src={avatarSrc} alt={label} size="sm" />
+                      <span className="text-par-n font-medium text-lab-pr truncate">{label}</span>
+                    </div>
+                    <span
+                      className={cn(
+                        'h-5 w-5 rounded-full border flex items-center justify-center shrink-0',
+                        checked
+                          ? 'bg-brand-900 border-brand-900 text-white'
+                          : 'border-bord-pr bg-bg-pr'
+                      )}
+                    >
+                      {checked && <Check className="h-3 w-3" />}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setForwardMsg(null);
+                setForwardTargets([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={forwarding || forwardTargets.length === 0}
+            >
+              Forward ({forwardTargets.length})
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Fullscreen PHP-parity Media Lightbox */}
       <MediaLightbox
