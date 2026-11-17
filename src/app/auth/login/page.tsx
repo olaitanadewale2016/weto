@@ -250,31 +250,31 @@ export default function LoginPage() {
 
   return (
     <AuthShell>
-      <form onSubmit={handleEmailLogin}>
-        <div className="mb-6 text-center">
+      <form onSubmit={handleEmailLogin} className="w-full">
+        <div className="mb-4 sm:mb-5 text-center">
           <h1 className="text-title-2 text-lab-pr2 font-semibold">Login to {appName}</h1>
-          <p className="text-par-m text-lab-sc">Welcome back! Sign in to your account</p>
+          <p className="text-par-m text-lab-sc mt-0.5">Welcome back! Sign in to your account</p>
         </div>
 
         <div className="block">
-          <div className="mb-3">
+          <div className="mb-2.5 sm:mb-3">
             <Link
               href="/auth/signup"
-              className="w-full h-12 px-5 text-par-n flex items-center justify-center bg-transparent border border-bord-pr hover:bg-fill-fv text-lab-pr font-semibold smoothing rounded-full"
+              className="w-full h-11 sm:h-12 px-5 text-par-n flex items-center justify-center bg-transparent border border-bord-pr hover:bg-fill-fv text-lab-pr font-semibold smoothing rounded-full"
             >
               Create an account
             </Link>
           </div>
 
-          <div className="flex flex-col gap-3 mb-6">
+          <div className="flex flex-col gap-3 mb-3.5 sm:mb-4">
             <button
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
               className="rounded-full border border-bord-pr block leading-none cursor-pointer hover:bg-fill-fv smoothing"
             >
-              <div className="flex relative h-12 items-center">
-                <div className="absolute left-3 top-3 size-6 block overflow-hidden">
+              <div className="flex relative h-11 sm:h-12 items-center">
+                <div className="absolute left-3 top-2.5 sm:top-3 size-6 block overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img className="w-full" src="/assets/social-logos/google.png" alt="Google" />
                 </div>
@@ -285,17 +285,17 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="mb-6 flex items-center gap-4 leading-none">
+          <div className="mb-3.5 sm:mb-4 flex items-center gap-4 leading-none">
             <div className="h-px flex-1 bg-fill-pr" />
             <div className="text-par-s text-lab-sc">or continue with</div>
             <div className="h-px flex-1 bg-fill-pr" />
           </div>
 
-          <div className="mb-3">
+          <div className="mb-2.5 sm:mb-3 space-y-2.5 sm:space-y-3">
             <div className="rounded-xl relative overflow-hidden border-2 border-transparent hover:border-brand-900 focus-within:border-brand-900 smoothing">
               <input
                 type="email"
-                className="block w-full bg-input-pr tracking-normal outline-hidden text-par-m text-lab-pr px-4 h-12"
+                className="block w-full bg-input-pr tracking-normal outline-hidden text-par-m text-lab-pr px-4 h-11 sm:h-12"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -304,10 +304,10 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="mt-3 rounded-xl relative overflow-hidden border-2 border-transparent hover:border-brand-900 focus-within:border-brand-900 smoothing">
+            <div className="rounded-xl relative overflow-hidden border-2 border-transparent hover:border-brand-900 focus-within:border-brand-900 smoothing">
               <input
                 type={showPassword ? 'text' : 'password'}
-                className="block w-full bg-input-pr tracking-normal outline-hidden text-par-m text-lab-pr px-4 pr-12 h-12"
+                className="block w-full bg-input-pr tracking-normal outline-hidden text-par-m text-lab-pr px-4 pr-12 h-11 sm:h-12"
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -326,7 +326,7 @@ export default function LoginPage() {
               </span>
             </div>
 
-            <div className="flex items-center leading-none mt-4 mb-4 select-none">
+            <div className="flex items-center leading-none pt-1 select-none">
               <label className="inline-flex items-center cursor-pointer leading-none">
                 <input
                   type="checkbox"
@@ -334,35 +334,35 @@ export default function LoginPage() {
                   onChange={(e) => setRemember(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="relative w-12 h-6 bg-[#787880]/20 rounded-full peer peer-checked:after:translate-x-[24px] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:shadow-lg after:rounded-full after:size-5 after:transition-all peer-checked:bg-brand-900" />
-                <span className="ml-3 text-lab-sc text-par-m">Remember me</span>
+                <div className="relative w-11 h-6 bg-[#787880]/20 rounded-full peer peer-checked:after:translate-x-[20px] after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:shadow-lg after:rounded-full after:size-5 after:transition-all peer-checked:bg-brand-900" />
+                <span className="ml-2.5 text-lab-sc text-par-s sm:text-par-m">Remember me</span>
               </label>
             </div>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-3.5 sm:mb-4">
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 px-5 text-par-n block bg-fill-tr text-brand-900 font-semibold hover:bg-fill-sc smoothing rounded-full cursor-pointer disabled:opacity-60"
+              className="w-full h-11 sm:h-12 px-5 text-par-n block bg-fill-tr text-brand-900 font-semibold hover:bg-fill-sc smoothing rounded-full cursor-pointer disabled:opacity-60"
             >
               {loading ? 'Signing in...' : 'Continue'}
             </button>
             <Link
               href="/auth/forgot-password"
-              className="w-full py-3.5 px-6 text-par-n block text-center bg-transparent text-lab-sc hover:text-brand-900 smoothing rounded-full"
+              className="w-full py-2 sm:py-2.5 px-6 text-par-s sm:text-par-n block text-center bg-transparent text-lab-sc hover:text-brand-900 smoothing rounded-full mt-0.5"
             >
               Forgot password?
             </Link>
           </div>
 
-          <p className="text-par-s text-lab-sc text-center">
+          <p className="text-cap-s text-lab-sc text-center leading-normal">
             By continuing you agree to our{' '}
-            <Link href="/document/terms" className="text-brand-900 hover:underline">
+            <Link href="/document/terms-of-use" className="text-brand-900 hover:underline">
               Terms of Use
             </Link>{' '}
             and{' '}
-            <Link href="/document/privacy" className="text-brand-900 hover:underline">
+            <Link href="/document/privacy-policy" className="text-brand-900 hover:underline">
               Privacy Policy
             </Link>
             .

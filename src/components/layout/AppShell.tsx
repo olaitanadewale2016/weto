@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sun,
+  TrendingUp,
   User as UserIcon,
   Users,
   Wallet,
@@ -95,68 +96,25 @@ export function AppShell({
   }
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [moreMenuPos, setMoreMenuPos] = useState<{
-    left: number;
-    top?: number;
-    bottom?: number;
-    maxHeight: number;
-  }>({ left: 24, bottom: 80, maxHeight: 520 });
   const [mobileCreateOpen, setMobileCreateOpen] = useState(false);
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  const moreMenuPanelRef = useRef<HTMLDivElement>(null);
 
   const features = bootstrap?.config?.features;
   const isAdmin = user?.role === 'root' || user?.role === 'admin' || user?.role === 'moderator';
   const appName = bootstrap?.config?.appName || 'Weto';
 
-  const updateMoreMenuPosition = useCallback(() => {
-    if (!moreRef.current || typeof window === 'undefined') return;
-    const rect = moreRef.current.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-    const left = Math.max(12, Math.min(rect.left, vw - 272));
-    const spaceAbove = rect.top - 12;
-
-    if (spaceAbove >= 480) {
-      setMoreMenuPos({
-        left,
-        bottom: Math.max(12, vh - rect.top + 8),
-        maxHeight: Math.max(240, vh - 24),
-      });
-    } else {
-      setMoreMenuPos({
-        left,
-        bottom: 12,
-        maxHeight: Math.max(240, vh - 24),
-      });
-    }
-  }, []);
-
-  // Close More dropdown on outside click & keep viewport-clamped on resize/scroll
+  // Close More dropdown on outside click matching commit 21781b3
   useEffect(() => {
     if (!moreMenuOpen) return;
-    updateMoreMenuPosition();
     const onDocClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        moreRef.current &&
-        !moreRef.current.contains(target) &&
-        (!moreMenuPanelRef.current || !moreMenuPanelRef.current.contains(target))
-      ) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreMenuOpen(false);
       }
     };
-    const onWindowChange = () => updateMoreMenuPosition();
     document.addEventListener('click', onDocClick);
-    window.addEventListener('resize', onWindowChange);
-    window.addEventListener('scroll', onWindowChange, true);
-    return () => {
-      document.removeEventListener('click', onDocClick);
-      window.removeEventListener('resize', onWindowChange);
-      window.removeEventListener('scroll', onWindowChange, true);
-    };
-  }, [moreMenuOpen, updateMoreMenuPosition]);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [moreMenuOpen]);
 
   // Global keyboard shortcuts matching ColibriPlus hotkeys
   useEffect(() => {
@@ -224,6 +182,18 @@ export function AppShell({
       show: Boolean(user),
     },
     {
+      href: '/bookmarks',
+      label: dict.nav.bookmarks,
+      icon: Bookmark,
+      show: Boolean(user),
+    },
+    {
+      href: '/wallet',
+      label: dict.nav.wallet,
+      icon: Wallet,
+      show: features?.wallet !== false && Boolean(user),
+    },
+    {
       href: '/marketplace',
       label: dict.nav.marketplace,
       icon: ShoppingBag,
@@ -240,6 +210,12 @@ export function AppShell({
       label: 'Games',
       icon: Gamepad2,
       show: true,
+    },
+    {
+      href: '/settings',
+      label: dict.nav.settings,
+      icon: Settings,
+      show: Boolean(user),
     },
     {
       href: user ? `/@${user.username}` : loading ? '/' : '/auth/login',
@@ -385,9 +361,9 @@ export function AppShell({
           <div className="w-full max-w-[1260px] xl:max-w-[1300px] flex justify-center">
             {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
             {!hideDesktopSidebar && (
-              <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[275px] shrink-0 flex-col justify-between overflow-hidden">
+              <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[250px] xl:w-[285px] shrink-0 flex-col justify-between">
                 {/* Logo Header — exact ApplicationSidebar.vue */}
-                <div className="shrink-0 pt-6 px-3 xl:px-5 mb-2">
+                <div className="shrink-0 pt-6 px-3 xl:px-4 mb-2">
                   <Link href="/" className="inline-block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={logoSrc} alt={appName} className="h-7 w-auto object-contain" />
@@ -395,225 +371,197 @@ export function AppShell({
                 </div>
 
                 {/* Main Nav Column (Scrollable within bounds) */}
-                <div className="flex-1 min-h-0 overflow-y-auto hidden-scroll px-3 xl:px-5 py-2">
-                  <nav className="flex flex-col gap-3">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.matchPrefix
-                  ? pathname.startsWith(item.matchPrefix)
-                  : item.href === '/'
-                    ? pathname === '/'
-                    : pathname.startsWith(item.href);
+                <div className="flex-1 min-h-0 overflow-y-auto hidden-scroll px-3 xl:px-4 py-2">
+                  <nav className="flex flex-col gap-1.5 xl:gap-2">
+                    {navItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = item.matchPrefix
+                        ? pathname.startsWith(item.matchPrefix)
+                        : item.href === '/'
+                          ? pathname === '/'
+                          : pathname.startsWith(item.href);
 
-                return (
-                  <Link key={item.href} href={item.href} className="block">
-                    <div
-                      className={cn(
-                        'flex items-center py-0.5 transition-opacity',
-                        isActive ? 'sidenav-active' : 'sidenav-inactive hover:opacity-100 opacity-85'
-                      )}
-                    >
-                      <span className="size-[22px] shrink-0 text-lab-pr">
-                        <Icon
-                          className={cn('size-[22px]', isActive ? 'text-lab-pr stroke-[2.25]' : 'text-lab-pr2 stroke-[1.75]')}
-                        />
-                      </span>
-                      <span className="ml-3 text-[20px] leading-6 inline-flex items-center gap-2 truncate">
-                        {item.isLoadingAuth ? (
-                          <span className="inline-block h-4 w-20 rounded-md fb-shimmer" aria-hidden="true" />
-                        ) : (
-                          item.label
-                        )}
-                        {item.badge !== undefined && item.badge > 0 && (
-                          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-brand-900 text-white text-cap-s font-semibold px-1.5 leading-none">
-                            {item.badge > 99 ? '99+' : item.badge}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-
-              {/* Hairline Divider matching ApplicationNavbar.vue */}
-              <div className="block pl-[22px] pr-6 py-1">
-                <span className="block bg-bord-sc h-px mx-3" />
-              </div>
-
-              {/* More Dropdown matching NavbarDropdown.vue */}
-              <div ref={moreRef} className="relative leading-none">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMoreMenuOpen((o) => !o);
-                  }}
-                  className="flex items-center opacity-55 hover:opacity-100 text-lab-pr2 cursor-pointer transition-opacity"
-                >
-                  <span className="size-[22px] shrink-0">
-                    <MoreHorizontal className="size-[22px]" />
-                  </span>
-                  <span className="text-[20px] leading-6 ml-3">More</span>
-                </button>
-
-                {moreMenuOpen && (
-                  <div
-                    ref={moreMenuPanelRef}
-                    onClick={() => setMoreMenuOpen(false)}
-                    style={{
-                      left: moreMenuPos.left,
-                      ...(moreMenuPos.top !== undefined
-                        ? { top: moreMenuPos.top }
-                        : { bottom: moreMenuPos.bottom }),
-                      maxHeight: moreMenuPos.maxHeight,
-                    }}
-                    className="fixed py-2 overflow-y-auto overscroll-contain min-w-60 w-64 divide-y divide-fill-sc rounded-md backdrop-blur-xs bg-bg-pr/95 shadow-2xl border border-bord-tr z-[70]"
-                  >
-                    {isAdmin && (
-                      <div className="py-1">
-                        <Link
-                          href="/admin"
-                          className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                        >
-                          <ShieldCheck className="size-4 text-lab-sc" />
-                          <span>{dict.nav.admin}</span>
+                      return (
+                        <Link key={item.href} href={item.href} className="block group">
+                          <div
+                            className={cn(
+                              'flex items-center gap-3.5 px-3.5 py-2 xl:py-2.5 -mx-1 rounded-full transition-colors duration-150',
+                              isActive
+                                ? 'bg-fill-qt/80 text-lab-pr font-semibold'
+                                : 'text-lab-pr2 hover:bg-fill-qt/50 hover:text-lab-pr font-medium'
+                            )}
+                          >
+                            <span className="size-[26px] shrink-0 flex items-center justify-center">
+                              <Icon
+                                className={cn(
+                                  'size-[26px] transition-transform duration-150 group-hover:scale-105',
+                                  isActive ? 'text-lab-pr stroke-[2.25]' : 'text-lab-pr2 stroke-[1.8]'
+                                )}
+                              />
+                            </span>
+                            <span className="text-[20px] xl:text-[21px] leading-tight inline-flex items-center gap-2 truncate">
+                              {item.isLoadingAuth ? (
+                                <span className="inline-block h-4 w-20 rounded-md fb-shimmer" aria-hidden="true" />
+                              ) : (
+                                item.label
+                              )}
+                              {item.badge !== undefined && item.badge > 0 && (
+                                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-brand-900 text-white text-[11px] font-bold px-1.5 leading-none shadow-xs">
+                                  {item.badge > 99 ? '99+' : item.badge}
+                                </span>
+                              )}
+                            </span>
+                          </div>
                         </Link>
-                      </div>
-                    )}
+                      );
+                    })}
 
-                    <div className="py-1">
-                      {user && (
-                        <>
-                          <Link
-                            href="/settings"
-                            className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                          >
-                            <Settings className="size-4 text-lab-sc" />
-                            <span>Account settings</span>
-                          </Link>
-                          {features?.wallet !== false && (
-                            <Link
-                              href="/wallet"
-                              className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                            >
-                              <Wallet className="size-4 text-lab-sc" />
-                              <span>{dict.nav.wallet}</span>
-                            </Link>
-                          )}
-                          {features?.businessAccounts !== false && (
-                            <Link
-                              href="/business"
-                              className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                            >
-                              <Building2 className="size-4 text-lab-sc" />
-                              <span>{dict.nav.business}</span>
-                            </Link>
-                          )}
-                          <Link
-                            href="/bookmarks"
-                            className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                          >
-                            <Bookmark className="size-4 text-lab-sc" />
-                            <span>{dict.nav.bookmarks}</span>
-                          </Link>
-                          <Link
-                            href="/new/story"
-                            className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                          >
-                            <PlusSquare className="size-4 text-lab-sc" />
-                            <span>Create story</span>
-                          </Link>
-                        </>
-                      )}
-                      <Link
-                        href="/games"
-                        className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                      >
-                        <Gamepad2 className="size-4 text-lab-sc" />
-                        <span>Games (Tic-Tac-Toe)</span>
-                      </Link>
-                      <Link
-                        href="/live-stream"
-                        className="flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt"
-                      >
-                        <Radio className="size-4 text-lab-sc" />
-                        <span>Live streams</span>
-                      </Link>
+                    {/* Hairline Divider */}
+                    <div className="my-1.5 px-2">
+                      <span className="block bg-bord-sc/70 h-px" />
                     </div>
 
-                    <div className="py-1">
+                    {/* More Dropdown matching commit 21781b3 */}
+                    <div ref={moreRef} className="relative">
                       <button
                         type="button"
-                        onClick={toggleTheme}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt cursor-pointer"
-                      >
-                        {theme === 'dark' ? (
-                          <Sun className="size-4 text-lab-sc" />
-                        ) : (
-                          <Moon className="size-4 text-lab-sc" />
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMoreMenuOpen((o) => !o);
+                        }}
+                        className={cn(
+                          'w-full flex items-center gap-3.5 px-3.5 py-2 xl:py-2.5 -mx-1 rounded-full transition-colors duration-150 cursor-pointer group',
+                          moreMenuOpen
+                            ? 'bg-fill-qt/80 text-lab-pr font-semibold'
+                            : 'text-lab-pr2 hover:bg-fill-qt/50 hover:text-lab-pr font-medium'
                         )}
-                        <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setHotkeysOpen(true)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt cursor-pointer"
                       >
-                        <Keyboard className="size-4 text-lab-sc" />
-                        <span>Keyboard shortcuts</span>
+                        <span className="size-[26px] shrink-0 flex items-center justify-center">
+                          <MoreHorizontal className="size-[26px] transition-transform duration-150 group-hover:scale-105 text-lab-pr2 stroke-[1.8]" />
+                        </span>
+                        <span className="text-[20px] xl:text-[21px] leading-tight">More</span>
                       </button>
-                      {bootstrap?.config?.pwaEnabled !== false && !isPwaInstalled && (
-                        <button
-                          type="button"
-                          onClick={() => void promptPwaInstall()}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-brand-900 font-medium hover:bg-fill-qt cursor-pointer"
+
+                      {moreMenuOpen && (
+                        <div
+                          onClick={() => setMoreMenuOpen(false)}
+                          className="absolute bottom-full mb-2 left-0 py-2 overflow-hidden min-w-60 w-64 divide-y divide-fill-sc rounded-2xl backdrop-blur-xs bg-bg-pr/95 shadow-2xl border border-bord-tr z-50 animate-in fade-in zoom-in-95 duration-100"
                         >
-                          <Download className="size-4 shrink-0" />
-                          <span>Install app</span>
-                        </button>
-                      )}
-                      {user && bootstrap?.previousAccount && (
-                        <button
-                          type="button"
-                          disabled={switchingBack}
-                          onClick={handleQuickSwitchBack}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-brand-900 font-medium hover:bg-fill-qt cursor-pointer disabled:opacity-60"
-                        >
-                          <RotateCcw className="size-4 shrink-0" />
-                          <span className="truncate">
-                            Switch back to @{bootstrap.previousAccount.username}
-                          </span>
-                        </button>
-                      )}
-                      {user && (
-                        <button
-                          type="button"
-                          onClick={() => setSwitcherOpen(true)}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-lab-pr2 hover:bg-fill-qt cursor-pointer"
-                        >
-                          <Users className="size-4 text-lab-sc" />
-                          <span>Switch account</span>
-                        </button>
+                          {isAdmin && (
+                            <div className="py-1">
+                              <Link
+                                href="/admin"
+                                className="flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-lab-pr hover:bg-fill-qt transition-colors"
+                              >
+                                <ShieldCheck className="size-4.5 text-lab-sc shrink-0" />
+                                <span>{dict.nav.admin}</span>
+                              </Link>
+                            </div>
+                          )}
+
+                          <div className="py-1">
+                            {user && (
+                              <>
+                                {features?.businessAccounts !== false && (
+                                  <Link
+                                    href="/business"
+                                    className="flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-lab-pr hover:bg-fill-qt transition-colors"
+                                  >
+                                    <Building2 className="size-4.5 text-lab-sc shrink-0" />
+                                    <span>{dict.nav.business}</span>
+                                  </Link>
+                                )}
+                                <Link
+                                  href="/new/story"
+                                  className="flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-lab-pr hover:bg-fill-qt transition-colors"
+                                >
+                                  <PlusSquare className="size-4.5 text-lab-sc shrink-0" />
+                                  <span>Create story</span>
+                                </Link>
+                              </>
+                            )}
+                            <Link
+                              href="/live-stream"
+                              className="flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-lab-pr hover:bg-fill-qt transition-colors"
+                            >
+                              <Radio className="size-4.5 text-lab-sc shrink-0" />
+                              <span>Live streams</span>
+                            </Link>
+                          </div>
+
+                          <div className="py-1">
+                            <button
+                              type="button"
+                              onClick={toggleTheme}
+                              className="w-full flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-lab-pr hover:bg-fill-qt cursor-pointer transition-colors"
+                            >
+                              {theme === 'dark' ? (
+                                <Sun className="size-4.5 text-lab-sc shrink-0" />
+                              ) : (
+                                <Moon className="size-4.5 text-lab-sc shrink-0" />
+                              )}
+                              <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setHotkeysOpen(true)}
+                              className="w-full flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-lab-pr hover:bg-fill-qt cursor-pointer transition-colors"
+                            >
+                              <Keyboard className="size-4.5 text-lab-sc shrink-0" />
+                              <span>Keyboard shortcuts</span>
+                            </button>
+                            {bootstrap?.config?.pwaEnabled !== false && !isPwaInstalled && (
+                              <button
+                                type="button"
+                                onClick={() => void promptPwaInstall()}
+                                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-par-n text-brand-900 font-semibold hover:bg-fill-qt cursor-pointer transition-colors"
+                              >
+                                <Download className="size-4.5 shrink-0" />
+                                <span>Install app</span>
+                              </button>
+                            )}
+                            {user && bootstrap?.previousAccount && (
+                              <button
+                                type="button"
+                                disabled={switchingBack}
+                                onClick={handleQuickSwitchBack}
+                                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-par-n text-brand-900 font-semibold hover:bg-fill-qt cursor-pointer disabled:opacity-60 transition-colors"
+                              >
+                                <RotateCcw className="size-4.5 shrink-0" />
+                                <span className="truncate">
+                                  Switch back to @{bootstrap.previousAccount.username}
+                                </span>
+                              </button>
+                            )}
+                            {user && (
+                              <button
+                                type="button"
+                                onClick={() => setSwitcherOpen(true)}
+                                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-lab-pr hover:bg-fill-qt cursor-pointer transition-colors"
+                              >
+                                <Users className="size-4.5 text-lab-sc shrink-0" />
+                                <span>Switch account</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {user && (
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={logout}
+                                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-par-n font-medium text-red-900 hover:bg-fill-qt cursor-pointer transition-colors"
+                              >
+                                <LogOut className="size-4.5 shrink-0" />
+                                <span>Log out</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-
-                    {user && (
-                      <div className="py-1">
-                        <button
-                          type="button"
-                          onClick={logout}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-par-n text-red-900 hover:bg-fill-qt cursor-pointer"
-                        >
-                          <LogOut className="size-4" />
-                          <span>Log out</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </nav>
-          </div>
+                  </nav>
+                </div>
 
           {/* Exact ApplicationFooter & Fixed Bottom-Left User Profile Pill */}
           <div className="shrink-0 mt-auto px-3 xl:px-5 pb-4 pt-2 border-t border-bord-tr/60 bg-bg-pr">

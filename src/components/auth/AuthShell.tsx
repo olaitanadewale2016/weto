@@ -36,9 +36,9 @@ export function AuthShell({
     availableLocales.find((l) => l.code === locale)?.name || 'English';
 
   return (
-    <div className="min-h-screen bg-bg-pr pt-[calc(3.5rem+env(safe-area-inset-top))] pb-safe px-safe flex flex-col" style={{ minWidth: 320 }}>
+    <div className="min-h-[100dvh] bg-bg-pr flex flex-col justify-between" style={{ minWidth: 320 }}>
       {/* Exact PHP MPA Auth Fixed Top Header */}
-      <header className="fixed top-0 left-0 right-0 z-30 pt-safe px-safe bg-bg-pr/80 backdrop-blur-xs">
+      <header className="fixed top-0 left-0 right-0 z-30 pt-safe px-safe bg-bg-pr/90 backdrop-blur-xs border-b border-bord-tr/40">
         <div className="h-14 flex justify-between px-4 md:px-8 items-center relative">
           <div className="text-lab-pr text-par-m font-medium hidden md:block">
             {user ? `Hi, ${user.firstName}!` : 'Hi there! 👋'}
@@ -90,61 +90,53 @@ export function AuthShell({
         </div>
       </header>
 
-      {/* Main Centered Auth Content (400px max on small viewports, borderless matching PHP auth.css) */}
-      <div className="flex-col flex flex-1">
-        <div className="flex justify-center py-12 md:py-24 px-4 flex-1">
-          <div className="auth-content w-full max-w-[400px]">
-            {(heading || subheading) && (
-              <div className="mb-6 text-center">
-                {heading && (
-                  <h1 className="text-title-2 text-lab-pr2 font-semibold">{heading}</h1>
-                )}
-                {subheading && <p className="text-par-m text-lab-sc mt-1">{subheading}</p>}
-              </div>
-            )}
-            {children}
-          </div>
-        </div>
-
-        {/* Exact PHP MPA Footer */}
-        <footer className="pb-4 pt-6 flex" style={{ minWidth: 320 }}>
-          <div className="app-container mx-auto flex-1 px-4 md:px-8">
-            <nav className="flex flex-wrap gap-2 md:gap-4">
-              <Link href="/document/about" className="text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
-                About project
-              </Link>
-              <Link href="/document/help-center" className="text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
-                Help center
-              </Link>
-              <Link href="/document/terms-of-use" className="text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
-                Terms of use
-              </Link>
-              <Link href="/document/privacy-policy" className="text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
-                Privacy policy
-              </Link>
-              <Link href="/document/cookies-policy" className="text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
-                Cookies policy
-              </Link>
-              <Link href="/document/developers-api" className="text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
-                Developers
-              </Link>
-              <button
-                type="button"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="text-par-s text-lab-pr2 hover:text-brand-900 smoothing cursor-pointer"
-              >
-                {theme === 'dark' ? 'Light theme' : 'Dark theme'}
-              </button>
-            </nav>
-            <div className="h-px bg-fill-pr my-4" />
-            <div className="block md:flex flex-wrap gap-4">
-              <span className="text-par-s text-lab-pr2">
-                Copyright &copy; {new Date().getFullYear()} {appName}
-              </span>
+      {/* Main Centered Auth Content (400px max, fits view height on desktop & mobile) */}
+      <main className="flex-1 flex flex-col justify-center items-center pt-16 pb-4 px-4 overflow-y-auto">
+        <div className="auth-content w-full max-w-[400px] my-auto">
+          {(heading || subheading) && (
+            <div className="mb-4 sm:mb-5 text-center">
+              {heading && (
+                <h1 className="text-title-2 text-lab-pr2 font-semibold">{heading}</h1>
+              )}
+              {subheading && <p className="text-par-m text-lab-sc mt-0.5">{subheading}</p>}
             </div>
-          </div>
-        </footer>
-      </div>
+          )}
+          {children}
+        </div>
+      </main>
+
+      {/* Compact Auth Footer (Fits within single viewport) */}
+      <footer className="shrink-0 py-3 sm:py-4 px-4 md:px-8 border-t border-bord-tr/40 bg-bg-pr/80" style={{ minWidth: 320 }}>
+        <div className="app-container mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <nav className="flex flex-wrap justify-center sm:justify-start gap-x-3.5 gap-y-1">
+            <Link href="/document/about" className="text-cap-s sm:text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
+              About project
+            </Link>
+            <Link href="/document/help-center" className="text-cap-s sm:text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
+              Help center
+            </Link>
+            <Link href="/document/terms-of-use" className="text-cap-s sm:text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
+              Terms of use
+            </Link>
+            <Link href="/document/privacy-policy" className="text-cap-s sm:text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
+              Privacy policy
+            </Link>
+            <Link href="/document/cookies-policy" className="text-cap-s sm:text-par-s text-lab-pr2 hover:text-brand-900 smoothing">
+              Cookies policy
+            </Link>
+            <button
+              type="button"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="text-cap-s sm:text-par-s text-lab-pr2 hover:text-brand-900 smoothing cursor-pointer"
+            >
+              {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+            </button>
+          </nav>
+          <span className="text-cap-s text-lab-sc shrink-0">
+            &copy; {new Date().getFullYear()} {appName}
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
