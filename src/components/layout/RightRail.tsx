@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BadgeCheck, EyeOff, Hash, Lock, Search, Users } from 'lucide-react';
+import { EyeOff, Hash, Search } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { apiFetch } from '@/lib/api-client';
 import { resolveMediaUrl } from '@/lib/media-url';
@@ -239,8 +239,8 @@ export function RightRail() {
   }
 
   return (
-    <aside className="hidden lg:block flex-1 min-w-[300px] max-w-[420px] shrink-0">
-      <div className="sticky top-4 max-h-screen overflow-y-auto hidden-scroll pb-12 space-y-5 pt-4 pr-2">
+    <aside className="hidden lg:block flex-1 max-w-[360px] shrink-0">
+      <div className="sticky top-4 max-h-screen overflow-y-auto hidden-scroll pb-12 space-y-5 pt-4 pr-4">
         {/* Clean PHP SearchBar.vue */}
         <form onSubmit={handleSearch} className="relative rounded-full border border-bord-card/80 bg-bg-pr focus-within:border-bord-pr transition-colors">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-lab-sc" />
@@ -311,10 +311,11 @@ export function RightRail() {
                       <button
                         type="button"
                         onClick={() => handleFollow(su.id)}
-                        className={`shrink-0 rounded-full px-3.5 py-1.5 text-cap-l font-semibold cursor-pointer ${isFollowing
-                          ? 'bg-fill-qt text-lab-pr2 border border-bord-pr'
-                          : 'bg-lab-pr2 text-bg-pr border border-lab-pr2'
-                          }`}
+                        className={`shrink-0 rounded-full px-3.5 py-1.5 text-cap-l font-semibold cursor-pointer ${
+                          isFollowing
+                            ? 'bg-fill-qt text-lab-pr2 border border-bord-pr'
+                            : 'bg-lab-pr2 text-bg-pr border border-lab-pr2'
+                        }`}
                       >
                         {isFollowing ? 'Following' : 'Follow'}
                       </button>
@@ -332,56 +333,6 @@ export function RightRail() {
               <Link href="/explore" className="text-par-m hover:underline text-lab-sc cursor-pointer">
                 More suggestions
               </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Community Groups Discovery (Grupo Pro parity integrated into Weto feed) */}
-        {(bootstrap?.communityGroups?.length || 0) > 0 && (
-          <div className="mb-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h5 className="text-lab-pr2 font-semibold text-par-l flex items-center gap-1.5">
-                <Users className="size-4 text-brand-900" />
-                Community Groups
-              </h5>
-              <Link
-                href={user ? '/messenger?tab=discover' : '/auth/login'}
-                className="text-cap-l text-brand-900 hover:underline"
-              >
-                Explore all
-              </Link>
-            </div>
-            <div className="divide-y divide-bord-tr">
-              {(bootstrap?.communityGroups || []).slice(0, 4).map((grp) => (
-                <Link
-                  key={grp.id}
-                  href={user ? `/messenger/c/${grp.id}` : '/auth/login'}
-                  className="flex items-center justify-between gap-2.5 py-2.5 hover:opacity-85 transition-opacity"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Avatar src={grp.avatar} alt={grp.name} size="sm" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <p className="text-par-n font-semibold text-lab-pr2 truncate">{grp.name}</p>
-                        {grp.verified && <BadgeCheck className="size-3.5 text-brand-900 shrink-0" />}
-                        {grp.isPasswordProtected && <Lock className="size-3 text-amber-600 shrink-0" />}
-                      </div>
-                      <p className="text-cap-s text-lab-sc truncate">
-                        {grp.category} · {grp.membersCount} members
-                        {grp.isPaid && grp.entryPrice ? ` · ₦${grp.entryPrice.toLocaleString()}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-cap-s font-semibold ${grp.isJoined
-                      ? 'bg-fill-qt text-lab-pr2 border border-bord-pr'
-                      : 'bg-brand-900 text-white'
-                      }`}
-                  >
-                    {grp.isJoined ? 'Open' : grp.isPaid && grp.entryPrice ? `₦${grp.entryPrice.toLocaleString()}` : 'Join'}
-                  </span>
-                </Link>
-              ))}
             </div>
           </div>
         )}

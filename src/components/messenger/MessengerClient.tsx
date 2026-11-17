@@ -474,6 +474,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   const attachMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stickerMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tipDirectUserModalOpen, setTipDirectUserModalOpen] = useState(false);
 
   const handleAttachEnter = () => {
@@ -491,6 +492,23 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     attachMenuTimeoutRef.current = setTimeout(() => {
       setAttachMenuOpen(false);
     }, 250);
+  };
+
+  const handleStickerEnter = () => {
+    if (stickerMenuTimeoutRef.current) {
+      clearTimeout(stickerMenuTimeoutRef.current);
+      stickerMenuTimeoutRef.current = null;
+    }
+    setShowStickerPicker(true);
+  };
+
+  const handleStickerLeave = () => {
+    if (stickerMenuTimeoutRef.current) {
+      clearTimeout(stickerMenuTimeoutRef.current);
+    }
+    stickerMenuTimeoutRef.current = setTimeout(() => {
+      setShowStickerPicker(false);
+    }, 280);
   };
 
   const handleThreadMenuEnter = () => {
@@ -2297,7 +2315,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           </div>
 
           {/* Simplified 3-Pill Switcher + Mobile Invites/Archive access */}
-          <div className="flex items-center gap-1.5 overflow-x-auto hidden-scroll">
+          <div
+            onWheel={(e) => {
+              if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
+            }}
+            className="flex items-center gap-1.5 overflow-x-auto hidden-scroll"
+          >
             {(
               [
                 { key: 'chats', label: 'All Chats' },
@@ -2354,7 +2377,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         <div className="flex-1 overflow-y-auto divide-y divide-bord-pr">
           {tab === 'discover' ? (
             <div className="p-3.5 space-y-3">
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 hidden-scroll">
+              <div
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
+                }}
+                className="flex items-center gap-1.5 overflow-x-auto pb-1 hidden-scroll"
+              >
                 {['All', 'General', 'Tech & Creators', 'Marketplace', 'Gaming', 'Music & Culture', 'Support'].map(
                   (cat) => (
                     <button
@@ -3109,11 +3137,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 {/* Messages Timeline (Previous theme colors + Telegram layout & proper margins) */}
                 <div
                   className={cn(
-                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe sm:px-6 space-y-1 bg-fill-fv/35',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe sm:px-6 md:px-8 space-y-1 bg-fill-fv/35',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
-                  {!loadingThread && !threadSearchQ && (
+                  <div className="max-w-[840px] mx-auto w-full space-y-1">
+                    {!loadingThread && !threadSearchQ && (
                     <div className="border-b border-bord-card/60 px-4 py-5 mb-2 text-center">
                       <div className="flex justify-center mb-2.5">
                         <Avatar src={activeAvatar} alt={activeTitle} size="lg" />
@@ -3254,7 +3283,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                           }}
                           className={cn(
                             'flex items-end gap-2 group relative w-full min-w-0 transition-all',
-                            mine ? 'justify-end pl-10 sm:pl-20' : 'justify-start pr-10 sm:pr-20',
+                            mine ? 'justify-end pl-12 sm:pl-24 pr-1 sm:pr-2' : 'justify-start pr-12 sm:pr-24 pl-1 sm:pr-2',
                             isFirstInCluster ? 'mt-3 mb-1' : 'mt-1 mb-0.5'
                           )}
                         >
@@ -3287,17 +3316,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                   isStickerOnly
                                     ? 'bg-transparent border-0 shadow-none p-0'
                                     : cn(
-                                        'rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
-                                        mine
-                                          ? cn(
-                                              'bg-fill-qt border border-bord-pr/80 text-lab-pr',
-                                              isLastInCluster ? 'rounded-br-[4px]' : 'rounded-br-2xl'
-                                            )
-                                          : cn(
-                                              'bg-bg-pr border border-bord-card text-lab-pr',
-                                              isLastInCluster ? 'rounded-bl-[4px]' : 'rounded-bl-2xl'
-                                            )
-                                      )
+                                      'rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+                                      mine
+                                        ? cn(
+                                          'bg-fill-qt border border-bord-pr/80 text-lab-pr',
+                                          isLastInCluster ? 'rounded-br-[4px]' : 'rounded-br-2xl'
+                                        )
+                                        : cn(
+                                          'bg-bg-pr border border-bord-card text-lab-pr',
+                                          isLastInCluster ? 'rounded-bl-[4px]' : 'rounded-bl-2xl'
+                                        )
+                                    )
                                 )}
                               >
                                 {/* Telegram Group Sender Name inside bubble */}
@@ -3383,6 +3412,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   )}
 
                   <div ref={messagesEndRef} />
+                  </div>
                 </div>
 
                 {(!callMode || showChatInCall) && (
@@ -3431,18 +3461,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       </div>
                     )}
 
-                    {showStickerPicker && !recording && (
-                      <div className="md:px-3 md:py-2 md:border-t md:border-bord-pr md:bg-bg-pr shrink-0">
-                        <StickerEmojiPicker
-                          onSelectEmoji={(emoji) => {
-                            setMsgText((prev) => prev + emoji);
-                            messageInputRef.current?.focus();
-                          }}
-                          onSelectSticker={(stickerUrl) => void handleSendSticker(stickerUrl)}
-                          onClose={() => setShowStickerPicker(false)}
-                        />
-                      </div>
-                    )}
+
 
                     {/* Composer (matches PHP ChatForm + AudioRecorder.vue) */}
                     {isGroupMuted || isReadOnlyRoom ? (
@@ -3665,25 +3684,50 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               className="flex-1 min-w-[80px] bg-transparent border-0 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
                             />
 
-                            <button
-                              type="button"
-                              disabled={uploadingMedia}
-                              onClick={() => {
-                                setAttachMenuOpen(false);
-                                setShowGifPicker(false);
-                                setShowStickerPicker((v) => !v);
-                              }}
-                              className={cn(
-                                'size-8 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 ml-1',
-                                showStickerPicker
-                                  ? 'text-brand-900 bg-brand-900/10'
-                                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
-                              )}
-                              title="Emoji & Stickers"
-                              aria-label="Emoji and stickers"
+                            {/* Telegram Hover Floating Sticker & Emoji Popover Card */}
+                            <div
+                              className="relative shrink-0 flex items-center"
+                              onMouseEnter={handleStickerEnter}
+                              onMouseLeave={handleStickerLeave}
                             >
-                              <Smile className="h-5 w-5" strokeWidth={1.8} />
-                            </button>
+                              <button
+                                type="button"
+                                disabled={uploadingMedia}
+                                onClick={() => {
+                                  setAttachMenuOpen(false);
+                                  setShowGifPicker(false);
+                                  setShowStickerPicker((v) => !v);
+                                }}
+                                className={cn(
+                                  'size-8 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 ml-1',
+                                  showStickerPicker
+                                    ? 'text-brand-900 bg-brand-900/10'
+                                    : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                                )}
+                                title="Emoji & Stickers"
+                                aria-label="Emoji and stickers"
+                              >
+                                <Smile className="h-5 w-5" strokeWidth={1.8} />
+                              </button>
+
+                              {showStickerPicker && !recording && (
+                                <div
+                                  className="absolute bottom-full right-0 mb-3 z-50 w-[350px] sm:w-[410px] h-[400px] sm:h-[450px] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl overflow-hidden"
+                                  onMouseEnter={handleStickerEnter}
+                                  onMouseLeave={handleStickerLeave}
+                                >
+                                  <StickerEmojiPicker
+                                    onSelectEmoji={(emoji) => {
+                                      setMsgText((prev) => prev + emoji);
+                                      messageInputRef.current?.focus();
+                                    }}
+                                    onSelectSticker={(stickerUrl) => void handleSendSticker(stickerUrl)}
+                                    onSelectGif={(gifUrl) => void handleSendGif(gifUrl)}
+                                    onClose={() => setShowStickerPicker(false)}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {/* Telegram Circular Action Button: Send Paperplane or Voice Note Mic */}
