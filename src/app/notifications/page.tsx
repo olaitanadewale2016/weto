@@ -155,13 +155,35 @@ export default function NotificationsPage() {
     setLoading(true);
     try {
       const data = await apiFetch<NotificationItem[]>(`/notifications?tab=${tab}`);
-      setItems(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setItems(list);
+
+      // Auto mark notifications as read when viewed
+      const hasUnread = list.some((n) => !n.readAt);
+      if (hasUnread || (counters?.unreadNotifications ?? 0) > 0) {
+        setCounters((prev) => ({ ...prev, unreadNotifications: 0 }));
+        void apiFetch<{ unreadCount: number }>('/notifications', {
+          method: 'PATCH',
+          json: {},
+        })
+          .then((res) => {
+            setCounters((prev) => ({ ...prev, unreadNotifications: res?.unreadCount ?? 0 }));
+          })
+          .catch(() => undefined);
+
+        // Auto mark local items read after viewing
+        setTimeout(() => {
+          setItems((prev) =>
+            prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))
+          );
+        }, 1200);
+      }
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [user, tab]);
+  }, [user, tab, counters?.unreadNotifications, setCounters]);
 
   useEffect(() => {
     const id = setTimeout(() => {

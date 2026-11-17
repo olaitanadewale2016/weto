@@ -364,7 +364,7 @@ export function AppShell({
             'w-full flex',
             viewportLocked
               ? 'h-full flex-col'
-              : 'max-w-[1260px] xl:max-w-[1300px] justify-center'
+              : 'max-w-[1280px] xl:max-w-[1340px] 2xl:max-w-[1380px] justify-center'
           )}
         >
           {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
