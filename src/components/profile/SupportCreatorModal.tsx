@@ -34,8 +34,6 @@ interface SupportCreatorModalProps {
   onCompleted?: () => void;
 }
 
-const TIP_PRESETS = [500, 1000, 2500, 5000];
-
 export function SupportCreatorModal({
   open,
   onClose,
@@ -95,6 +93,10 @@ export function SupportCreatorModal({
     };
   }, [open, creator.id, initialTab, tipsEnabled, subsEnabled]);
 
+  const isMajor = ['USD', 'EUR', 'GBP'].includes(walletCurrency.toUpperCase());
+  const tipPresets = isMajor ? [2, 5, 10, 25] : [500, 1000, 2500, 5000];
+  const tipMin = isMajor ? 1 : 50;
+
   const creatorName = `${creator.firstName} ${creator.lastName}`.trim() || `@${creator.username}`;
   const monthlyPrice = Number(creator.monetization?.monthlyPrice ?? 5000);
   const parsedTip = Number(tipAmount);
@@ -103,8 +105,8 @@ export function SupportCreatorModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (mode === 'tip' && (!Number.isFinite(parsedTip) || parsedTip < 50)) {
-      error('Enter a valid tip amount (minimum 50).');
+    if (mode === 'tip' && (!Number.isFinite(parsedTip) || parsedTip < tipMin)) {
+      error(`Enter a valid tip amount (minimum ${formatCurrency(tipMin, walletCurrency, bootstrap?.currencies, locale)}).`);
       return;
     }
 
@@ -183,8 +185,44 @@ export function SupportCreatorModal({
 
         {mode === 'tip' ? (
           <div className="space-y-3">
+            {/* Currency Selector (App default currency or user-selected currency) */}
+            <div className="flex items-center justify-between text-cap-l text-lab-sc px-0.5">
+              <span className="font-medium text-lab-pr">Currency:</span>
+              <select
+                value={walletCurrency}
+                onChange={(e) => {
+                  const nextCurr = e.target.value;
+                  setWalletCurrency(nextCurr);
+                  const isMajorNext = ['USD', 'EUR', 'GBP'].includes(nextCurr.toUpperCase());
+                  setTipAmount(isMajorNext ? '5' : '1000');
+                }}
+                className="rounded-lg bg-bg-pr border border-bord-pr px-2.5 py-1 text-cap-l font-semibold text-lab-pr focus:outline-none focus:border-brand-900 cursor-pointer"
+              >
+                {(bootstrap?.currencies && bootstrap.currencies.length > 0
+                  ? bootstrap.currencies
+                  : [
+                      { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+                      { code: 'USD', symbol: '$', name: 'US Dollar' },
+                      { code: 'EUR', symbol: '€', name: 'Euro' },
+                      { code: 'GBP', symbol: '£', name: 'British Pound' },
+                      { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' },
+                      { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
+                      { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+                    ]
+                ).map((c) => {
+                  const code = (c.code || c.alpha3Code || 'NGN').toUpperCase();
+                  const sym = c.symbol || c.symbolNative || code;
+                  return (
+                    <option key={code} value={code}>
+                      {code} ({sym})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
             <div className="flex flex-wrap gap-2">
-              {TIP_PRESETS.map((preset) => (
+              {tipPresets.map((preset) => (
                 <button
                   key={preset}
                   type="button"
@@ -204,8 +242,8 @@ export function SupportCreatorModal({
             <Input
               label={`Custom amount (${walletCurrency})`}
               type="number"
-              min={50}
-              step="50"
+              min={tipMin}
+              step={isMajor ? 1 : 50}
               value={tipAmount}
               onChange={(e) => setTipAmount(e.target.value)}
             />

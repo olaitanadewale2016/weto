@@ -498,6 +498,7 @@ const patchChatSchema = z.object({
   monetizationNote: z.string().max(240).optional(),
   payFromWallet: z.boolean().optional(),
   tipAmount: z.number().min(50).max(10000000).optional(),
+  tipCurrency: z.string().max(8).optional(),
   tipMessage: z.string().max(160).optional(),
   regenerateInviteCode: z.boolean().optional(),
   inviteCode: z.string().optional(),
@@ -736,6 +737,7 @@ export async function PATCH(
         groupName: chat.group.name || 'Group',
         amount: body.tipAmount,
         kind: 'group_tip',
+        currency: body.tipCurrency?.trim().toUpperCase(),
         note: body.tipMessage?.trim(),
       });
       chat.group.revenueTotal = Number(((chat.group.revenueTotal || 0) + body.tipAmount).toFixed(2));

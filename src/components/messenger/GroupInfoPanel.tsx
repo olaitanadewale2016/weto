@@ -31,7 +31,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AvatarPresetPicker } from '@/components/profile/AvatarPresetPicker';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
+import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
+import { formatCurrency, getCurrencySymbol, CurrencyOption } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 const GROUP_CATEGORIES = [
@@ -177,16 +179,38 @@ export function GroupInfoPanel({
   );
   const [editApproval, setEditApproval] = useState(Boolean(g?.requiresApproval));
   const [editPassword, setEditPassword] = useState('');
+  const { bootstrap, locale } = useApp();
+  const appDefaultCurrency = bootstrap?.config?.defaultCurrency || 'NGN';
+  const availableCurrencies: CurrencyOption[] =
+    bootstrap?.currencies && bootstrap.currencies.length > 0
+      ? bootstrap.currencies
+      : [
+          { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+          { code: 'USD', symbol: '$', name: 'US Dollar' },
+          { code: 'EUR', symbol: '€', name: 'Euro' },
+          { code: 'GBP', symbol: '£', name: 'British Pound' },
+          { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' },
+          { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
+          { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+        ];
+
   const [editIsPaid, setEditIsPaid] = useState(Boolean(g?.isPaid && (g?.entryPrice || 0) > 0));
   const [editEntryPrice, setEditEntryPrice] = useState(String(g?.entryPrice || 500));
   const [editMonetizationNote, setEditMonetizationNote] = useState(g?.monetizationNote || '');
   const [tipOpen, setTipOpen] = useState(false);
-  const [tipAmount, setTipAmount] = useState('500');
+  const [tipCurrency, setTipCurrency] = useState(appDefaultCurrency);
+  const [tipAmount, setTipAmount] = useState(
+    ['USD', 'EUR', 'GBP'].includes(appDefaultCurrency.toUpperCase()) ? '5' : '500'
+  );
   const [tipNote, setTipNote] = useState('');
   const [sendingTip, setSendingTip] = useState(false);
   const [openMemberMenuId, setOpenMemberMenuId] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  const isMajorCurrency = ['USD', 'EUR', 'GBP'].includes(tipCurrency.toUpperCase());
+  const tipPresets = isMajorCurrency ? [2, 5, 10, 25] : [200, 500, 1000, 2500];
+  const tipMinAmount = isMajorCurrency ? 1 : 50;
 
   const mediaItems = messages.filter(
     (m) => (m.type === 'image' || m.type === 'gif' || m.type === 'video') && (m.media?.publicUrl || m.media?.url)
@@ -218,19 +242,21 @@ export function GroupInfoPanel({
   async function handleSendTip(e: React.FormEvent) {
     e.preventDefault();
     const numeric = Number(tipAmount);
-    if (!Number.isFinite(numeric) || numeric < 50 || sendingTip) {
-      error('Enter an amount of at least ₦50');
+    if (!Number.isFinite(numeric) || numeric < tipMinAmount || sendingTip) {
+      error(`Enter an amount of at least ${formatCurrency(tipMinAmount, tipCurrency, bootstrap?.currencies, locale)}`);
       return;
     }
     setSendingTip(true);
     try {
+      const formattedTip = formatCurrency(numeric, tipCurrency, bootstrap?.currencies, locale);
       await patchGroup(
         {
           action: 'tip_group_owner',
           tipAmount: numeric,
+          tipCurrency,
           tipMessage: tipNote.trim() || undefined,
         },
-        `Sent ₦${numeric.toLocaleString()} tip to support this group`
+        `Sent ${formattedTip} tip to support this group`
       );
       setTipNote('');
       setTipOpen(false);
@@ -414,30 +440,56 @@ export function GroupInfoPanel({
                 Cancel
               </button>
             </div>
+
+            {/* Currency Selector (App currency default or User selects currency) */}
+            <div className="flex items-center justify-between gap-2 px-1 py-0.5 text-cap-l text-lab-sc">
+              <span className="font-medium text-lab-pr">Currency:</span>
+              <select
+                value={tipCurrency}
+                onChange={(e) => {
+                  const nextCurr = e.target.value;
+                  setTipCurrency(nextCurr);
+                  const isMajor = ['USD', 'EUR', 'GBP'].includes(nextCurr.toUpperCase());
+                  setTipAmount(isMajor ? '5' : '500');
+                }}
+                className="rounded-lg bg-bg-pr border border-bord-pr px-2.5 py-1 text-cap-l font-semibold text-lab-pr focus:outline-none focus:border-brand-900 cursor-pointer"
+              >
+                {availableCurrencies.map((c) => {
+                  const code = (c.code || c.alpha3Code || 'NGN').toUpperCase();
+                  const sym = c.symbol || c.symbolNative || getCurrencySymbol(code, availableCurrencies);
+                  return (
+                    <option key={code} value={code}>
+                      {code} ({sym})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
             <div className="flex gap-1.5">
-              {[200, 500, 1000, 2500].map((amt) => (
+              {tipPresets.map((amt) => (
                 <button
                   key={amt}
                   type="button"
                   onClick={() => setTipAmount(String(amt))}
                   className={cn(
-                    'flex-1 rounded-full py-1 text-cap-l font-semibold border cursor-pointer',
+                    'flex-1 rounded-full py-1 text-cap-l font-semibold border cursor-pointer transition-colors',
                     tipAmount === String(amt)
                       ? 'bg-brand-900 border-brand-900 text-white'
                       : 'bg-bg-pr border-bord-pr text-lab-pr hover:bg-fill-fv'
                   )}
                 >
-                  ₦{amt.toLocaleString()}
+                  {formatCurrency(amt, tipCurrency, bootstrap?.currencies, locale)}
                 </button>
               ))}
             </div>
             <Input
               type="number"
-              min={50}
-              step={50}
+              min={tipMinAmount}
+              step={isMajorCurrency ? 1 : 50}
               value={tipAmount}
               onChange={(e) => setTipAmount(e.target.value)}
-              placeholder="Custom amount (NGN)"
+              placeholder={`Custom amount (${tipCurrency})`}
             />
             <Input
               value={tipNote}
@@ -446,7 +498,9 @@ export function GroupInfoPanel({
               maxLength={120}
             />
             <Button type="submit" variant="primary" className="w-full" disabled={sendingTip}>
-              {sendingTip ? 'Sending...' : `Send ₦${Number(tipAmount || 0).toLocaleString()} Tip`}
+              {sendingTip
+                ? 'Sending...'
+                : `Send ${formatCurrency(Number(tipAmount || 0), tipCurrency, bootstrap?.currencies, locale)} Tip`}
             </Button>
           </form>
         )}

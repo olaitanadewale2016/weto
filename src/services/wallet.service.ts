@@ -563,6 +563,7 @@ export async function settleGroupWalletPayment(params: {
   groupName: string;
   amount: number;
   kind: 'group_entry' | 'group_tip';
+  currency?: string;
   note?: string;
   idempotencyKey?: string;
 }) {
@@ -585,7 +586,7 @@ export async function settleGroupWalletPayment(params: {
   const { gross, fee, net } = calculateCommission(cleanAmount, walletCfg.commissionTransfer || 0);
   const idemKey = params.idempotencyKey || `grp_${params.kind}_${params.chatId}_${params.payerId}_${crypto.randomUUID()}`;
   const tnxRef = `GRP-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-  const currency = ownerWalletDoc.currency || appCfg.defaultCurrency || 'NGN';
+  const currency = params.currency || ownerWalletDoc.currency || appCfg.defaultCurrency || 'NGN';
 
   await withMongoTransaction(async (session) => {
     const existing = await WalletTransaction.findOne({ idempotencyKey: `${idemKey}_out` }).session(

@@ -59,9 +59,11 @@ import { GroupInfoPanel } from '@/components/messenger/GroupInfoPanel';
 import { AvatarPresetPicker } from '@/components/profile/AvatarPresetPicker';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { GiphyAttribution, GiphyPicker } from '@/components/feed/GiphyPicker';
+import { SupportCreatorModal } from '@/components/profile/SupportCreatorModal';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 import { getFirebaseClientFirestore, markFirestoreDisabled } from '@/lib/firebase/client';
+import { formatCurrency } from '@/lib/currency';
 import { formatRelativeTime } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -469,6 +471,44 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const lastTypingPingRef = useRef<number>(0);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const chatMutedRef = useRef(chatMuted);
+
+  const attachMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const threadMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tipDirectUserModalOpen, setTipDirectUserModalOpen] = useState(false);
+
+  const handleAttachEnter = () => {
+    if (attachMenuTimeoutRef.current) {
+      clearTimeout(attachMenuTimeoutRef.current);
+      attachMenuTimeoutRef.current = null;
+    }
+    setAttachMenuOpen(true);
+  };
+
+  const handleAttachLeave = () => {
+    if (attachMenuTimeoutRef.current) {
+      clearTimeout(attachMenuTimeoutRef.current);
+    }
+    attachMenuTimeoutRef.current = setTimeout(() => {
+      setAttachMenuOpen(false);
+    }, 250);
+  };
+
+  const handleThreadMenuEnter = () => {
+    if (threadMenuTimeoutRef.current) {
+      clearTimeout(threadMenuTimeoutRef.current);
+      threadMenuTimeoutRef.current = null;
+    }
+    setThreadMenuOpen(true);
+  };
+
+  const handleThreadMenuLeave = () => {
+    if (threadMenuTimeoutRef.current) {
+      clearTimeout(threadMenuTimeoutRef.current);
+    }
+    threadMenuTimeoutRef.current = setTimeout(() => {
+      setThreadMenuOpen(false);
+    }, 250);
+  };
 
   useEffect(() => {
     chatMutedRef.current = chatMuted;
@@ -2375,7 +2415,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               )}
                               {isPaidGroup && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-cap-s font-bold text-green-700 dark:text-green-400">
-                                  <Coins className="h-3 w-3" /> ₦{entryPrice.toLocaleString()}
+                                  <Coins className="h-3 w-3" /> {formatCurrency(entryPrice, bootstrap?.config?.defaultCurrency || 'NGN', bootstrap?.currencies, locale)}
                                 </span>
                               )}
                             </div>
@@ -2423,7 +2463,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               }
                             >
                               {isPaidGroup
-                                ? `Pay ₦${entryPrice.toLocaleString()} & Join`
+                                ? `Pay ${formatCurrency(entryPrice, bootstrap?.config?.defaultCurrency || 'NGN', bootstrap?.currencies, locale)} & Join`
                                 : g?.requiresApproval
                                   ? 'Request Join'
                                   : g?.isPasswordProtected
@@ -2698,115 +2738,153 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       <GrupoExpandChatIcon expanded={middleFullScreen} className="size-[19px]" />
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setThreadMenuOpen((prev) => !prev)}
-                      className={cn(
-                        'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                        threadMenuOpen && 'bg-fill-sc text-lab-pr'
-                      )}
-                      title="Conversation options"
-                      aria-label="Conversation options"
+                    {/* Conversation options with hover open & auto-close on mouse leave */}
+                    <div
+                      className="relative shrink-0"
+                      onMouseEnter={handleThreadMenuEnter}
+                      onMouseLeave={handleThreadMenuLeave}
                     >
-                      <GrupoOptionsIcon className="size-[19px]" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setThreadMenuOpen((prev) => !prev)}
+                        className={cn(
+                          'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                          threadMenuOpen && 'bg-fill-sc text-lab-pr'
+                        )}
+                        title="Conversation options"
+                        aria-label="Conversation options"
+                      >
+                        <GrupoOptionsIcon className="size-[19px]" />
+                      </button>
 
-                    {threadMenuOpen && (
-                      <div className="absolute right-0 top-11 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl py-1.5 divide-y divide-bord-tr">
-                        <div className="pb-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setThreadMenuOpen(false);
-                              if (activeChat.type === 'group') {
-                                setGroupInfoOpen((prev) => !prev);
-                              } else {
-                                setDirectInfoOpen(true);
-                              }
-                            }}
-                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                          >
-                            <Info className="h-4 w-4 text-lab-sc" />
-                            {activeChat.type === 'group' ? 'Group info & members' : 'Conversation info'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setThreadMenuOpen(false);
-                              setThreadSearchOpen((prev) => {
-                                if (prev) setThreadSearchQ('');
-                                return !prev;
-                              });
-                            }}
-                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                          >
-                            <Search className="h-4 w-4 text-lab-sc" />
-                            {threadSearchOpen ? 'Close message search' : 'Search messages'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setChatMuted((prev) => !prev);
-                              setThreadMenuOpen(false);
-                            }}
-                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                          >
-                            {chatMuted ? (
-                              <>
-                                <Volume2 className="h-4 w-4 text-lab-sc" />
-                                Unmute notifications
-                              </>
-                            ) : (
-                              <>
-                                <VolumeX className="h-4 w-4 text-lab-sc" />
-                                Mute notifications
-                              </>
-                            )}
-                          </button>
-                        </div>
-
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleChatAction(isArchivedChat ? 'unarchive' : 'archive')}
-                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                          >
-                            <Archive className="h-4 w-4 text-lab-sc" />
-                            {isArchivedChat ? 'Unarchive chat' : 'Archive chat'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleChatAction('clear')}
-                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                          >
-                            <X className="h-4 w-4 text-lab-sc" />
-                            Clear history
-                          </button>
-                          {activeChat.type === 'group' && myParticipantRole !== 'owner' && (
+                      {threadMenuOpen && (
+                        <div
+                          className="absolute right-0 top-11 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl py-1.5 divide-y divide-bord-tr"
+                          onMouseEnter={handleThreadMenuEnter}
+                          onMouseLeave={handleThreadMenuLeave}
+                        >
+                          <div className="pb-1">
                             <button
                               type="button"
-                              onClick={() => handleChatAction('leave_group')}
+                              onClick={() => {
+                                setThreadMenuOpen(false);
+                                if (activeChat.type === 'group') {
+                                  setGroupInfoOpen((prev) => !prev);
+                                } else {
+                                  setDirectInfoOpen(true);
+                                }
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                            >
+                              <Info className="h-4 w-4 text-lab-sc" />
+                              {activeChat.type === 'group' ? 'Group info & members' : 'Conversation info'}
+                            </button>
+
+                            {/* Tip Support option */}
+                            {activeChat.type === 'group' ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setThreadMenuOpen(false);
+                                  setGroupInfoOpen(true);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-par-n text-brand-900 font-semibold hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <Coins className="h-4 w-4 text-brand-900" />
+                                Support Creator (Tip)
+                              </button>
+                            ) : interlocutor ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setThreadMenuOpen(false);
+                                  setTipDirectUserModalOpen(true);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-par-n text-brand-900 font-semibold hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <Coins className="h-4 w-4 text-brand-900" />
+                                Send Tip to @{interlocutor.username}
+                              </button>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setThreadMenuOpen(false);
+                                setThreadSearchOpen((prev) => {
+                                  if (prev) setThreadSearchQ('');
+                                  return !prev;
+                                });
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                            >
+                              <Search className="h-4 w-4 text-lab-sc" />
+                              {threadSearchOpen ? 'Close message search' : 'Search messages'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setChatMuted((prev) => !prev);
+                                setThreadMenuOpen(false);
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                            >
+                              {chatMuted ? (
+                                <>
+                                  <Volume2 className="h-4 w-4 text-lab-sc" />
+                                  Unmute notifications
+                                </>
+                              ) : (
+                                <>
+                                  <VolumeX className="h-4 w-4 text-lab-sc" />
+                                  Mute notifications
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleChatAction(isArchivedChat ? 'unarchive' : 'archive')}
+                              className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                            >
+                              <Archive className="h-4 w-4 text-lab-sc" />
+                              {isArchivedChat ? 'Unarchive chat' : 'Archive chat'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleChatAction('clear')}
+                              className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                            >
+                              <X className="h-4 w-4 text-lab-sc" />
+                              Clear history
+                            </button>
+                            {activeChat.type === 'group' && myParticipantRole !== 'owner' && (
+                              <button
+                                type="button"
+                                onClick={() => handleChatAction('leave_group')}
+                                className="w-full px-3.5 py-2 text-left text-par-n text-red-600 hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <LogOut className="h-4 w-4" />
+                                Leave group
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleChatAction('delete')}
                               className="w-full px-3.5 py-2 text-left text-par-n text-red-600 hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
                             >
-                              <LogOut className="h-4 w-4" />
-                              Leave group
+                              <Trash2 className="h-4 w-4" />
+                              {activeChat.type === 'group' && myParticipantRole === 'owner'
+                                ? 'Delete group'
+                                : 'Delete chat'}
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleChatAction('delete')}
-                            className="w-full px-3.5 py-2 text-left text-par-n text-red-600 hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            {activeChat.type === 'group' && myParticipantRole === 'owner'
-                              ? 'Delete group'
-                              : 'Delete chat'}
-                          </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2855,7 +2933,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     </p>
                     {activeChat.group?.isPaid && (activeChat.group?.entryPrice || 0) > 0 && (
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-green-600/15 px-3 py-1 text-par-s font-bold text-green-700 dark:text-green-400">
-                        <Coins className="h-4 w-4" /> Paid Group · ₦{Number(activeChat.group.entryPrice).toLocaleString()} Entry
+                        <Coins className="h-4 w-4" /> Paid Group · {formatCurrency(Number(activeChat.group.entryPrice), bootstrap?.config?.defaultCurrency || 'NGN', bootstrap?.currencies, locale)} Entry
                       </div>
                     )}
                   </div>
@@ -2904,7 +2982,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       }
                     >
                       {activeChat.group?.isPaid && (activeChat.group?.entryPrice || 0) > 0
-                        ? `Pay ₦${Number(activeChat.group.entryPrice).toLocaleString()} & Join`
+                        ? `Pay ${formatCurrency(Number(activeChat.group.entryPrice), bootstrap?.config?.defaultCurrency || 'NGN', bootstrap?.currencies, locale)} & Join`
                         : activeChat.group?.isPasswordProtected
                           ? 'Enter Password & Join Group'
                           : activeChat.group?.requiresApproval
@@ -3028,10 +3106,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </div>
                 )}
 
-                {/* Messages Timeline (Authentic Telegram Chat UI + Homepage typography) */}
+                {/* Messages Timeline (Previous theme colors + Telegram layout & proper margins) */}
                 <div
                   className={cn(
-                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3 px-2.5 px-safe sm:px-4 space-y-0.5 bg-[#f0f2f5] dark:bg-[#0e1621]',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe sm:px-6 space-y-1 bg-fill-fv/35',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
@@ -3075,10 +3153,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                   {loadingThread && messages.length === 0 && (
                     <div className="space-y-3 animate-pulse py-2 px-2 sm:px-4">
-                      <div className="h-10 w-52 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08]" />
-                      <div className="h-12 w-64 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08] ml-auto" />
-                      <div className="h-9 w-44 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08]" />
-                      <div className="h-14 w-60 rounded-2xl bg-black/[0.06] dark:bg-white/[0.08] ml-auto" />
+                      <div className="h-10 w-52 rounded-2xl bg-fill-fv" />
+                      <div className="h-12 w-64 rounded-2xl bg-fill-fv ml-auto" />
+                      <div className="h-9 w-44 rounded-2xl bg-fill-fv" />
+                      <div className="h-14 w-60 rounded-2xl bg-fill-fv ml-auto" />
                     </div>
                   )}
 
@@ -3132,7 +3210,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                           <span id={`msg-${m.id}`} className="sr-only" />
                           {showDateDivider && (
                             <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
-                              <span className="px-3.5 py-0.5 rounded-full bg-black/40 dark:bg-black/60 backdrop-blur-md text-[11.5px] font-medium text-white shadow-xs select-none">
+                              <span className="px-3.5 py-1 rounded-full bg-fill-sc border border-bord-card/60 text-par-s text-lab-sc font-medium shadow-xs select-none backdrop-blur-xs">
                                 {formatDateDivider(m.createdAt, locale)}
                               </span>
                             </div>
@@ -3145,14 +3223,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     }
 
                     const inlineTimestampNode = (
-                      <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[11px] select-none text-lab-sc/80 dark:text-white/60 tabular-nums">
+                      <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[11px] select-none text-lab-sc tabular-nums">
                         {m.isEdited && <span className="text-[10px] italic mr-0.5">edited</span>}
                         <span>{formatMessageTime(m.createdAt, locale)}</span>
                         {mine &&
                           (readByOther ? (
-                            <CheckCheck className="h-3.5 w-3.5 text-brand-900 dark:text-emerald-400 shrink-0 ml-0.5" />
+                            <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0 ml-0.5" />
                           ) : (
-                            <Check className="h-3.5 w-3.5 text-lab-sc/70 dark:text-white/50 shrink-0 ml-0.5" />
+                            <Check className="h-3.5 w-3.5 text-lab-tr shrink-0 ml-0.5" />
                           ))}
                       </span>
                     );
@@ -3162,7 +3240,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         <span id={`msg-${m.id}`} className="sr-only" />
                         {showDateDivider && (
                           <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
-                            <span className="px-3.5 py-0.5 rounded-full bg-black/40 dark:bg-black/60 backdrop-blur-md text-[11.5px] font-medium text-white shadow-xs select-none">
+                            <span className="px-3.5 py-1 rounded-full bg-fill-sc border border-bord-card/60 text-par-s text-lab-sc font-medium shadow-xs select-none backdrop-blur-xs">
                               {formatDateDivider(m.createdAt, locale)}
                             </span>
                           </div>
@@ -3175,9 +3253,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             messageInputRef.current?.focus();
                           }}
                           className={cn(
-                            'flex items-end gap-1.5 group relative w-full min-w-0',
-                            mine ? 'justify-end' : 'justify-start',
-                            isFirstInCluster ? 'pt-2' : 'pt-0.5'
+                            'flex items-end gap-2 group relative w-full min-w-0 transition-all',
+                            mine ? 'justify-end pl-10 sm:pl-20' : 'justify-start pr-10 sm:pr-20',
+                            isFirstInCluster ? 'mt-3 mb-1' : 'mt-1 mb-0.5'
                           )}
                         >
                           {/* Telegram Group Avatar (at bottom of cluster, incoming only) */}
@@ -3209,14 +3287,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                   isStickerOnly
                                     ? 'bg-transparent border-0 shadow-none p-0'
                                     : cn(
-                                        'rounded-2xl px-3.5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.06)]',
+                                        'rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
                                         mine
                                           ? cn(
-                                              'bg-[#eef8f0] dark:bg-[#1f382a] border border-[#d2edd9] dark:border-[#274c39] text-lab-pr dark:text-[#f0faf4]',
+                                              'bg-fill-qt border border-bord-pr/80 text-lab-pr',
                                               isLastInCluster ? 'rounded-br-[4px]' : 'rounded-br-2xl'
                                             )
                                           : cn(
-                                              'bg-white dark:bg-[#212121] border border-black/[0.06] dark:border-white/[0.08] text-lab-pr dark:text-white',
+                                              'bg-bg-pr border border-bord-card text-lab-pr',
                                               isLastInCluster ? 'rounded-bl-[4px]' : 'rounded-bl-2xl'
                                             )
                                       )
@@ -3224,7 +3302,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               >
                                 {/* Telegram Group Sender Name inside bubble */}
                                 {!mine && isGroupChat && isFirstInCluster && (
-                                  <div className="font-semibold text-[13px] text-brand-900 dark:text-emerald-400 hover:underline mb-1 truncate cursor-pointer select-none">
+                                  <div className="font-semibold text-[13px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
                                     {senderName}
                                   </div>
                                 )}
@@ -3237,12 +3315,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                       const el = document.getElementById(`msg-${m.parentId?.id}`);
                                       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                     }}
-                                    className="max-w-full min-w-0 overflow-hidden rounded-md px-2.5 py-1 mb-1.5 border-l-[3px] border-brand-900 dark:border-emerald-400 bg-black/[0.04] dark:bg-white/[0.06] text-left cursor-pointer hover:bg-black/[0.07] dark:hover:bg-white/[0.1] transition-colors"
+                                    className="max-w-full min-w-0 overflow-hidden rounded-md px-2.5 py-1 mb-1.5 border-l-[3px] border-brand-900 bg-fill-fv/80 text-left cursor-pointer hover:bg-fill-sc transition-colors"
                                   >
-                                    <p className="text-[12px] font-semibold text-brand-900 dark:text-emerald-400 truncate">
+                                    <p className="text-[12px] font-semibold text-brand-900 truncate">
                                       {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
                                     </p>
-                                    <p className="text-[12.5px] text-lab-sc dark:text-white/70 truncate">
+                                    <p className="text-[12.5px] text-lab-sc truncate">
                                       {getMessagePreviewLabel(m.parentId)}
                                     </p>
                                   </div>
@@ -3278,10 +3356,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                     key={rs.unifiedId}
                                     type="button"
                                     onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-white dark:bg-[#212121] border border-black/[0.08] dark:border-white/[0.1] px-2 py-0.5 text-cap-s text-lab-pr dark:text-white hover:bg-fill-sc cursor-pointer shadow-xs"
+                                    className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
                                   >
                                     <span>{rs.nativeSymbol}</span>
-                                    <span className="font-semibold text-lab-sc dark:text-white/70 text-[11px]">
+                                    <span className="font-semibold text-lab-sc text-[11px]">
                                       {rs.count}
                                     </span>
                                   </button>
@@ -3296,7 +3374,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                   {typingUsers.length > 0 && (
                     <div className="flex items-end gap-2 justify-start px-1 py-1">
-                      <div className="rounded-2xl rounded-bl-[4px] bg-white dark:bg-[#212121] border border-black/[0.06] dark:border-white/[0.08] px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
+                      <div className="rounded-2xl rounded-bl-[4px] bg-bg-pr border border-bord-card px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.3s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.15s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce" />
@@ -3436,131 +3514,141 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             ))}
                           </div>
                         )}
-                        {/* Telegram-style Attachment Menu Popover */}
-                        {attachMenuOpen && (
-                          <div className="absolute bottom-full left-3 mb-2 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5">
-                            <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
-                              <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
-                              <span>Photo or Video</span>
-                              <input
-                                type="file"
-                                accept="image/*,video/*"
-                                disabled={uploadingMedia}
-                                className="hidden"
-                                onChange={(e) => {
-                                  setAttachMenuOpen(false);
-                                  void handleFileUpload(e);
-                                }}
-                              />
-                            </label>
-
-                            <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
-                              <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                              <span>Attach File</span>
-                              <input
-                                type="file"
-                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
-                                disabled={uploadingMedia}
-                                className="hidden"
-                                onChange={(e) => {
-                                  setAttachMenuOpen(false);
-                                  void handleFileUpload(e);
-                                }}
-                              />
-                            </label>
-
-                            <button
-                              type="button"
-                              disabled={uploadingMedia}
-                              onClick={() => {
-                                setAttachMenuOpen(false);
-                                setShowStickerPicker(false);
-                                setShowGifPicker(true);
-                              }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                            >
-                              <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                              <span>GIFs</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={uploadingMedia}
-                              onClick={() => {
-                                setAttachMenuOpen(false);
-                                setShowGifPicker(false);
-                                setShowStickerPicker(true);
-                              }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                            >
-                              <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                              <span>Stickers &amp; Emoji</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={uploadingMedia || sending}
-                              onClick={() => {
-                                setAttachMenuOpen(false);
-                                setPollQuestion('');
-                                setPollOptions(['', '']);
-                                setPollModalOpen(true);
-                              }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                            >
-                              <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                              <span>Create Poll</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={uploadingMedia || sendingLocation}
-                              onClick={() => {
-                                setAttachMenuOpen(false);
-                                void handleShareLocation();
-                              }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                            >
-                              <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                              <span>Share Location</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={uploadingMedia}
-                              onClick={() => {
-                                setAttachMenuOpen(false);
-                                void startVoiceRecording();
-                              }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                            >
-                              <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                              <span>Voice Message</span>
-                            </button>
-                          </div>
-                        )}
-
                         {/* Telegram-style Composer Form */}
                         <form
                           onSubmit={handleSendText}
                           className="flex items-center gap-2 min-w-0 max-w-full"
                         >
-                          {/* Telegram Attachment button (Paperclip on far left) */}
-                          <button
-                            type="button"
-                            disabled={uploadingMedia}
-                            onClick={() => setAttachMenuOpen((v) => !v)}
-                            className={cn(
-                              'size-9 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
-                              attachMenuOpen
-                                ? 'bg-brand-900 text-white rotate-45'
-                                : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
-                            )}
-                            title="Attach file or media"
-                            aria-label="Attach file or media"
+                          {/* Telegram Attachment button (Paperclip on far left) with hover popup and auto-close on mouse leave */}
+                          <div
+                            className="relative shrink-0"
+                            onMouseEnter={handleAttachEnter}
+                            onMouseLeave={handleAttachLeave}
                           >
-                            <Paperclip className="h-5 w-5" strokeWidth={1.8} />
-                          </button>
+                            <button
+                              type="button"
+                              disabled={uploadingMedia}
+                              onClick={() => setAttachMenuOpen((v) => !v)}
+                              className={cn(
+                                'size-9 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
+                                attachMenuOpen
+                                  ? 'bg-brand-900 text-white rotate-45'
+                                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                              )}
+                              title="Attach file or media"
+                              aria-label="Attach file or media"
+                            >
+                              <Paperclip className="h-5 w-5" strokeWidth={1.8} />
+                            </button>
+
+                            {/* Attachment Popover Menu */}
+                            {attachMenuOpen && (
+                              <div
+                                className="absolute bottom-full left-0 mb-2 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5"
+                                onMouseEnter={handleAttachEnter}
+                                onMouseLeave={handleAttachLeave}
+                              >
+                                <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                  <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
+                                  <span>Photo or Video</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*,video/*"
+                                    disabled={uploadingMedia}
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      setAttachMenuOpen(false);
+                                      void handleFileUpload(e);
+                                    }}
+                                  />
+                                </label>
+
+                                <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                  <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                  <span>Attach File</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                                    disabled={uploadingMedia}
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      setAttachMenuOpen(false);
+                                      void handleFileUpload(e);
+                                    }}
+                                  />
+                                </label>
+
+                                <button
+                                  type="button"
+                                  disabled={uploadingMedia}
+                                  onClick={() => {
+                                    setAttachMenuOpen(false);
+                                    setShowStickerPicker(false);
+                                    setShowGifPicker(true);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                >
+                                  <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                  <span>GIFs</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={uploadingMedia}
+                                  onClick={() => {
+                                    setAttachMenuOpen(false);
+                                    setShowGifPicker(false);
+                                    setShowStickerPicker(true);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                >
+                                  <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                  <span>Stickers &amp; Emoji</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={uploadingMedia || sending}
+                                  onClick={() => {
+                                    setAttachMenuOpen(false);
+                                    setPollQuestion('');
+                                    setPollOptions(['', '']);
+                                    setPollModalOpen(true);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                >
+                                  <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                  <span>Create Poll</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={uploadingMedia || sendingLocation}
+                                  onClick={() => {
+                                    setAttachMenuOpen(false);
+                                    void handleShareLocation();
+                                  }}
+                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                >
+                                  <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                  <span>Share Location</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={uploadingMedia}
+                                  onClick={() => {
+                                    setAttachMenuOpen(false);
+                                    void startVoiceRecording();
+                                  }}
+                                  className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                >
+                                  <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                  <span>Voice Message</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
 
                           {/* Telegram Rounded Input Pill with Smile/Sticker Button inside */}
                           <div className="flex-1 min-w-0 flex items-center bg-fill-qt dark:bg-fill-sc/60 border border-transparent focus-within:border-brand-900/40 focus-within:bg-bg-pr rounded-full px-3.5 py-1 transition-all">
@@ -3960,7 +4048,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           <div className="rounded-2xl border border-bord-pr bg-fill-qt p-4 space-y-1.5">
             <p className="text-cap-l font-semibold text-lab-sc">One-time Wallet Entry Fee</p>
             <p className="text-title-2 font-bold text-lab-pr">
-              ₦{Number(joinPaidModal?.price || 0).toLocaleString()}
+              {formatCurrency(Number(joinPaidModal?.price || 0), bootstrap?.config?.defaultCurrency || 'NGN', bootstrap?.currencies, locale)}
             </p>
             {joinPaidModal?.note && (
               <p className="text-par-s text-lab-sc pt-1">{joinPaidModal.note}</p>
@@ -3999,7 +4087,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 variant="primary"
                 disabled={Boolean(joinPaidModal && joiningGroupId === joinPaidModal.id)}
               >
-                Pay ₦{Number(joinPaidModal?.price || 0).toLocaleString()} & Join
+                Pay {formatCurrency(Number(joinPaidModal?.price || 0), bootstrap?.config?.defaultCurrency || 'NGN', bootstrap?.currencies, locale)} & Join
               </Button>
             </div>
           </div>
@@ -4373,6 +4461,26 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           </div>
         </form>
       </Modal>
+
+      {/* Direct User Support / Creator Tip Modal */}
+      {interlocutor && (
+        <SupportCreatorModal
+          open={tipDirectUserModalOpen}
+          onClose={() => setTipDirectUserModalOpen(false)}
+          creator={{
+            id: interlocutor._id,
+            username: interlocutor.username,
+            firstName: interlocutor.firstName || '',
+            lastName: interlocutor.lastName || '',
+            monetization: {
+              tipsEnabled: true,
+              subscriptionsEnabled: false,
+              monthlyPrice: 0,
+              currency: bootstrap?.config?.defaultCurrency || 'NGN',
+            },
+          }}
+        />
+      )}
 
       {/* Fullscreen PHP-parity Media Lightbox */}
       <MediaLightbox
