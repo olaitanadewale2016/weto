@@ -48,6 +48,7 @@ export interface BootstrapUser {
   language: string;
   country?: string | null;
   city?: string | null;
+  gender?: string;
   onboardingStep?: string;
   publicationsCount: number;
   followersCount: number;

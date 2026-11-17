@@ -90,6 +90,7 @@ interface OnlineMatchData {
   currentTurn: 'player1' | 'player2';
   turnStartedAt: string;
   result: 'notDeclared' | 'player1' | 'player2' | 'draw';
+  forfeitedBy?: 'player1' | 'player2' | null;
   lastRoundWinner?: 'player1' | 'player2' | 'draw' | null;
   winningLine?: {
     row: number | null;
@@ -489,6 +490,7 @@ export function TicTacToeArena() {
   const [activeIframeGame, setActiveIframeGame] = useState<MoreGameCatalogItem | null>(null);
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeReloadKey, setIframeReloadKey] = useState(0);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
   const handleExitToApp = useCallback(() => {
     router.push('/');
@@ -655,6 +657,35 @@ export function TicTacToeArena() {
     }, 0);
     return () => clearTimeout(id);
   }, [fetchHubData]);
+
+  const handleConfirmLeaveMatch = useCallback(async () => {
+    setLeaveConfirmOpen(false);
+    if (
+      gameMode === 'multiplayer' &&
+      onlineMatch &&
+      (onlineMatch.status === 'inProgress' || onlineMatch.status === 'waiting')
+    ) {
+      try {
+        await apiFetch('/games/tictactoe', {
+          method: 'POST',
+          json: { action: 'forfeit', gameKey: onlineMatch.gameKey },
+        });
+        success('You forfeited the match.');
+      } catch {
+        // ignore
+      }
+      setOnlineMatch(null);
+      void fetchHubData();
+      setView('home');
+      return;
+    }
+
+    // Local / Pass 'N Play / Offline against Dora
+    setWinningLine(null);
+    setGameEndedState(null);
+    void fetchHubData();
+    setView('home');
+  }, [gameMode, onlineMatch, fetchHubData, success]);
 
   // Launch Offline or Pass-N-Play Maze
   const launchLocalMaze = useCallback(
@@ -1741,7 +1772,7 @@ export function TicTacToeArena() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-3">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#242424] border border-[#5A5A5A]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -1752,6 +1783,30 @@ export function TicTacToeArena() {
                   <span className="text-sm font-bold text-white">00:{String(searchTimeLeft).padStart(2, '0')}</span>
                 </div>
                 <p className="text-xs text-white/70">Connecting with Opponents...</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void apiFetch('/games/tictactoe', {
+                      method: 'POST',
+                      json: { action: 'close_waiting', gameKey: onlineMatch.gameKey },
+                    })
+                      .then((res: unknown) => {
+                        const r = res as { coins?: number };
+                        if (typeof r?.coins === 'number') {
+                          setProfile((p) => ({ ...p, coins: r.coins! }));
+                        }
+                        success('Matchmaking cancelled. Entry stake refunded.');
+                      })
+                      .catch(() => undefined);
+                    setOnlineMatch(null);
+                    void fetchHubData();
+                    setView('home');
+                  }}
+                  className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-300 transition-colors cursor-pointer"
+                >
+                  <X className="size-3.5" />
+                  <span>Cancel Search & Refund Stake</span>
+                </button>
               </div>
             )}
           </div>
@@ -1782,16 +1837,8 @@ export function TicTacToeArena() {
               <div className="flex items-center justify-between mb-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (gameMode === 'multiplayer' && onlineMatch && onlineMatch.status === 'inProgress') {
-                      void apiFetch('/games/tictactoe', {
-                        method: 'POST',
-                        json: { action: 'forfeit', gameKey: onlineMatch.gameKey },
-                      }).catch(() => undefined);
-                    }
-                    setView('home');
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white/80 hover:text-white cursor-pointer"
+                  onClick={() => setLeaveConfirmOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white/80 hover:text-white cursor-pointer px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
                 >
                   <ArrowLeft className="size-4" />
                   <span>Exit Match</span>
@@ -2966,6 +3013,46 @@ export function TicTacToeArena() {
         )}
       </DoraDialog>
 
+      {/* Leave Game Confirmation Dialog */}
+      <DoraDialog
+        open={leaveConfirmOpen}
+        title={gameMode === 'multiplayer' ? 'Leave Match & Forfeit?' : 'Exit Game?'}
+        onClose={() => setLeaveConfirmOpen(false)}
+        buttons={[
+          {
+            title: gameMode === 'multiplayer' ? 'Forfeit & Leave' : 'Exit to Arena',
+            variant: 'primary',
+            onClick: () => void handleConfirmLeaveMatch(),
+          },
+          {
+            title: 'Keep Playing',
+            variant: 'light',
+            onClick: () => setLeaveConfirmOpen(false),
+          },
+        ]}
+      >
+        <div className="flex flex-col items-center text-center space-y-3 py-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/games/tictactoe/svg/dora_2.svg"
+            alt="Dora"
+            className="size-20 object-contain drop-shadow-md"
+          />
+          {gameMode === 'multiplayer' ? (
+            <div className="text-sm text-white/85 space-y-2">
+              <p>
+                Leaving an in-progress match counts as a forfeit. Your opponent will receive the victory and your entry stake will be lost.
+              </p>
+              <p className="font-semibold text-[#F0842A]">Are you sure you want to exit?</p>
+            </div>
+          ) : (
+            <div className="text-sm text-white/85 space-y-2">
+              <p>Are you sure you want to return to the Arena? Current board progress will be lost.</p>
+            </div>
+          )}
+        </div>
+      </DoraDialog>
+
       {/* 5. GameOverDialog / DrawDialog / NextRoundDialog (`game_over_dialog.dart`, `draw_dialog.dart`, `next_round_dialog.dart`) */}
       <DoraDialog
         open={Boolean(gameEndedState)}
@@ -2974,7 +3061,9 @@ export function TicTacToeArena() {
             ? "It's a Draw!"
             : gameEndedState?.type === 'nextRound'
               ? `Round ${gameEndedState.roundNumber || currentRoundNumber}`
-              : 'Game Over'
+              : gameEndedState?.winner?.userId === user?.id
+                ? 'Victory!'
+                : 'Game Over'
         }
         hideCloseButton
         buttons={
@@ -2988,7 +3077,17 @@ export function TicTacToeArena() {
             : gameMode === 'multiplayer'
               ? [
                   {
-                    title: 'OK',
+                    title: 'Play Again',
+                    variant: 'light',
+                    onClick: () => {
+                      setGameEndedState(null);
+                      setOnlineMatch(null);
+                      void startOnlineConnection();
+                    },
+                  },
+                  {
+                    title: 'Back to Arena',
+                    variant: 'primary',
                     onClick: () => {
                       setGameEndedState(null);
                       setOnlineMatch(null);
@@ -2999,18 +3098,20 @@ export function TicTacToeArena() {
                 ]
               : [
                   {
-                    title: 'Cancel',
+                    title: 'Play Again',
+                    variant: 'light',
+                    onClick: () => {
+                      setGameEndedState(null);
+                      launchLocalMaze(gameMode, boardSize);
+                    },
+                  },
+                  {
+                    title: 'Back to Arena',
+                    variant: 'primary',
                     onClick: () => {
                       setGameEndedState(null);
                       void fetchHubData();
                       setView('home');
-                    },
-                  },
-                  {
-                    title: 'Restart',
-                    variant: 'light',
-                    onClick: () => {
-                      launchLocalMaze(gameMode, boardSize);
                     },
                   },
                 ]
@@ -3073,6 +3174,14 @@ export function TicTacToeArena() {
                     ? `${gameEndedState.winner.name}'s Victory!`
                     : 'Round Tied!'}
                 </p>
+
+                {onlineMatch?.forfeitedBy && (
+                  <p className="text-xs font-semibold text-[#00A0FF]">
+                    {onlineMatch.forfeitedBy === (user?.id === onlineMatch.player1.userId ? 'player1' : 'player2')
+                      ? 'You forfeited the match.'
+                      : 'Opponent left the match! Victory awarded.'}
+                  </p>
+                )}
 
                 {gameMode === 'multiplayer' &&
                   onlineMatch &&

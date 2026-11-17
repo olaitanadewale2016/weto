@@ -2742,7 +2742,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       <div
         className={cn(
           'flex-1 flex flex-col bg-bg-pr min-w-0 min-h-0 h-full max-h-full overflow-hidden relative',
-          activeChatId ? 'fixed inset-0 z-[60] md:static md:inset-auto md:z-auto' : 'hidden md:flex'
+          activeChatId ? 'flex w-full md:flex-1' : 'hidden md:flex md:flex-1'
         )}
       >
         {!activeChatId ? (
@@ -3598,7 +3598,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                     {/* Composer (matches PHP ChatForm + AudioRecorder.vue) */}
                     {isGroupMuted || isReadOnlyRoom ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-fill-qt flex items-center justify-center gap-2 text-cap-l text-lab-sc shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-fill-qt flex items-center justify-center gap-2 text-cap-l text-lab-sc shrink-0">
                         <MessageSquareOff className="h-4 w-4 text-lab-sc shrink-0" />
                         <span>
                           {isGroupMuted
@@ -3607,7 +3607,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         </span>
                       </div>
                     ) : recording ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr flex items-center justify-between gap-3 bg-bg-pr shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr flex items-center justify-between gap-3 bg-bg-pr shrink-0">
                         <div className="flex items-center gap-2.5">
                           <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse" />
                           <span className="text-par-n font-semibold text-lab-pr tabular-nums">
@@ -3635,7 +3635,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         </div>
                       </div>
                     ) : (
-                      <div className="sticky bottom-0 z-20 w-full relative px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pb-safe-standalone border-t border-bord-pr bg-bg-pr shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full relative px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
                         {mentionCandidates.length > 0 && (
                           <div className="absolute bottom-full left-4 right-4 sm:right-auto sm:w-72 mb-1.5 z-30 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl overflow-hidden divide-y divide-bord-pr">
                             {mentionCandidates.map((cand) => (
@@ -3845,7 +3845,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                               {showStickerPicker && !recording && (
                                 <div
-                                  className="absolute bottom-full right-0 mb-3 z-50 w-[350px] sm:w-[410px] h-[400px] sm:h-[450px] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl overflow-hidden"
+                                  className="absolute bottom-full right-0 mb-3 z-50 w-[calc(100vw-1.5rem)] sm:w-[410px] max-w-[410px] h-[380px] sm:h-[450px] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl overflow-hidden"
                                   onMouseEnter={handleStickerEnter}
                                   onMouseLeave={handleStickerLeave}
                                 >

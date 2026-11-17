@@ -198,6 +198,7 @@ export async function GET(req: NextRequest) {
         language: u.language,
         country: u.country,
         city: u.city,
+        gender: u.gender,
         onboardingStep: u.onboardingStep,
         publicationsCount: u.publicationsCount,
         followersCount: u.followersCount,

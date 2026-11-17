@@ -106,6 +106,7 @@ async function settleMultiplayerMatch(params: {
       $set: {
         status: 'completed',
         result: outcome,
+        forfeitedBy: forfeitedBy || null,
         settled: true,
       },
     },

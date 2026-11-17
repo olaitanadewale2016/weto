@@ -104,6 +104,18 @@ export function AppShell({
   const isAdmin = user?.role === 'root' || user?.role === 'admin' || user?.role === 'moderator';
   const appName = bootstrap?.config?.appName || 'Weto';
 
+  // Guard onboarding status: enforce completing onboarding before accessing main app
+  useEffect(() => {
+    if (loading || !user) return;
+    if (
+      user.status === 'onboarding' &&
+      !pathname.startsWith('/onboarding') &&
+      !pathname.startsWith('/auth')
+    ) {
+      router.replace(`/onboarding/step/${user.onboardingStep || 'profile'}`);
+    }
+  }, [user, loading, pathname, router]);
+
   // Close More dropdown on outside click matching commit 21781b3
   useEffect(() => {
     if (!moreMenuOpen) return;
@@ -669,8 +681,8 @@ export function AppShell({
 
       {/* Mobile Bottom Navigation matching mobile/components/layout/ApplicationNavbar.vue */}
       {!hideMobileChrome && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg-pr border-t border-bord-tr pb-safe pb-safe-standalone px-safe">
-          <div className="grid grid-cols-5 h-[60px] px-2 items-center">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg-pr border-t border-bord-tr pb-safe px-safe">
+          <div className="grid grid-cols-5 h-14 px-2 items-center">
             <Link href="/" className="flex items-center justify-center h-full text-lab-pr">
               <Home className={cn('size-[26px]', pathname === '/' ? 'stroke-[2.5]' : 'stroke-[1.75] text-lab-sc')} />
             </Link>

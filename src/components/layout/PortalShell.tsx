@@ -359,7 +359,7 @@ export function PortalShell({
       {portal === 'business' && (
         <nav
           aria-label="Business portal mobile navigation"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg-pr/95 backdrop-blur-md border-t border-bord-tr pb-safe pb-safe-standalone"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg-pr/95 backdrop-blur-md border-t border-bord-tr pb-safe"
         >
           <div className="grid grid-cols-5 h-14 px-1">
             {[

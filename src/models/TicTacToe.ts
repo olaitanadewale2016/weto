@@ -67,6 +67,7 @@ export interface ITicTacToeMatchDocument extends Document {
   currentTurn: 'player1' | 'player2';
   turnStartedAt: Date;
   result: 'notDeclared' | 'player1' | 'player2' | 'draw';
+  forfeitedBy?: 'player1' | 'player2' | null;
   lastRoundWinner?: 'player1' | 'player2' | 'draw' | null;
   winningLine?: {
     row: number | null;
@@ -117,6 +118,11 @@ const TicTacToeMatchSchema = new Schema<ITicTacToeMatchDocument>(
       type: String,
       enum: ['notDeclared', 'player1', 'player2', 'draw'],
       default: 'notDeclared',
+    },
+    forfeitedBy: {
+      type: String,
+      enum: ['player1', 'player2', null],
+      default: null,
     },
     lastRoundWinner: {
       type: String,

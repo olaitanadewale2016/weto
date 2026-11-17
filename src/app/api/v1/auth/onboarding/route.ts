@@ -24,6 +24,40 @@ const onboardingSchema = z.object({
   skip: z.boolean().optional(),
 });
 
+export async function GET(req: NextRequest) {
+  try {
+    const { user } = await requireAuth(req, { allowOnboarding: true });
+    const checkUsername = req.nextUrl.searchParams.get('check_username');
+
+    if (checkUsername !== null) {
+      const normalized = checkUsername.toLowerCase().trim();
+      const validFormat = /^[a-zA-Z0-9._]{2,32}$/.test(normalized);
+      if (!validFormat) {
+        return apiSuccess({ available: false, reason: 'invalid_format' });
+      }
+      const taken = await User.exists({ username: normalized, _id: { $ne: user._id } });
+      return apiSuccess({ available: !taken });
+    }
+
+    return apiSuccess({
+      status: user.status,
+      onboardingStep: user.onboardingStep || 'profile',
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        bio: user.bio,
+        gender: user.gender,
+        avatar: user.avatar,
+        country: user.country,
+        city: user.city,
+        username: user.username,
+      },
+    });
+  } catch (err) {
+    return apiError(err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { user } = await requireAuth(req, { allowOnboarding: true });
