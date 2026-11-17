@@ -503,7 +503,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           setRightPanelWidth(val);
         }
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const handleLeftResizeStart = useCallback((e: React.PointerEvent) => {
@@ -531,7 +531,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       leftDragRef.current = null;
       try {
         localStorage.setItem('cp_messenger_sidebar_width', String(leftSidebarWidth));
-      } catch {}
+      } catch { }
     };
 
     window.addEventListener('pointermove', onPointerMove);
@@ -567,7 +567,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       rightDragRef.current = null;
       try {
         localStorage.setItem('cp_messenger_right_width', String(rightPanelWidth));
-      } catch {}
+      } catch { }
     };
 
     window.addEventListener('pointermove', onPointerMove);
@@ -2163,7 +2163,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
         {m.content && (
           <div className="space-y-1 min-w-0 max-w-full">
-            <div className="text-[14.5px] leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+            <div className="text-[15.5px] sm:text-[16px] leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
               <span>{msgTranslations[m.id] || m.content}</span>
               {inlineTimestampNode}
             </div>
@@ -3385,8 +3385,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       }
 
                       const inlineTimestampNode = (
-                        <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[11px] select-none text-lab-sc tabular-nums">
-                          {m.isEdited && <span className="text-[10px] italic mr-0.5">edited</span>}
+                        <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[12px] sm:text-[12.5px] select-none text-lab-sc tabular-nums">
+                          {m.isEdited && <span className="text-[10.5px] italic mr-0.5">edited</span>}
                           <span>{formatMessageTime(m.createdAt, locale)}</span>
                           {mine &&
                             (readByOther ? (
@@ -3464,7 +3464,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 >
                                   {/* Telegram Group Sender Name inside bubble */}
                                   {!mine && isGroupChat && isFirstInCluster && (
-                                    <div className="font-semibold text-[13px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
+                                    <div className="font-semibold text-[14px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
                                       {senderName}
                                     </div>
                                   )}
@@ -3479,10 +3479,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                       }}
                                       className="max-w-full min-w-0 overflow-hidden rounded-md px-2.5 py-1 mb-1.5 border-l-[3px] border-brand-900 bg-fill-fv/80 text-left cursor-pointer hover:bg-fill-sc transition-colors"
                                     >
-                                      <p className="text-[12px] font-semibold text-brand-900 truncate">
+                                      <p className="text-[13px] font-semibold text-brand-900 truncate">
                                         {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
                                       </p>
-                                      <p className="text-[12.5px] text-lab-sc truncate">
+                                      <p className="text-[13.5px] text-lab-sc truncate">
                                         {getMessagePreviewLabel(m.parentId)}
                                       </p>
                                     </div>
@@ -3899,87 +3899,87 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       {/* Desktop Docked 3rd Column: Group Info or Direct Profile View (Resizable & Responsive) */}
       {((activeChat?.type === 'group' && groupInfoOpen && !joinPreviewStatus) ||
         (activeChat?.type === 'direct' && directInfoOpen && interlocutor)) && (
-        <>
-          {/* Draggable Divider Handle between Middle Chat View and Right Info/Profile Panel */}
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            tabIndex={0}
-            onPointerDown={handleRightResizeStart}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowLeft') {
-                setRightPanelWidth((w) => Math.min(500, w + 20));
-              } else if (e.key === 'ArrowRight') {
-                setRightPanelWidth((w) => Math.max(260, w - 20));
-              }
-            }}
-            className={cn(
-              'hidden lg:flex relative items-center justify-center w-2 -mr-1 z-20 cursor-col-resize hover:bg-brand-900/40 active:bg-brand-900 transition-colors select-none group shrink-0 border-l border-bord-pr',
-              isDraggingRight && 'bg-brand-900/80 border-brand-900'
-            )}
-            title="Drag to resize profile & info panel"
-          >
-            <div className="w-0.5 h-7 rounded-full bg-lab-tr group-hover:bg-brand-900 transition-colors" />
-          </div>
+          <>
+            {/* Draggable Divider Handle between Middle Chat View and Right Info/Profile Panel */}
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              tabIndex={0}
+              onPointerDown={handleRightResizeStart}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowLeft') {
+                  setRightPanelWidth((w) => Math.min(500, w + 20));
+                } else if (e.key === 'ArrowRight') {
+                  setRightPanelWidth((w) => Math.max(260, w - 20));
+                }
+              }}
+              className={cn(
+                'hidden lg:flex relative items-center justify-center w-2 -mr-1 z-20 cursor-col-resize hover:bg-brand-900/40 active:bg-brand-900 transition-colors select-none group shrink-0 border-l border-bord-pr',
+                isDraggingRight && 'bg-brand-900/80 border-brand-900'
+              )}
+              title="Drag to resize profile & info panel"
+            >
+              <div className="w-0.5 h-7 rounded-full bg-lab-tr group-hover:bg-brand-900 transition-colors" />
+            </div>
 
-          <div
-            style={{
-              '--right-panel-w': `${rightPanelWidth}px`,
-            } as React.CSSProperties}
-            className="hidden lg:flex w-[var(--right-panel-w,320px)] shrink-0 h-full min-h-0 overflow-hidden border-l border-bord-pr bg-bg-pr flex-col"
-          >
-            {activeChat?.type === 'group' ? (
-              <GroupInfoPanel
-                key={activeChat.id}
-                chat={activeChat}
-                currentUserId={user.id}
-                myRole={myParticipantRole}
-                onlineUsers={onlineUsers}
-                pinnedCount={pinnedMessages.length}
-                messages={messages}
-                inviteUserQuery={inviteUserQuery}
-                inviteUserResults={inviteUserResults}
-                onInviteQueryChange={setInviteUserQuery}
-                onInviteUser={(uid) => void handleInviteToGroup(uid)}
-                onStartCall={(mode) => handleStartCall(mode)}
-                onLeaveGroup={() => void handleChatAction('leave_group')}
-                onDeleteGroup={() => void handleChatAction('delete')}
-                onOpenLightbox={(url) => setLightboxImageUrl(url)}
-                onRefresh={() => {
-                  void loadConversation(activeChat.id, '', true);
-                  void loadInbox();
-                }}
-                onClose={() => setGroupInfoOpen(false)}
-              />
-            ) : interlocutor ? (
-              <DirectProfilePanel
-                key={activeChat.id}
-                user={{
-                  _id: interlocutor._id,
-                  username: interlocutor.username,
-                  firstName: interlocutor.firstName,
-                  lastName: interlocutor.lastName,
-                  avatar: interlocutor.avatar,
-                  verified: interlocutor.verified,
-                  lastActive: interlocutor.lastActive,
-                }}
-                isOnline={interlocutorOnline}
-                messages={messages}
-                locale={locale}
-                isArchived={isArchivedChat}
-                isMuted={chatMuted}
-                onToggleMute={() => setChatMuted((prev) => !prev)}
-                onStartCall={(mode) => handleStartCall(mode)}
-                onOpenSearch={() => setThreadSearchOpen(true)}
-                onOpenTip={() => setTipDirectUserModalOpen(true)}
-                onChatAction={(action) => void handleChatAction(action)}
-                onOpenLightbox={(url) => setLightboxImageUrl(url)}
-                onClose={() => setDirectInfoOpen(false)}
-              />
-            ) : null}
-          </div>
-        </>
-      )}
+            <div
+              style={{
+                '--right-panel-w': `${rightPanelWidth}px`,
+              } as React.CSSProperties}
+              className="hidden lg:flex w-[var(--right-panel-w,320px)] shrink-0 h-full min-h-0 overflow-hidden border-l border-bord-pr bg-bg-pr flex-col"
+            >
+              {activeChat?.type === 'group' ? (
+                <GroupInfoPanel
+                  key={activeChat.id}
+                  chat={activeChat}
+                  currentUserId={user.id}
+                  myRole={myParticipantRole}
+                  onlineUsers={onlineUsers}
+                  pinnedCount={pinnedMessages.length}
+                  messages={messages}
+                  inviteUserQuery={inviteUserQuery}
+                  inviteUserResults={inviteUserResults}
+                  onInviteQueryChange={setInviteUserQuery}
+                  onInviteUser={(uid) => void handleInviteToGroup(uid)}
+                  onStartCall={(mode) => handleStartCall(mode)}
+                  onLeaveGroup={() => void handleChatAction('leave_group')}
+                  onDeleteGroup={() => void handleChatAction('delete')}
+                  onOpenLightbox={(url) => setLightboxImageUrl(url)}
+                  onRefresh={() => {
+                    void loadConversation(activeChat.id, '', true);
+                    void loadInbox();
+                  }}
+                  onClose={() => setGroupInfoOpen(false)}
+                />
+              ) : interlocutor ? (
+                <DirectProfilePanel
+                  key={activeChat.id}
+                  user={{
+                    _id: interlocutor._id,
+                    username: interlocutor.username,
+                    firstName: interlocutor.firstName,
+                    lastName: interlocutor.lastName,
+                    avatar: interlocutor.avatar,
+                    verified: interlocutor.verified,
+                    lastActive: interlocutor.lastActive,
+                  }}
+                  isOnline={interlocutorOnline}
+                  messages={messages}
+                  locale={locale}
+                  isArchived={isArchivedChat}
+                  isMuted={chatMuted}
+                  onToggleMute={() => setChatMuted((prev) => !prev)}
+                  onStartCall={(mode) => handleStartCall(mode)}
+                  onOpenSearch={() => setThreadSearchOpen(true)}
+                  onOpenTip={() => setTipDirectUserModalOpen(true)}
+                  onChatAction={(action) => void handleChatAction(action)}
+                  onOpenLightbox={(url) => setLightboxImageUrl(url)}
+                  onClose={() => setDirectInfoOpen(false)}
+                />
+              ) : null}
+            </div>
+          </>
+        )}
 
       {/* New Chat / Group Modal */}
       <Modal open={newChatOpen} onClose={() => setNewChatOpen(false)} title="New Conversation">

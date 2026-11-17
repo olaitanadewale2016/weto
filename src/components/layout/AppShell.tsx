@@ -352,26 +352,19 @@ export function AppShell({
         </header>
       )}
 
-      {/* Centered Desktop Application Layout (Balanced Left & Right Margins) */}
-      <div
-        className={cn(
-          'w-full flex justify-center',
-          !viewportLocked && 'min-h-screen'
-        )}
-      >
-        <div
-          className={cn(
-            'w-full flex',
-            viewportLocked
-              ? 'h-full flex-col'
-              : 'max-w-[1260px] xl:max-w-[1300px] justify-center'
-          )}
-        >
-          {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
-          {!hideDesktopSidebar && (
-            <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[275px] shrink-0">
-              {/* Main Nav Column */}
-              <div className="flex-1 h-full shrink-0 flex flex-col pt-6 px-3 xl:px-5 overflow-y-auto hidden-scroll">
+      {viewportLocked ? (
+        <main className="flex-1 min-h-0 h-full w-full overflow-hidden flex flex-col">
+          {children}
+        </main>
+      ) : (
+        /* Centered Desktop Application Layout (Balanced Left & Right Margins) */
+        <div className="w-full min-h-screen flex justify-center">
+          <div className="w-full max-w-[1260px] xl:max-w-[1300px] flex justify-center">
+            {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
+            {!hideDesktopSidebar && (
+              <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[240px] xl:w-[275px] shrink-0">
+                {/* Main Nav Column */}
+                <div className="flex-1 h-full shrink-0 flex flex-col pt-6 px-3 xl:px-5 overflow-y-auto hidden-scroll">
             {/* Logo Header — exact ApplicationSidebar.vue */}
             <div className="mb-4">
               <Link href="/" className="inline-block">
@@ -654,19 +647,16 @@ export function AppShell({
           <div
             className={cn(
               'flex-1 min-w-0',
-              viewportLocked && 'min-h-0 flex flex-col overflow-hidden',
               hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6',
               hideMobileChrome
                 ? 'pb-0'
-                : viewportLocked
-                  ? 'pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0'
-                  : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
+                : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
             )}
           >
             {fullWidth || hideRightRail ? (
               <main
                 className={cn(
-                  viewportLocked ? 'flex-1 min-h-0 h-full overflow-hidden' : 'min-h-screen',
+                  'min-h-screen',
                   fullWidth && !hideDesktopSidebar ? 'max-w-[1280px]' : 'w-full'
                 )}
               >
@@ -684,6 +674,7 @@ export function AppShell({
           </div>
         </div>
       </div>
+      )}
 
       {/* Mobile Bottom Navigation matching mobile/components/layout/ApplicationNavbar.vue */}
       {!hideMobileChrome && (

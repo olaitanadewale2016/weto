@@ -29,26 +29,26 @@
   --spacing-safe-bottom: env(safe-area-inset-bottom);
 
   /* Typography Scale aligned with X (x.com) */
-  --text-lg-title: 2.125rem;
-  --text-lg-title--line-height: 2.5rem;
+  --text-lg-title: 2.25rem;
+  --text-lg-title--line-height: 2.625rem;
   --text-title-1: 1.875rem;
   --text-title-1--line-height: 2.25rem;
-  --text-title-2: 1.4375rem;
-  --text-title-2--line-height: 1.75rem;
-  --text-title-3: 1.25rem;
-  --text-title-3--line-height: 1.5rem;
-  --text-par-l: 1.0625rem;
-  --text-par-l--line-height: 1.5rem;
-  --text-par-m: 0.9375rem;
-  --text-par-m--line-height: 1.375rem;
-  --text-par-n: 0.9375rem;
-  --text-par-n--line-height: 1.3125rem;
-  --text-par-s: 0.875rem;
-  --text-par-s--line-height: 1.25rem;
-  --text-cap-l: 0.8125rem;
-  --text-cap-l--line-height: 1.125rem;
-  --text-cap-s: 0.75rem;
-  --text-cap-s--line-height: 1rem;
+  --text-title-2: 1.5rem;
+  --text-title-2--line-height: 1.875rem;
+  --text-title-3: 1.3125rem;
+  --text-title-3--line-height: 1.625rem;
+  --text-par-l: 1.125rem;
+  --text-par-l--line-height: 1.625rem;
+  --text-par-m: 1.03125rem;
+  --text-par-m--line-height: 1.5rem;
+  --text-par-n: 1rem;
+  --text-par-n--line-height: 1.5rem;
+  --text-par-s: 0.9375rem;
+  --text-par-s--line-height: 1.375rem;
+  --text-cap-l: 0.875rem;
+  --text-cap-l--line-height: 1.25rem;
+  --text-cap-s: 0.8125rem;
+  --text-cap-s--line-height: 1.125rem;
 
   /* Theme Color Mappings */
   --color-fill-pr: var(--cp-fill-pr);
@@ -156,8 +156,8 @@ body {
   background-color: var(--cp-bg-pr);
   color: var(--cp-lab-pr);
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.375;
+  font-size: 16px;
+  line-height: 1.45;
   letter-spacing: 0;
   max-width: 100%;
   overflow-x: clip;

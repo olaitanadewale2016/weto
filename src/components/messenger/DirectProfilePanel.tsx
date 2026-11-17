@@ -171,7 +171,7 @@ export function DirectProfilePanel({
                   <div className="size-10 rounded-full bg-fill-qt group-hover:bg-brand-900/10 flex items-center justify-center transition-colors">
                     <Phone className="size-4 text-lab-pr group-hover:text-brand-900" />
                   </div>
-                  <span className="text-[11px] font-medium">Call</span>
+                  <span className="text-[12.5px] font-medium">Call</span>
                 </button>
                 <button
                   type="button"
@@ -182,7 +182,7 @@ export function DirectProfilePanel({
                   <div className="size-10 rounded-full bg-fill-qt group-hover:bg-brand-900/10 flex items-center justify-center transition-colors">
                     <Video className="size-4 text-lab-pr group-hover:text-brand-900" />
                   </div>
-                  <span className="text-[11px] font-medium">Video</span>
+                  <span className="text-[12.5px] font-medium">Video</span>
                 </button>
               </>
             )}
@@ -197,7 +197,7 @@ export function DirectProfilePanel({
                 <div className="size-10 rounded-full bg-amber-500/10 group-hover:bg-amber-500/20 flex items-center justify-center transition-colors">
                   <Coins className="size-4 text-amber-500" />
                 </div>
-                <span className="text-[11px] font-medium">Tip</span>
+                <span className="text-[12.5px] font-medium">Tip</span>
               </button>
             )}
 
@@ -209,7 +209,7 @@ export function DirectProfilePanel({
               <div className="size-10 rounded-full bg-fill-qt group-hover:bg-brand-900/10 flex items-center justify-center transition-colors">
                 <ExternalLink className="size-4 text-lab-pr group-hover:text-brand-900" />
               </div>
-              <span className="text-[11px] font-medium">Profile</span>
+              <span className="text-[12.5px] font-medium">Profile</span>
             </Link>
           </div>
         </div>
