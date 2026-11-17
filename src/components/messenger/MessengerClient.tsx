@@ -370,6 +370,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   const [callMode, setCallMode] = useState<'video' | 'audio' | null>(null);
   const [showChatInCall, setShowChatInCall] = useState(false);
+  const [callMinimized, setCallMinimized] = useState(false);
   const [activeCall, setActiveCall] = useState<ActiveCallSummary | null>(null);
   const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
   const [pinIndex, setPinIndex] = useState(0);
@@ -638,6 +639,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         setAttachMenuOpen(false);
         setCallMode(null);
         setShowChatInCall(false);
+        setCallMinimized(false);
         setActiveCall(null);
         setPinnedMessages([]);
         setPinIndex(0);
@@ -648,6 +650,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
         const answerMode = qsParams?.get('answerCall');
         if (answerMode === 'video' || answerMode === 'audio') {
+          setShowChatInCall(false);
+          setCallMinimized(false);
           setCallMode(answerMode);
           qsParams?.delete('answerCall');
           const nextSearch = qsParams?.toString();
@@ -1393,6 +1397,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   function handleStartCall(mode: 'video' | 'audio') {
     if (!activeChatId) return;
     setShowChatInCall(false);
+    setCallMinimized(false);
+    setGroupInfoOpen(false);
+    setThreadMenuOpen(false);
     setCallMode(mode);
   }
 
@@ -2446,7 +2453,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 </div>
 
                 {!joinPreviewStatus && (
-                <div className="flex items-center gap-0.5 shrink-0 relative">
+                <div className="flex items-center gap-1 shrink-0 relative">
                   <button
                     type="button"
                     onClick={() => handleStartCall('audio')}
@@ -2454,129 +2461,136 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
                       (callMode === 'audio' || activeCall?.audioOnly) &&
                         'bg-green-600/15 text-green-600'
-                    )}
-                    title={activeCall?.audioOnly ? 'Join active audio call' : 'Start audio call'}
-                    aria-label="Audio call"
-                  >
-                    <Phone className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                  </button>
+                      )}
+                      title={activeCall?.audioOnly ? 'Join active audio call' : 'Start audio call'}
+                      aria-label="Audio call"
+                    >
+                      <Phone className="h-[17px] w-[17px]" strokeWidth={1.75} />
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleStartCall('video')}
-                    className={cn(
-                      'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                      (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
+                    <button
+                      type="button"
+                      onClick={() => handleStartCall('video')}
+                      className={cn(
+                        'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
                         'bg-brand-900/15 text-brand-900'
-                    )}
-                    title={
-                      activeCall && !activeCall.audioOnly ? 'Join active video call' : 'Start video call'
-                    }
-                    aria-label="Video call"
-                  >
-                    <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setChatMuted((prev) => !prev)}
-                    className={cn(
-                      'hidden sm:inline-flex size-8 rounded-full items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer',
-                      chatMuted && 'text-red-500 bg-fill-sc'
-                    )}
-                    title={chatMuted ? 'Unmute chat sounds' : 'Mute chat sounds'}
-                    aria-label={chatMuted ? 'Unmute chat sounds' : 'Mute chat sounds'}
-                  >
-                    {chatMuted ? (
-                      <VolumeX className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                    ) : (
-                      <Volume2 className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setThreadSearchOpen((prev) => {
-                        if (prev) setThreadSearchQ('');
-                        return !prev;
-                      });
-                    }}
-                    className={cn(
-                      'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer',
-                      threadSearchOpen && 'bg-fill-sc text-lab-pr'
-                    )}
-                    title="Search messages"
-                    aria-label="Search messages"
-                  >
-                    <Search className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      activeChat.type === 'group'
-                        ? setGroupInfoOpen((prev) => !prev)
-                        : setDirectInfoOpen(true)
-                    }
-                    className={cn(
-                      'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer',
-                      activeChat.type === 'group' && groupInfoOpen && 'bg-fill-sc text-brand-900'
-                    )}
-                    title="Conversation info"
-                    aria-label="Conversation info"
-                  >
-                    <Info className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                  </button>
+                      )}
+                      title={
+                        activeCall && !activeCall.audioOnly ? 'Join active video call' : 'Start video call'
+                      }
+                      aria-label="Video call"
+                    >
+                      <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                    </button>
 
                   <button
                     type="button"
                     onClick={() => setThreadMenuOpen((prev) => !prev)}
-                    className="size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
-                    title="Conversation options"
+                    className={cn(
+                      'size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                      threadMenuOpen && 'bg-fill-sc text-lab-pr'
+                    )}
+                    title="More options"
                     aria-label="Conversation options"
                   >
                     <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.75} />
                   </button>
 
                     {threadMenuOpen && (
-                      <div className="absolute right-0 top-11 z-30 w-48 rounded-2xl border border-bord-pr bg-bg-pr shadow-lg py-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleChatAction(isArchivedChat ? 'unarchive' : 'archive')}
-                          className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                        >
-                          <Archive className="h-4 w-4 text-lab-sc" />
-                          {isArchivedChat ? 'Unarchive chat' : 'Archive chat'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleChatAction('clear')}
-                          className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                        >
-                          <X className="h-4 w-4 text-lab-sc" />
-                          Clear history
-                        </button>
-                        {activeChat.type === 'group' && myParticipantRole !== 'owner' && (
+                      <div className="absolute right-0 top-11 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl py-1.5 divide-y divide-bord-tr">
+                        <div className="pb-1">
                           <button
                             type="button"
-                            onClick={() => handleChatAction('leave_group')}
+                            onClick={() => {
+                              setThreadMenuOpen(false);
+                              if (activeChat.type === 'group') {
+                                setGroupInfoOpen((prev) => !prev);
+                              } else {
+                                setDirectInfoOpen(true);
+                              }
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                          >
+                            <Info className="h-4 w-4 text-lab-sc" />
+                            {activeChat.type === 'group' ? 'Group info & members' : 'Conversation info'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setThreadMenuOpen(false);
+                              setThreadSearchOpen((prev) => {
+                                if (prev) setThreadSearchQ('');
+                                return !prev;
+                              });
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                          >
+                            <Search className="h-4 w-4 text-lab-sc" />
+                            {threadSearchOpen ? 'Close message search' : 'Search messages'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setChatMuted((prev) => !prev);
+                              setThreadMenuOpen(false);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                          >
+                            {chatMuted ? (
+                              <>
+                                <Volume2 className="h-4 w-4 text-lab-sc" />
+                                Unmute notifications
+                              </>
+                            ) : (
+                              <>
+                                <VolumeX className="h-4 w-4 text-lab-sc" />
+                                Mute notifications
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleChatAction(isArchivedChat ? 'unarchive' : 'archive')}
+                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                          >
+                            <Archive className="h-4 w-4 text-lab-sc" />
+                            {isArchivedChat ? 'Unarchive chat' : 'Archive chat'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleChatAction('clear')}
+                            className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                          >
+                            <X className="h-4 w-4 text-lab-sc" />
+                            Clear history
+                          </button>
+                          {activeChat.type === 'group' && myParticipantRole !== 'owner' && (
+                            <button
+                              type="button"
+                              onClick={() => handleChatAction('leave_group')}
+                              className="w-full px-3.5 py-2 text-left text-par-n text-red-600 hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
+                            >
+                              <LogOut className="h-4 w-4" />
+                              Leave group
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleChatAction('delete')}
                             className="w-full px-3.5 py-2 text-left text-par-n text-red-600 hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
                           >
-                            <LogOut className="h-4 w-4" />
-                            Leave group
+                            <Trash2 className="h-4 w-4" />
+                            {activeChat.type === 'group' && myParticipantRole === 'owner'
+                              ? 'Delete group'
+                              : 'Delete chat'}
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleChatAction('delete')}
-                          className="w-full px-3.5 py-2 text-left text-par-n text-red-600 hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {activeChat.type === 'group' && myParticipantRole === 'owner'
-                            ? 'Delete group'
-                            : 'Delete chat'}
-                        </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2718,17 +2732,23 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     }
                     socket={socket}
                     chatWindowVisible={showChatInCall}
-                    onToggleChatWindow={() => setShowChatInCall((v) => !v)}
+                    minimized={callMinimized}
+                    onToggleChatWindow={() => {
+                      setCallMinimized(false);
+                      setShowChatInCall((v) => !v);
+                    }}
+                    onToggleMinimize={() => setCallMinimized((v) => !v)}
                     onExit={() => {
                       setCallMode(null);
                       setShowChatInCall(false);
+                      setCallMinimized(false);
                       void loadConversation(activeChat.id, '', true);
                     }}
                   />
                 )}
 
                 {/* Pinned Messages Carousel (Grupo Pro parity) */}
-                {currentPinned && pinnedMessages.length > 0 && (!callMode || showChatInCall) && (
+                {currentPinned && pinnedMessages.length > 0 && (!callMode || callMinimized || showChatInCall) && (
                   <div className="px-3 sm:px-4 py-2 border-b border-bord-card bg-fill-qt flex items-center justify-between gap-2 shrink-0">
                     <button
                       type="button"
@@ -2789,7 +2809,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 <div
                   className={cn(
                     'flex-1 overflow-y-auto overflow-x-hidden py-3 px-3 px-safe md:px-0 md:py-4 space-y-2.5 md:space-y-0.5',
-                    callMode && !showChatInCall && 'hidden'
+                    callMode && !callMinimized && !showChatInCall && 'hidden'
                   )}
                 >
                   {!loadingThread && !threadSearchQ && (
@@ -3168,7 +3188,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {(!callMode || showChatInCall) && (
+                {(!callMode || callMinimized || showChatInCall) && (
                   <>
                     {/* Reply Preview Banner */}
                     {replyTo && (

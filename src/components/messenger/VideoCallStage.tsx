@@ -10,7 +10,6 @@ import {
   Monitor,
   MonitorOff,
   PhoneOff,
-  Radio,
   Settings,
   Video,
   VideoOff,
@@ -72,8 +71,35 @@ interface VideoCallStageProps {
   isGroupAdmin?: boolean;
   socket: Socket | null;
   chatWindowVisible: boolean;
+  minimized?: boolean;
   onToggleChatWindow: () => void;
+  onToggleMinimize?: () => void;
   onExit: () => void;
+}
+
+/** Exact Grupo Pro `.toggle_push_to_talk > svg.non_active` from layouts/chat_page/middle.php */
+function GrupoPttInactiveIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 470 470" fill="currentColor" className={className} aria-hidden="true">
+      <g fillRule="evenodd">
+        <g transform="translate(85.333333, 18.666667)">
+          <path d="M206.413257,215.447893 L206.413257,130.666667 C206.413257,99.7915733 181.28835,74.6666667 150.413257,74.666667 C119.538163,74.6666667 94.4132566,99.7915733 94.4132566,130.666667 L94.4132566,250.096427 C84.0473899,241.401173 71.1085099,236.468907 57.5200299,236.468907 C41.3429632,236.468907 25.8116566,243.323093 14.9470166,255.281493 C-6.06205009,278.304853 -4.69501009,313.828267 17.6045099,335.429973 C17.6330966,335.45856 17.6435499,335.48992 17.6721366,335.518507 L112,426.666667 L320,426.666667 L320,250.666667 L206.413257,215.447893 Z M277.333333,384 C277.333333,384 128.393387,384 128,384 C128,384 53.2621099,313.552 45.9912832,306.927147 C37.7177899,299.39072 37.1202432,286.573013 44.6579499,278.29696 C52.1969366,270.023467 65.0146432,269.4272 73.2894166,276.963627 C78.8286166,282.010453 115.241417,312 115.241417,312 L131.74659,303.46624 L131.74659,130.666667 C131.74659,120.356693 140.104563,112 150.413257,112 C160.72323,112 169.079923,120.356693 169.079923,130.666667 L169.079923,248.541653 L277.333333,282.666667 L277.333333,384 Z M24.1438166,163.708373 C21.3728299,153.1328 19.7465899,142.098987 19.7465899,130.666667 C19.7465899,58.6250667 78.3612032,7.10542736e-15 150.413257,7.10542736e-15 C222.46531,7.10542736e-15 281.079923,58.6250667 281.079923,130.666667 C281.079923,142.098987 279.453683,153.1328 276.682697,163.708373 L236.211443,149.69792 C237.574643,143.552 238.413257,137.218773 238.413257,130.666667 C238.413257,82.1431467 198.936777,42.6666667 150.413257,42.6666667 C101.889737,42.6666667 62.4132566,82.1431467 62.4132566,130.666667 C62.4132566,137.218773 63.2518699,143.552 64.6150699,149.69792 L24.1438166,163.708373 Z" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/** Exact Grupo Pro `.toggle_push_to_talk > svg.active` from layouts/chat_page/middle.php */
+function GrupoPttActiveIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="0.168" aria-hidden="true">
+      <path d="M18.3569 1.61412C18.57 1.25893 19.0307 1.14376 19.3859 1.35687L19 1.99999C19.3859 1.35687 19.3855 1.35667 19.3859 1.35687L19.3873 1.35771L19.3888 1.35866L19.3925 1.36091L19.4021 1.36683C19.4095 1.3714 19.4187 1.37724 19.4297 1.38436C19.4517 1.39859 19.4808 1.41797 19.516 1.4426C19.5863 1.49182 19.6813 1.56232 19.7926 1.65508C20.0147 1.84016 20.3052 2.11666 20.5945 2.49271C21.1773 3.25044 21.75 4.40734 21.75 5.99999C21.75 7.59265 21.1773 8.74954 20.5945 9.50727C20.3052 9.88332 20.0147 10.1598 19.7926 10.3449C19.6813 10.4377 19.5863 10.5082 19.516 10.5574C19.4808 10.582 19.4517 10.6014 19.4297 10.6156C19.4187 10.6227 19.4095 10.6286 19.4021 10.6332L19.3925 10.6391L19.3888 10.6413L19.3873 10.6423C19.3869 10.6425 19.3859 10.6431 19 9.99999L19.3859 10.6431C19.0307 10.8562 18.57 10.741 18.3569 10.3859C18.1447 10.0322 18.258 9.57386 18.6097 9.35958L18.6152 9.35604C18.6225 9.35133 18.6363 9.34219 18.6558 9.32854C18.6949 9.30119 18.7562 9.25607 18.8324 9.19258C18.9853 9.06516 19.1948 8.86666 19.4055 8.59271C19.8227 8.05044 20.25 7.20734 20.25 5.99999C20.25 4.79264 19.8227 3.94954 19.4055 3.40727C19.1948 3.13332 18.9853 2.93482 18.8324 2.80741C18.7562 2.74391 18.6949 2.69879 18.6558 2.67145C18.6363 2.6578 18.6225 2.64866 18.6152 2.64394L18.6097 2.64041C18.258 2.42613 18.1447 1.96781 18.3569 1.61412Z" fill="currentColor" />
+      <path fillRule="evenodd" clipRule="evenodd" d="M10 1.24999C7.37665 1.24999 5.25 3.37664 5.25 5.99999C5.25 8.62334 7.37665 10.75 10 10.75C12.6234 10.75 14.75 8.62334 14.75 5.99999C14.75 3.37664 12.6234 1.24999 10 1.24999ZM6.75 5.99999C6.75 4.20507 8.20507 2.74999 10 2.74999C11.7949 2.74999 13.25 4.20507 13.25 5.99999C13.25 7.79492 11.7949 9.24999 10 9.24999C8.20507 9.24999 6.75 7.79492 6.75 5.99999Z" fill="currentColor" />
+      <path fillRule="evenodd" clipRule="evenodd" d="M10 12.25C7.96067 12.25 6.07752 12.7207 4.67815 13.5204C3.3 14.3079 2.25 15.5101 2.25 17C2.25 18.4899 3.3 19.6921 4.67815 20.4796C6.07752 21.2792 7.96067 21.75 10 21.75C12.0393 21.75 13.9225 21.2792 15.3219 20.4796C16.7 19.6921 17.75 18.4899 17.75 17C17.75 15.5101 16.7 14.3079 15.3219 13.5204C13.9225 12.7207 12.0393 12.25 10 12.25ZM3.75 17C3.75 16.2807 4.26701 15.4829 5.42236 14.8227C6.55649 14.1747 8.17334 13.75 10 13.75C11.8267 13.75 13.4435 14.1747 14.5776 14.8227C15.733 15.4829 16.25 16.2807 16.25 17C16.25 17.7193 15.733 18.517 14.5776 19.1772C13.4435 19.8253 11.8267 20.25 10 20.25C8.17334 20.25 6.55649 19.8253 5.42236 19.1772C4.26701 18.517 3.75 17.7193 3.75 17Z" fill="currentColor" />
+      <path d="M17.3859 3.35687C17.0307 3.14376 16.57 3.25893 16.3569 3.61412L16.6051 4.63761L16.6129 4.64293C16.6246 4.65113 16.6468 4.66735 16.6761 4.69178C16.7353 4.74107 16.8198 4.82082 16.9055 4.93227C17.0727 5.14954 17.25 5.49264 17.25 5.99999C17.25 6.50734 17.0727 6.85044 16.9055 7.06771C16.8198 7.17916 16.7353 7.25891 16.6761 7.3082C16.6468 7.33263 16.6246 7.34885 16.6129 7.35705L16.6051 7.36237C16.257 7.57782 16.1456 8.0337 16.3569 8.38586C16.57 8.74105 17.0307 8.85622 17.3859 8.64311L17 7.99999C17.3859 8.64311 17.3855 8.64331 17.3859 8.64311L17.3872 8.6423L17.3887 8.64144L17.3918 8.63951L17.3993 8.63492L17.4185 8.6227C17.4332 8.61321 17.4515 8.60096 17.4731 8.5859C17.516 8.55582 17.572 8.51423 17.6364 8.46053C17.7647 8.35357 17.9302 8.19582 18.0945 7.98227C18.4273 7.54954 18.75 6.89264 18.75 5.99999C18.75 5.10734 18.4273 4.45044 18.0945 4.01771C17.9302 3.80416 17.7647 3.64641 17.6364 3.53945C17.572 3.48576 17.516 3.44416 17.4731 3.41408C17.4515 3.39902 17.4332 3.38678 17.4185 3.37728L17.3993 3.36507L17.3918 3.36047L17.3887 3.35855L17.3872 3.35768C17.3869 3.35748 17.3859 3.35687 17 3.99999L17.3859 3.35687Z" fill="currentColor" />
+    </svg>
+  );
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -119,6 +145,12 @@ function ParticipantMediaTile({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const hasLiveVideo =
+    !audioOnly &&
+    Boolean(stream) &&
+    stream!.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled) &&
+    (cameraEnabled || screenSharing);
+
   useEffect(() => {
     const v = videoRef.current;
     if (v) {
@@ -142,7 +174,12 @@ function ParticipantMediaTile({
         a.play().catch(() => undefined);
       }
     }
-  }, [stream, isLocal, volume]);
+
+    return () => {
+      if (v) v.srcObject = null;
+      if (a) a.srcObject = null;
+    };
+  }, [stream, isLocal, volume, hasLiveVideo]);
 
   useEffect(() => {
     if (isLocal || typeof volume !== 'number') return;
@@ -150,12 +187,6 @@ function ParticipantMediaTile({
     if (videoRef.current) videoRef.current.volume = normalized;
     if (audioRef.current) audioRef.current.volume = normalized;
   }, [volume, isLocal]);
-
-  const hasLiveVideo =
-    !audioOnly &&
-    Boolean(stream) &&
-    stream!.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled) &&
-    (cameraEnabled || screenSharing);
 
   return (
     <div
@@ -266,6 +297,23 @@ function ParticipantMediaTile({
   );
 }
 
+/** Keeps remote peer audio tracks audible even when the call stage is minimized to a compact bar */
+function MinimizedAudioSink({ stream, volume }: { stream: MediaStream; volume: number }) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const a = ref.current;
+    if (!a) return;
+    a.srcObject = stream;
+    a.muted = false;
+    a.volume = Math.max(0, Math.min(1, volume / 100));
+    a.play().catch(() => undefined);
+    return () => {
+      a.srcObject = null;
+    };
+  }, [stream, volume]);
+  return <audio ref={ref} autoPlay playsInline className="hidden" />;
+}
+
 /**
  * Full Grupo Pro Video Call + Audio Call + Screen Sharing Stage
  * (`layouts/chat_page/middle.php` + `live_kit_video_chat.js` + `agora_video_chat.js` parity)
@@ -279,7 +327,9 @@ export function VideoCallStage({
   isGroupAdmin = false,
   socket,
   chatWindowVisible,
+  minimized = false,
   onToggleChatWindow,
+  onToggleMinimize,
   onExit,
 }: VideoCallStageProps) {
   const { error, info } = useToast();
@@ -287,11 +337,12 @@ export function VideoCallStage({
   const [callId, setCallId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(true);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [micMuted, setMicMuted] = useState(chatType === 'group'); // Push-to-talk option or normal
+  const [micMuted, setMicMuted] = useState(chatType === 'group');
   const [cameraOff, setCameraOff] = useState(audioOnly);
   const [screenSharing, setScreenSharing] = useState(false);
-  const [pushToTalkMode, setPushToTalkMode] = useState(false);
+  const [pushToTalkMode, setPushToTalkMode] = useState(chatType === 'group');
   const [pttActive, setPttActive] = useState(false);
+  const [pttLocked, setPttLocked] = useState(false);
   const [pinnedUserId, setPinnedUserId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
@@ -310,6 +361,9 @@ export function VideoCallStage({
   const processedSignalIdsRef = useRef<Set<string>>(new Set());
   const lastSignalIsoRef = useRef<string>('');
   const mountedRef = useRef(true);
+  const exitedRef = useRef(false);
+  const pttLastTapRef = useRef<number>(0);
+  const pttKeyHeldRef = useRef<boolean>(false);
   const onExitRef = useRef(onExit);
 
   useEffect(() => {
@@ -480,33 +534,82 @@ export function VideoCallStage({
     [currentUser.id, getOrCreatePeer, sendSignal]
   );
 
+  const stopAllMediaSync = useCallback(() => {
+    screenStreamRef.current?.getTracks().forEach((t) => {
+      try {
+        t.stop();
+      } catch {
+        // ignore
+      }
+    });
+    screenStreamRef.current = null;
+
+    localStreamRef.current?.getTracks().forEach((t) => {
+      try {
+        t.stop();
+      } catch {
+        // ignore
+      }
+    });
+    localStreamRef.current = null;
+
+    for (const pc of peersRef.current.values()) {
+      pc.getSenders().forEach((sender) => {
+        if (sender.track) {
+          try {
+            sender.track.stop();
+          } catch {
+            // ignore
+          }
+        }
+      });
+      pc.close();
+    }
+    peersRef.current.clear();
+    setLocalStream(null);
+    setRemoteStreams({});
+  }, []);
+
   const cleanupCall = useCallback(
     async (notifyServer = true) => {
+      const leavingCallId = callIdRef.current;
+      callIdRef.current = null;
+
+      // Immediately release hardware camera & microphone BEFORE network I/O
+      stopAllMediaSync();
+
       if (notifyServer) {
         await apiFetch(`/chats/${chatId}/call`, {
           method: 'POST',
-          json: { action: 'leave', callId: callIdRef.current || undefined },
+          json: { action: 'leave', callId: leavingCallId || undefined },
+          keepalive: true,
         }).catch(() => undefined);
       }
-
-      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-      screenStreamRef.current = null;
-      localStreamRef.current?.getTracks().forEach((t) => t.stop());
-      localStreamRef.current = null;
-
-      for (const pc of peersRef.current.values()) {
-        pc.close();
-      }
-      peersRef.current.clear();
-      setLocalStream(null);
-      setRemoteStreams({});
     },
-    [chatId]
+    [chatId, stopAllMediaSync]
   );
+
+  const handleHangup = useCallback(() => {
+    if (exitedRef.current) return;
+    exitedRef.current = true;
+    const leavingCallId = callIdRef.current;
+    callIdRef.current = null;
+
+    // Instant hardware camera/mic cut at 0ms
+    stopAllMediaSync();
+    onExitRef.current();
+
+    void apiFetch(`/chats/${chatId}/call`, {
+      method: 'POST',
+      json: { action: 'leave', callId: leavingCallId || undefined },
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [chatId, stopAllMediaSync]);
 
   // Initialize local media, join/start call, and enumerate audio/video devices
   useEffect(() => {
     mountedRef.current = true;
+    exitedRef.current = false;
     let initStopped = false;
 
     async function init() {
@@ -528,19 +631,34 @@ export function VideoCallStage({
         } catch {
           // Graceful fallback to audio-only if webcam isn't attached
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          setCameraOff(true);
+          if (mountedRef.current && !initStopped) {
+            setCameraOff(true);
+          }
         }
 
-        if (initStopped || !mountedRef.current) {
+        if (initStopped || !mountedRef.current || exitedRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
 
+        // In group calls, start with PTT muted by default (Grupo mute_users_during_call/PTT parity)
+        const startMuted = chatType === 'group';
+        stream.getAudioTracks().forEach((t) => {
+          t.enabled = !startMuted;
+        });
+
         localStreamRef.current = stream;
         setLocalStream(stream);
-        setMicMuted(false);
+        setMicMuted(startMuted);
+        setPushToTalkMode(chatType === 'group');
 
         const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+        if (initStopped || !mountedRef.current || exitedRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          localStreamRef.current = null;
+          return;
+        }
+
         const mics = devices.filter((d) => d.kind === 'audioinput');
         const cams = devices.filter((d) => d.kind === 'videoinput');
         setAudioInputs(mics);
@@ -562,6 +680,19 @@ export function VideoCallStage({
           }
         );
 
+        if (initStopped || !mountedRef.current || exitedRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          localStreamRef.current = null;
+          if (res.activeCall?.id) {
+            void apiFetch(`/chats/${chatId}/call`, {
+              method: 'POST',
+              json: { action: 'leave', callId: res.activeCall.id },
+              keepalive: true,
+            }).catch(() => undefined);
+          }
+          return;
+        }
+
         if (!res.activeCall) {
           throw new Error('Could not establish call room.');
         }
@@ -572,7 +703,7 @@ export function VideoCallStage({
         setConnecting(false);
         await syncPeersWithParticipants(res.activeCall.participants || []);
       } catch (err) {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || exitedRef.current) return;
         error('Unable to start call', err instanceof Error ? err.message : undefined);
         await cleanupCall(false);
         onExitRef.current();
@@ -584,10 +715,14 @@ export function VideoCallStage({
     return () => {
       initStopped = true;
       mountedRef.current = false;
-      void cleanupCall(true);
+      stopAllMediaSync();
+      if (!exitedRef.current) {
+        exitedRef.current = true;
+        void cleanupCall(true);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, audioOnly]);
+  }, [chatId, audioOnly, chatType]);
 
   // Socket.IO realtime call signal & status listener
   useEffect(() => {
@@ -746,16 +881,19 @@ export function VideoCallStage({
     };
   }, [localStream, remoteStreams, currentUser.id, micMuted]);
 
-  function toggleMic(explicitState?: boolean) {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-    const nextMuted = explicitState !== undefined ? explicitState : !micMuted;
-    stream.getAudioTracks().forEach((t) => {
-      t.enabled = !nextMuted;
-    });
-    setMicMuted(nextMuted);
-    void pushStateUpdate({ muted: nextMuted });
-  }
+  const toggleMic = useCallback(
+    (explicitState?: boolean) => {
+      const stream = localStreamRef.current;
+      if (!stream) return;
+      const nextMuted = explicitState !== undefined ? explicitState : !micMuted;
+      stream.getAudioTracks().forEach((t) => {
+        t.enabled = !nextMuted;
+      });
+      setMicMuted(nextMuted);
+      void pushStateUpdate({ muted: nextMuted });
+    },
+    [micMuted, pushStateUpdate]
+  );
 
   async function toggleCamera() {
     if (audioOnly) return;
@@ -764,28 +902,60 @@ export function VideoCallStage({
     const videoTracks = stream.getVideoTracks();
     const nextOff = !cameraOff;
 
-    if (videoTracks.length > 0) {
+    if (nextOff) {
+      // Stop hardware camera tracks immediately so the camera LED turns off right away
       videoTracks.forEach((t) => {
-        t.enabled = !nextOff;
-      });
-      setCameraOff(nextOff);
-      void pushStateUpdate({ cameraEnabled: !nextOff });
-    } else if (!nextOff) {
-      try {
-        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const camTrack = camStream.getVideoTracks()[0];
-        if (camTrack) {
-          stream.addTrack(camTrack);
-          for (const pc of peersRef.current.values()) {
-            pc.addTrack(camTrack, stream);
-          }
-          setLocalStream(new MediaStream(stream.getTracks()));
-          setCameraOff(false);
-          void pushStateUpdate({ cameraEnabled: true });
+        stream.removeTrack(t);
+        try {
+          t.stop();
+        } catch {
+          // ignore
         }
-      } catch {
-        error('Camera access unavailable');
+      });
+      for (const pc of peersRef.current.values()) {
+        for (const sender of pc.getSenders()) {
+          if (sender.track?.kind === 'video') {
+            await sender.replaceTrack(null).catch(() => undefined);
+          }
+        }
       }
+      setLocalStream(new MediaStream(stream.getTracks()));
+      setCameraOff(true);
+      void pushStateUpdate({ cameraEnabled: false });
+      return;
+    }
+
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: selectedCamId ? { deviceId: { exact: selectedCamId } } : { facingMode: 'user' },
+      });
+      const camTrack = camStream.getVideoTracks()[0];
+      if (!camTrack) return;
+
+      if (exitedRef.current || !mountedRef.current) {
+        camTrack.stop();
+        return;
+      }
+
+      stream.getVideoTracks().forEach((t) => {
+        stream.removeTrack(t);
+        t.stop();
+      });
+      stream.addTrack(camTrack);
+
+      for (const pc of peersRef.current.values()) {
+        const videoSender = pc.getSenders().find((s) => s.track === null || s.track?.kind === 'video');
+        if (videoSender) {
+          await videoSender.replaceTrack(camTrack).catch(() => undefined);
+        } else {
+          pc.addTrack(camTrack, stream);
+        }
+      }
+      setLocalStream(new MediaStream(stream.getTracks()));
+      setCameraOff(false);
+      void pushStateUpdate({ cameraEnabled: true });
+    } catch {
+      error('Camera access unavailable');
     }
   }
 
@@ -927,31 +1097,75 @@ export function VideoCallStage({
     }
   }
 
-  // Push-to-Talk hotkey (`Space` when holding PTT or double-tap) matching Grupo live_kit_video_chat.js
-  useEffect(() => {
-    if (!pushToTalkMode) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
-        e.preventDefault();
+  const handlePttDoubleToggle = useCallback(() => {
+    setPushToTalkMode(true);
+    setPttLocked((prevLocked) => {
+      const nextLocked = !prevLocked;
+      setPttActive(nextLocked);
+      toggleMic(!nextLocked);
+      return nextLocked;
+    });
+  }, [toggleMic]);
+
+  const handlePttPressStart = useCallback(
+    (isTouch: boolean) => {
+      setPushToTalkMode(true);
+      if (isTouch) {
+        const now = Date.now();
+        const delta = now - pttLastTapRef.current;
+        pttLastTapRef.current = now;
+        if (delta > 0 && delta < 300) {
+          handlePttDoubleToggle();
+          return;
+        }
+      }
+      if (!pttLocked) {
         setPttActive(true);
         toggleMic(false);
       }
+    },
+    [pttLocked, handlePttDoubleToggle, toggleMic]
+  );
+
+  const handlePttPressEnd = useCallback(() => {
+    if (!pttLocked) {
+      setPttActive(false);
+      toggleMic(true);
+    }
+  }, [pttLocked, toggleMic]);
+
+  // Full Grupo Push-to-Talk hotkey (`Space` hold or double-tap lock) matching middle.js + live_kit_video_chat.js
+  useEffect(() => {
+    if (!pushToTalkMode && chatType !== 'group') return;
+
+    const isEditableTarget = (el: EventTarget | null) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && !pttKeyHeldRef.current && !isEditableTarget(e.target)) {
+        e.preventDefault();
+        pttKeyHeldRef.current = true;
+        handlePttPressStart(false);
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
+      if (e.code === 'Space' && pttKeyHeldRef.current && !isEditableTarget(e.target)) {
         e.preventDefault();
-        setPttActive(false);
-        toggleMic(true);
+        pttKeyHeldRef.current = false;
+        handlePttPressEnd();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     return () => {
+      pttKeyHeldRef.current = false;
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pushToTalkMode]);
+  }, [pushToTalkMode, chatType, handlePttPressStart, handlePttPressEnd]);
 
   const remoteList = participants.filter((p) => p.userId !== currentUser.id);
   const pinnedTarget =
@@ -974,6 +1188,92 @@ export function VideoCallStage({
     [chatId]
   );
 
+  if (minimized) {
+    return (
+      <div className="h-14 shrink-0 bg-[#161515] border-b border-white/10 px-3 sm:px-4 flex items-center justify-between gap-2 text-white">
+        {remoteList.map((p) => {
+          const rs = remoteStreams[p.userId];
+          return rs ? (
+            <MinimizedAudioSink key={p.userId} stream={rs} volume={remoteVolumes[p.userId] ?? 100} />
+          ) : null;
+        })}
+        <button
+          type="button"
+          onClick={() => onToggleMinimize?.()}
+          className="flex items-center gap-2 min-w-0 text-left cursor-pointer hover:opacity-90"
+          title="Expand call view"
+        >
+          <span className="size-2.5 rounded-full bg-[#26C6DA] animate-pulse shrink-0" />
+          <span className="text-par-s font-semibold truncate">
+            {connecting ? 'Connecting...' : screenSharing ? 'Screen Share' : audioOnly ? 'Audio Call' : 'Video Call'}
+          </span>
+          <span className="text-cap-s text-white/60 shrink-0">· {1 + remoteList.length}</span>
+          {pttActive && (
+            <span className="rounded-full bg-[#03A9F4] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shrink-0">
+              {pttLocked ? 'PTT Locked' : 'Talking'}
+            </span>
+          )}
+        </button>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setPttLocked(false);
+              setPttActive(false);
+              toggleMic();
+            }}
+            title={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+            aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+            className={cn(
+              'size-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
+              micMuted ? 'bg-red-900/90 text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
+            )}
+          >
+            {micMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+          </button>
+
+          {!audioOnly && (
+            <button
+              type="button"
+              onClick={() => void toggleCamera()}
+              title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
+              aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'}
+              className={cn(
+                'size-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
+                cameraOff ? 'bg-red-900/90 text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
+              )}
+            >
+              {cameraOff ? <VideoOff className="size-4" /> : <Video className="size-4" />}
+            </button>
+          )}
+
+          {onToggleMinimize && (
+            <button
+              type="button"
+              onClick={onToggleMinimize}
+              title="Expand call view"
+              aria-label="Expand call view"
+              className="size-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <Maximize2 className="size-4" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleHangup}
+            title="Leave Call"
+            aria-label="Leave call"
+            className="size-8 rounded-lg bg-[#d40000] hover:bg-[#b80000] text-white flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <PhoneOff className="size-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -995,6 +1295,19 @@ export function VideoCallStage({
         </span>
         <span className="text-white/55">· {1 + remoteList.length}</span>
       </div>
+
+      {/* Top-Right Minimize Call Button */}
+      {onToggleMinimize && (
+        <button
+          type="button"
+          onClick={onToggleMinimize}
+          title="Minimize call"
+          aria-label="Minimize call"
+          className="absolute top-3 right-3 z-20 size-8 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-xs border border-white/10 text-white/90 flex items-center justify-center transition-colors cursor-pointer"
+        >
+          <Minimize2 className="size-4" />
+        </button>
+      )}
 
       {/* Device Settings Modal/Overlay (matches Grupo .video_chat_settings_box) */}
       {settingsOpen && (
@@ -1200,7 +1513,7 @@ export function VideoCallStage({
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-2 px-2 py-1.5 rounded-xl bg-[#161515]/85 backdrop-blur-md border border-white/10 shadow-2xl">
         <button
           type="button"
-          onClick={() => void cleanupCall(true).then(() => onExit())}
+          onClick={handleHangup}
           title="Leave Call"
           aria-label="Leave call"
           className="size-9 rounded-lg bg-[#d40000] hover:bg-[#b80000] text-white inline-flex items-center justify-center transition-colors cursor-pointer"
@@ -1223,73 +1536,47 @@ export function VideoCallStage({
           {screenSharing ? <MonitorOff className="size-4" /> : <Monitor className="size-4" />}
         </button>
 
-        {!pushToTalkMode ? (
-          <button
-            type="button"
-            onClick={() => toggleMic()}
-            title={micMuted ? 'Unmute microphone' : 'Mute microphone'}
-            aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
-            className={cn(
-              'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
-              micMuted ? 'bg-red-900/90 text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
-            )}
-          >
-            {micMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onMouseDown={() => {
-              setPttActive(true);
-              toggleMic(false);
-            }}
-            onMouseUp={() => {
-              setPttActive(false);
-              toggleMic(true);
-            }}
-            onMouseLeave={() => {
-              if (pttActive) {
-                setPttActive(false);
-                toggleMic(true);
-              }
-            }}
-            onTouchStart={() => {
-              setPttActive(true);
-              toggleMic(false);
-            }}
-            onTouchEnd={() => {
-              setPttActive(false);
-              toggleMic(true);
-            }}
-            title="Hold to talk (or hold Space)"
-            className={cn(
-              'h-9 px-3 rounded-lg inline-flex items-center gap-1.5 text-cap-l font-semibold transition-colors cursor-pointer select-none',
-              pttActive ? 'bg-[#03A9F4] text-white' : 'bg-white/15 text-white/90 hover:bg-white/25'
-            )}
-          >
-            <Radio className="size-4" /> Talk
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            setPttLocked(false);
+            setPttActive(false);
+            toggleMic();
+          }}
+          title={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+          aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+          className={cn(
+            'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer',
+            micMuted ? 'bg-red-900/90 text-white' : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
+          )}
+        >
+          {micMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+        </button>
 
         {chatType === 'group' && (
           <button
             type="button"
-            onClick={() => {
-              const nextPtt = !pushToTalkMode;
-              setPushToTalkMode(nextPtt);
-              if (nextPtt) {
-                toggleMic(true);
-              } else {
-                toggleMic(false);
-              }
-            }}
-            title={pushToTalkMode ? 'Switch to open mic' : 'Enable Push-to-Talk'}
+            onMouseDown={() => handlePttPressStart(false)}
+            onMouseUp={handlePttPressEnd}
+            onMouseLeave={handlePttPressEnd}
+            onTouchStart={() => handlePttPressStart(true)}
+            onTouchEnd={handlePttPressEnd}
+            onTouchCancel={handlePttPressEnd}
+            onDoubleClick={handlePttDoubleToggle}
+            title="Push to Talk (Hold or double-tap to lock, or hold Space)"
+            aria-label="Push to Talk"
             className={cn(
-              'h-9 px-2.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer',
-              pushToTalkMode ? 'bg-[#03A9F4] text-white' : 'bg-white/10 hover:bg-white/20 text-white/80'
+              'size-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer select-none touch-manipulation',
+              pttActive || pttLocked
+                ? 'bg-[#03A9F4] text-white'
+                : 'bg-white/10 hover:bg-white/20 text-[#e7e7e7]'
             )}
           >
-            PTT
+            {pttActive || pttLocked ? (
+              <GrupoPttActiveIcon className="size-[19px]" />
+            ) : (
+              <GrupoPttInactiveIcon className="size-[19px]" />
+            )}
           </button>
         )}
 

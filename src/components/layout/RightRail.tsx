@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BadgeCheck, EyeOff, Hash, Lock, Search, Users } from 'lucide-react';
+import { EyeOff, Hash, Search } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { apiFetch } from '@/lib/api-client';
 import { resolveMediaUrl } from '@/lib/media-url';
@@ -333,56 +333,6 @@ export function RightRail() {
               <Link href="/explore" className="text-par-m hover:underline text-lab-sc cursor-pointer">
                 More suggestions
               </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Community Groups Discovery (Grupo Pro parity integrated into Weto feed) */}
-        {(bootstrap?.communityGroups?.length || 0) > 0 && (
-          <div className="mb-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h5 className="text-lab-pr2 font-semibold text-par-l flex items-center gap-1.5">
-                <Users className="size-4 text-brand-900" />
-                Community Groups
-              </h5>
-              <Link
-                href={user ? '/messenger?tab=discover' : '/auth/login'}
-                className="text-cap-l text-brand-900 hover:underline"
-              >
-                Explore all
-              </Link>
-            </div>
-            <div className="divide-y divide-bord-tr">
-              {(bootstrap?.communityGroups || []).slice(0, 4).map((grp) => (
-                <Link
-                  key={grp.id}
-                  href={user ? `/messenger/c/${grp.id}` : '/auth/login'}
-                  className="flex items-center justify-between gap-2.5 py-2.5 hover:opacity-85 transition-opacity"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Avatar src={grp.avatar} alt={grp.name} size="sm" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <p className="text-par-n font-semibold text-lab-pr2 truncate">{grp.name}</p>
-                        {grp.verified && <BadgeCheck className="size-3.5 text-brand-900 shrink-0" />}
-                        {grp.isPasswordProtected && <Lock className="size-3 text-amber-600 shrink-0" />}
-                      </div>
-                      <p className="text-cap-s text-lab-sc truncate">
-                        {grp.category} · {grp.membersCount} members
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                      grp.isJoined
-                        ? 'bg-fill-qt text-lab-pr2 border border-bord-pr'
-                        : 'bg-brand-900 text-white'
-                    }`}
-                  >
-                    {grp.isJoined ? 'Open' : 'Join'}
-                  </span>
-                </Link>
-              ))}
             </div>
           </div>
         )}
