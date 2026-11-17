@@ -184,7 +184,7 @@ export async function requireAuth(
   // Multi-account linked switching: verify switched target is owned by the same master account
   const cookieStore = req ? req.cookies : await cookies();
   const activeAccountId = cookieStore.get(ACTIVE_ACCOUNT_COOKIE_NAME)?.value;
-  if (activeAccountId && activeAccountId !== String(user._id)) {
+  if (activeAccountId && /^[0-9a-fA-F]{24}$/.test(activeAccountId) && activeAccountId !== String(user._id)) {
     const accountScopeFilter = user.ownerAccountId
       ? { $or: [{ _id: user.ownerAccountId }, { ownerAccountId: user.ownerAccountId }] }
       : { ownerAccountId: user._id };

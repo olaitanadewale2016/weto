@@ -118,15 +118,16 @@ export async function GET(req: NextRequest) {
       await syncAutoJoinGroupsForUser(u._id).catch(() => { });
       const masterId = u.ownerAccountId || u._id;
       const prevCookieId = req.cookies.get(PREVIOUS_ACCOUNT_COOKIE_NAME)?.value;
+      const isValidPrevId = Boolean(prevCookieId && /^[0-9a-fA-F]{24}$/.test(prevCookieId));
       const shouldResolvePrev =
-        (Boolean(prevCookieId) && prevCookieId !== String(u._id)) || Boolean(u.ownerAccountId);
+        (isValidPrevId && prevCookieId !== String(u._id)) || Boolean(u.ownerAccountId);
 
       const [notifCount, chats, prevCandidate] = await Promise.all([
         Notification.countDocuments({ userId: u._id, readAt: null }),
         Chat.find({ 'participants.userId': u._id }).select('_id participants').lean(),
         shouldResolvePrev
           ? User.findOne({
-            _id: prevCookieId && prevCookieId !== String(u._id) ? prevCookieId : masterId,
+            _id: isValidPrevId && prevCookieId !== String(u._id) ? prevCookieId : masterId,
             deletedAt: null,
             status: { $nin: [UserStatus.BLOCKED, UserStatus.SUSPENDED] },
             $or: [{ _id: masterId }, { ownerAccountId: masterId }],
@@ -162,7 +163,7 @@ export async function GET(req: NextRequest) {
 
       const chatConditions = chats
         .map((chat) => {
-          const mePart = chat.participants.find((p) => String(p.userId) === String(u._id));
+          const mePart = (chat.participants || []).find((p) => String(p?.userId) === String(u._id));
           if (!mePart) return null;
           return {
             chatId: chat._id,
@@ -232,7 +233,7 @@ export async function GET(req: NextRequest) {
       entryPrice: Number(g.group?.entryPrice || 0),
       membersCount: Array.isArray(g.participants) ? g.participants.length : 0,
       isJoined: viewerId
-        ? (g.participants || []).some((p) => String(p.userId) === viewerId)
+        ? (g.participants || []).some((p) => String(p?.userId) === viewerId)
         : false,
     }));
 

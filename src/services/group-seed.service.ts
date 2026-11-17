@@ -122,7 +122,7 @@ export async function ensureDefaultCommunityGroups(force = false): Promise<void>
   if (seededMemoryDone && !force) return;
   await connectDB();
 
-  const existingFlag = await Setting.findOne({ key: 'community_groups_seeded_v1' }).lean();
+  const existingFlag = await Setting.findOne({ group: 'system_seed_groups' }).lean();
   if (existingFlag && !force) {
     seededMemoryDone = true;
     return;
@@ -194,8 +194,8 @@ export async function ensureDefaultCommunityGroups(force = false): Promise<void>
   }
 
   await Setting.updateOne(
-    { key: 'community_groups_seeded_v1' },
-    { $set: { key: 'community_groups_seeded_v1', value: '1', category: 'system' } },
+    { group: 'system_seed_groups' },
+    { $set: { group: 'system_seed_groups', payload: { seeded: true, version: 1 } } },
     { upsert: true }
   );
   seededMemoryDone = true;
