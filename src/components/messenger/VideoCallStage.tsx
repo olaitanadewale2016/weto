@@ -1,15 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Maximize2,
-  Mic,
-  MicOff,
-  Minimize2,
-  Volume2,
-  VolumeX,
-  X,
-} from 'lucide-react';
+import { MicOff, Volume2, VolumeX, X } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -169,6 +161,16 @@ function GrupoSettingsIcon({ className = 'size-5' }: { className?: string }) {
   );
 }
 
+/** Exact Grupo Pro `.vc_options` gear SVG from assets/js/chat_page/live_kit_video_chat.js */
+function GrupoTileGearIcon({ className = 'size-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 1024 1024" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M983.162 385.156l-111.835-13.828c-1.838-4.702-3.768-9.364-5.784-13.986l69.296-88.855c14.454-18.534 12.824-44.928-3.798-61.546l-114.055-113.991c-16.616-16.608-43.004-18.228-61.526-3.786l-88.823 69.268c-4.624-2.016-9.288-3.948-13.988-5.788l-13.83-111.807c-2.886-23.32-22.696-40.83-46.194-40.83h-161.273c-23.496 0-43.312 17.51-46.194 40.832l-13.828 111.807c-4.698 1.838-9.362 3.768-13.976 5.78l-88.829-69.284c-18.522-14.444-44.916-12.828-61.536 3.788l-114.041 114.017c-16.62 16.614-18.246 43.012-3.792 61.542l69.288 88.833c-2.024 4.624-3.956 9.294-5.8 14.004l-111.811 13.828c-23.318 2.888-40.832 22.698-40.832 46.196v161.279c0 23.5 17.516 43.316 40.842 46.194l111.801 13.806c1.838 4.704 3.768 9.372 5.788 13.988l-69.282 88.833c-14.448 18.528-12.822 44.92 3.788 61.534l114.041 114.061c16.614 16.62 43.014 18.242 61.546 3.792l88.833-69.296c4.612 2.014 9.276 3.948 13.974 5.782l13.828 111.841c2.882 23.32 22.696 40.832 46.194 40.832h161.273c23.496 0 43.31-17.51 46.194-40.832l13.83-111.839c4.702-1.84 9.364-3.77 13.986-5.784l88.849 69.3c18.532 14.45 44.926 12.828 61.542-3.796l114.029-114.061c16.614-16.616 18.234-43.008 3.786-61.536l-69.282-88.817c2.024-4.626 3.956-9.294 5.796-14.004l111.801-13.806c23.322-2.88 40.842-22.696 40.842-46.194v-161.279c-0.006-23.496-17.52-43.306-40.838-46.192zM930.905 551.477l-99.727 12.316c-18.302 2.262-33.544 15.112-38.862 32.772-5.626 18.674-13.12 36.774-22.276 53.806-8.734 16.248-7.050 36.126 4.294 50.67l61.796 79.226-55.848 55.864-79.242-61.81c-14.538-11.336-34.404-13.026-50.654-4.3-17.026 9.144-35.13 16.638-53.81 22.268-17.654 5.322-30.5 20.558-32.762 38.854l-12.338 99.765h-78.984l-12.334-99.765c-2.262-18.292-15.102-33.526-32.75-38.85-18.734-5.65-36.834-13.142-53.798-22.264-16.244-8.738-36.122-7.054-50.672 4.294l-79.23 61.804-55.854-55.87 61.794-79.236c11.342-14.546 13.026-34.412 4.294-50.656-9.136-17.002-16.63-35.108-22.274-53.822-5.324-17.65-20.564-30.494-38.86-32.752l-99.721-12.312v-78.984l99.731-12.334c18.292-2.262 33.526-15.102 38.846-32.75 5.648-18.712 13.144-36.812 22.286-53.8 8.748-16.248 7.066-36.134-4.286-50.684l-61.806-79.24 55.848-55.836 79.24 61.804c14.546 11.344 34.418 13.026 50.67 4.292 16.986-9.13 35.082-16.62 53.792-22.264 17.65-5.324 30.494-20.558 32.756-38.854l12.332-99.733h78.988l12.338 99.737c2.266 18.296 15.114 33.534 32.768 38.854 18.656 5.622 36.758 13.114 53.804 22.27 16.244 8.728 36.11 7.044 50.65-4.298l79.232-61.788 55.854 55.824-61.794 79.236c-11.332 14.534-13.026 34.382-4.316 50.622 9.16 17.080 16.656 35.198 22.276 53.846 5.322 17.65 20.558 30.496 38.854 32.762l99.755 12.338v78.978z" />
+      <path d="M511.991 310.304c-111.211 0-201.689 90.487-201.689 201.711 0 111.205 90.477 201.677 201.689 201.677 111.217 0 201.703-90.471 201.703-201.677 0-111.223-90.485-201.711-201.703-201.711zM511.991 620.602c-59.882 0-108.599-48.712-108.599-108.587 0-59.894 48.718-108.621 108.599-108.621 59.888 0 108.611 48.726 108.611 108.621 0 59.876-48.724 108.587-108.611 108.587z" />
+    </svg>
+  );
+}
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -211,6 +213,7 @@ function ParticipantMediaTile({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
 
   const hasLiveVideo =
     !audioOnly &&
@@ -258,11 +261,11 @@ function ParticipantMediaTile({
   return (
     <div
       className={cn(
-        'relative rounded-xl overflow-hidden bg-[#1e1d1d] border transition-all flex items-center justify-center group',
+        'relative rounded-[8px] overflow-hidden bg-[#1e1d1d] flex items-center justify-center group',
         isSpeaking
-          ? 'border-2 border-[#26C6DA] shadow-[0_0_14px_rgba(38,198,218,0.4)]'
-          : 'border-white/10',
-        isPinned ? 'w-full h-full min-h-[240px]' : 'aspect-video min-h-[150px]'
+          ? 'border-2 border-[#26C6DA] shadow-[0_0_12px_rgba(38,198,218,0.5)]'
+          : 'border border-white/15',
+        isPinned ? 'w-full h-full min-h-[220px]' : 'w-full h-full min-h-[140px]'
       )}
     >
       {audioOnly && !isLocal && <audio ref={audioRef} autoPlay playsInline className="hidden" />}
@@ -274,42 +277,30 @@ function ParticipantMediaTile({
           playsInline
           muted={isLocal}
           className={cn(
-            'w-full h-full bg-[#1e1d1d] block',
-            screenSharing ? 'object-contain' : 'object-cover',
+            'w-full h-full bg-[#1e1d1d] block object-contain',
             isLocal && !screenSharing && 'scale-x-[-1]'
           )}
         />
       ) : (
-        <div className="flex flex-col items-center justify-center gap-2 p-4 text-center">
+        <div className="flex items-center justify-center p-4">
           {!audioOnly && !isLocal && <audio ref={audioRef} autoPlay playsInline className="hidden" />}
-          <div
-            className={cn(
-              'rounded-full p-1 transition-all',
-              isSpeaking ? 'ring-3 ring-[#26C6DA]/70 scale-105' : ''
-            )}
-          >
-            <Avatar src={avatar} alt={displayName} size="lg" />
-          </div>
-          {audioOnly && (
-            <span className="text-cap-l text-white/65">
-              {muted ? 'Muted' : isSpeaking ? 'Speaking' : 'Connected'}
-            </span>
-          )}
+          {/* Exact Grupo Pro .participant_img 60px centered circular avatar */}
+          <Avatar src={avatar} alt={displayName} size="lg" />
         </div>
       )}
 
-      {/* Grupo-style Crisp Floating Name Tag & Subtle Hover Controls */}
-      <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-2 pointer-events-none">
-        <div className="flex items-center gap-1 pointer-events-auto">
-          {!isLocal && typeof volume === 'number' && onVolumeChange && (
-            <div className="hidden sm:flex items-center gap-1 rounded-md bg-black/60 backdrop-blur-xs px-1.5 py-1 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Exact Grupo Pro .va_volume_control & .vc_options (hidden when spotlighted) */}
+      {!isPinned && !isLocal && (
+        <div className="absolute top-[11px] left-[10px] z-20 flex items-center gap-2">
+          {typeof volume === 'number' && onVolumeChange && (
+            <div className="group/vol flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => onVolumeChange(volume === 0 ? 100 : 0)}
-                className="cursor-pointer"
+                className="text-[#bdbdbd] hover:text-white cursor-pointer"
                 aria-label={volume === 0 ? 'Unmute participant volume' : 'Mute participant volume'}
               >
-                {volume === 0 ? <VolumeX className="size-3.5 text-red-400" /> : <Volume2 className="size-3.5" />}
+                {volume === 0 ? <VolumeX className="size-6 text-red-400" /> : <Volume2 className="size-6" />}
               </button>
               <input
                 type="range"
@@ -317,68 +308,62 @@ function ParticipantMediaTile({
                 max={100}
                 value={volume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="w-12 accent-white cursor-pointer"
+                className="hidden group-hover/vol:block w-20 accent-white cursor-pointer"
                 aria-label={`Volume for ${displayName}`}
               />
             </div>
           )}
 
-          {!isLocal && canAdminMute && onAdminRemoteMute && (
-            <button
-              type="button"
-              onClick={() => onAdminRemoteMute(!muted)}
-              title={muted ? 'Allow mic' : 'Mute participant'}
-              className="rounded-md bg-black/60 hover:bg-black/80 p-1 text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              {muted ? <Mic className="size-3.5 text-green-400" /> : <MicOff className="size-3.5 text-red-400" />}
-            </button>
+          {canAdminMute && onAdminRemoteMute && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAdminMenuOpen((v) => !v)}
+                className="text-[#bdbdbd] hover:text-white cursor-pointer flex items-center"
+                aria-label="Participant options"
+              >
+                <GrupoTileGearIcon className="size-5" />
+              </button>
+              {adminMenuOpen && (
+                <div className="absolute left-0 top-7 min-w-[85px] bg-[#292929] border border-black text-left text-[14px] text-[#c0c0c0] z-30 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminMenuOpen(false);
+                      onAdminRemoteMute(!muted);
+                    }}
+                    className="w-full px-2.5 py-1.5 text-left hover:bg-[#1e1d1d] hover:text-white cursor-pointer"
+                  >
+                    {muted ? 'Unmute' : 'Mute'}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
+      )}
 
-        <button
-          type="button"
-          onClick={onTogglePin}
-          title={isPinned ? 'Exit spotlight view' : 'Expand to spotlight'}
-          aria-label={isPinned ? 'Exit spotlight view' : 'Expand to spotlight'}
-          className="pointer-events-auto inline-flex items-center gap-1.5 rounded bg-white text-black px-2.5 py-0.5 text-cap-l font-semibold shadow-sm max-w-[75%] truncate cursor-pointer"
+      {/* Exact Grupo Pro .mute_symbol bottom-left badge when muted */}
+      {muted && !isPinned && (
+        <span
+          className="absolute bottom-[15px] left-[15px] z-10 size-[30px] rounded-full bg-[#d40000] text-white flex items-center justify-center shadow"
+          title="Muted"
         >
-          {muted ? (
-            <MicOff className="size-3 text-red-600 shrink-0" />
-          ) : (
-            <Mic className={cn('size-3 shrink-0', isSpeaking ? 'text-[#0288D1]' : 'text-zinc-700')} />
-          )}
-          <span className="truncate">{displayName}</span>
-          {screenSharing && (
-            <span className="ml-0.5 rounded bg-brand-900 text-white px-1 py-0.2 text-[9px] uppercase">
-              Screen
-            </span>
-          )}
-          {isPinned ? (
-            <Minimize2 className="size-3 shrink-0 text-zinc-600" />
-          ) : (
-            <Maximize2 className="size-3 shrink-0 text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-          )}
-        </button>
-      </div>
+          <MicOff className="size-4" />
+        </span>
+      )}
+
+      {/* Exact Grupo Pro .participant_name white top-right tag */}
+      <button
+        type="button"
+        onClick={onTogglePin}
+        title={isPinned ? 'Exit full view' : 'Expand participant'}
+        className="absolute top-[15px] right-[15px] z-20 bg-white text-black text-[14px] leading-5 rounded-[5px] px-[6px] max-w-[70%] truncate cursor-pointer"
+      >
+        {displayName}
+      </button>
     </div>
   );
-}
-
-/** Keeps remote peer audio tracks audible even when the call stage is minimized to a compact bar */
-function MinimizedAudioSink({ stream, volume }: { stream: MediaStream; volume: number }) {
-  const ref = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    const a = ref.current;
-    if (!a) return;
-    a.srcObject = stream;
-    a.muted = false;
-    a.volume = Math.max(0, Math.min(1, volume / 100));
-    a.play().catch(() => undefined);
-    return () => {
-      a.srcObject = null;
-    };
-  }, [stream, volume]);
-  return <audio ref={ref} autoPlay playsInline className="hidden" />;
 }
 
 /**
@@ -394,9 +379,7 @@ export function VideoCallStage({
   isGroupAdmin = false,
   socket,
   chatWindowVisible,
-  minimized = false,
   onToggleChatWindow,
-  onToggleMinimize,
   onExit,
 }: VideoCallStageProps) {
   const { error, info } = useToast();
@@ -1255,181 +1238,68 @@ export function VideoCallStage({
     [chatId]
   );
 
-  if (minimized) {
-    return (
-      <div className="h-14 shrink-0 bg-[#161515] border-b border-white/10 px-3 sm:px-4 flex items-center justify-between gap-2 text-white">
-        {remoteList.map((p) => {
-          const rs = remoteStreams[p.userId];
-          return rs ? (
-            <MinimizedAudioSink key={p.userId} stream={rs} volume={remoteVolumes[p.userId] ?? 100} />
-          ) : null;
-        })}
-        <button
-          type="button"
-          onClick={() => onToggleMinimize?.()}
-          className="flex items-center gap-2 min-w-0 text-left cursor-pointer hover:opacity-90"
-          title="Expand call view"
-        >
-          <span className="size-2.5 rounded-full bg-[#26C6DA] animate-pulse shrink-0" />
-          <span className="text-par-n font-semibold truncate">
-            {connecting ? 'Connecting...' : screenSharing ? 'Screen Share' : audioOnly ? 'Audio Call' : 'Video Call'}
-          </span>
-          <span className="text-par-s text-white/65 shrink-0">· {1 + remoteList.length}</span>
-          {pttActive && (
-            <span className="rounded-full bg-[#03A9F4] px-2.5 py-0.5 text-cap-s font-bold uppercase tracking-wide shrink-0">
-              {pttLocked ? 'PTT Locked' : 'Talking'}
-            </span>
-          )}
-        </button>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              setPttLocked(false);
-              setPttActive(false);
-              toggleMic();
-            }}
-            title={micMuted ? 'Unmute microphone' : 'Mute microphone'}
-            aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
-            className={cn(
-              'size-9 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer',
-              micMuted ? 'bg-[#3b1515] text-white' : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
-            )}
-          >
-            <GrupoDockMicIcon muted={micMuted} className="size-[19px]" />
-          </button>
-
-          {!audioOnly && (
-            <button
-              type="button"
-              onClick={() => void toggleCamera()}
-              title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
-              aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'}
-              className={cn(
-                'size-9 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer',
-                cameraOff ? 'bg-[#3b1515] text-white' : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
-              )}
-            >
-              <GrupoDockCamIcon off={cameraOff} className="size-[19px]" />
-            </button>
-          )}
-
-          {onToggleMinimize && (
-            <button
-              type="button"
-              onClick={onToggleMinimize}
-              title="Expand call view"
-              aria-label="Expand call view"
-              className="size-9 rounded-[7px] bg-[#2a2929] hover:bg-[#3a3939] text-white flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <Maximize2 className="size-4" />
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleHangup}
-            title="Leave Call"
-            aria-label="Leave call"
-            className="size-9 rounded-[7px] bg-[#d40000] hover:bg-[#b80000] text-white flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <GrupoLeaveCallIcon className="size-[19px]" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
+      data-connecting={connecting ? 'true' : 'false'}
       className={cn(
-        'bg-black text-white relative flex flex-col overflow-hidden transition-all',
-        chatWindowVisible ? 'h-[48%] min-h-[250px] shrink-0 border-b border-white/10' : 'flex-1 min-h-0'
+        'bg-[#343434] text-white relative flex flex-col overflow-hidden transition-all',
+        chatWindowVisible ? 'h-1/2 min-h-[240px] shrink-0' : 'flex-1 min-h-0'
       )}
     >
-      {/* Subtle Overlaid Live Status Pill (matches Grupo clean stage feel) */}
-      <div className="pointer-events-none absolute top-3 left-3 z-20 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-xs border border-white/10 px-3 py-1 text-cap-l font-medium text-white/95">
-        <span className="size-2 rounded-full bg-[#26C6DA] animate-pulse" />
-        <span>
-          {connecting
-            ? 'Connecting...'
-            : screenSharing
-              ? 'Screen Share'
-              : audioOnly
-                ? 'Audio Call'
-                : 'Video Call'}
-        </span>
-        <span className="text-white/55">· {1 + remoteList.length}</span>
-      </div>
-
-      {/* Top-Right Minimize Call Button */}
-      {onToggleMinimize && (
-        <button
-          type="button"
-          onClick={onToggleMinimize}
-          title="Minimize call"
-          aria-label="Minimize call"
-          className="absolute top-3 right-3 z-20 size-8 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-xs border border-white/10 text-white/90 flex items-center justify-center transition-colors cursor-pointer"
-        >
-          <Minimize2 className="size-4" />
-        </button>
-      )}
-
-      {/* Device Settings Modal/Overlay (matches Grupo .video_chat_settings_box) */}
+      {/* Exact Grupo Pro `.video_chat_settings_box` overlay */}
       {settingsOpen && (
-        <div className="absolute inset-x-4 top-12 z-30 rounded-2xl border border-white/15 bg-zinc-900 p-4 shadow-2xl space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-par-n font-bold">Call Device Settings</h4>
+        <div className="absolute inset-0 z-30 bg-black/50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md rounded-2xl bg-[#1d1c1c] text-white p-5 shadow-xl space-y-4">
             <button
               type="button"
               onClick={() => setSettingsOpen(false)}
-              className="p-1 rounded-full hover:bg-white/10 cursor-pointer"
+              className="absolute right-3 top-3 text-white/75 hover:text-white cursor-pointer"
+              aria-label="Close settings"
             >
               <X className="size-4" />
             </button>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-cap-s text-white/70 mb-1">Microphone</label>
-              <select
-                value={selectedMicId}
-                onChange={(e) => void switchDevice('audio', e.target.value)}
-                className="w-full rounded-xl bg-zinc-800 border border-white/15 px-3 py-2 text-par-s text-white"
-              >
-                {audioInputs.map((d, idx) => (
-                  <option key={d.deviceId || idx} value={d.deviceId}>
-                    {d.label || `Microphone ${idx + 1}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {!audioOnly && (
+            <div className="space-y-3 pt-2">
               <div>
-                <label className="block text-cap-s text-white/70 mb-1">Camera</label>
+                <label className="block text-[15px] mb-1.5">Microphone</label>
                 <select
-                  value={selectedCamId}
-                  onChange={(e) => void switchDevice('video', e.target.value)}
-                  className="w-full rounded-xl bg-zinc-800 border border-white/15 px-3 py-2 text-par-s text-white"
+                  value={selectedMicId}
+                  onChange={(e) => void switchDevice('audio', e.target.value)}
+                  className="w-full rounded-lg bg-[#151515] border border-black px-3 py-2 text-[15px] text-[#a0a0a0] focus:outline-none"
                 >
-                  {videoInputs.map((d, idx) => (
+                  {audioInputs.map((d, idx) => (
                     <option key={d.deviceId || idx} value={d.deviceId}>
-                      {d.label || `Camera ${idx + 1}`}
+                      {d.label || `Microphone ${idx + 1}`}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
+              {!audioOnly && (
+                <div>
+                  <label className="block text-[15px] mb-1.5">Camera</label>
+                  <select
+                    value={selectedCamId}
+                    onChange={(e) => void switchDevice('video', e.target.value)}
+                    className="w-full rounded-lg bg-[#151515] border border-black px-3 py-2 text-[15px] text-[#a0a0a0] focus:outline-none"
+                  >
+                    {videoInputs.map((d, idx) => (
+                      <option key={d.deviceId || idx} value={d.deviceId}>
+                        {d.label || `Camera ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Video / Audio Grid + Optional Pinned Full View */}
-      <div className="flex-1 overflow-y-auto p-3 pb-20 space-y-2.5">
+      {/* Exact Grupo Pro `.video_chat_container` (`background: #000`, flex column) */}
+      <div className="relative flex-1 min-h-0 flex flex-col bg-black overflow-hidden">
         {pinnedUserId ? (
-          <div className="flex flex-col gap-2.5 h-full">
-            <div className="flex-1 min-h-[220px]">
+          <div className="flex-1 min-h-0 flex flex-col gap-2 p-[10px] pb-[70px]">
+            <div className="flex-1 min-h-[60%]">
               {pinnedUserId === currentUser.id ? (
                 <ParticipantMediaTile
                   stream={localStream}
@@ -1472,8 +1342,7 @@ export function VideoCallStage({
               ) : null}
             </div>
 
-            {/* Filmstrip of other participants */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-[25%]">
               {pinnedUserId !== currentUser.id && (
                 <ParticipantMediaTile
                   stream={localStream}
@@ -1523,9 +1392,9 @@ export function VideoCallStage({
         ) : (
           <div
             className={cn(
-              'grid gap-2.5',
+              'flex-1 min-h-0 overflow-y-auto p-[10px] pb-[75px] grid gap-[8px] auto-rows-[minmax(120px,1fr)]',
               remoteList.length === 0
-                ? 'grid-cols-1 max-w-md mx-auto'
+                ? 'grid-cols-1'
                 : remoteList.length === 1
                   ? 'grid-cols-1 sm:grid-cols-2'
                   : 'grid-cols-2 lg:grid-cols-3'
@@ -1574,119 +1443,116 @@ export function VideoCallStage({
             />
           </div>
         )}
-      </div>
 
-      {/* Exact Grupo Pro Bottom Controls Dock (.video_chat_container > .icons) */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-2 px-2.5 py-2 rounded-[10px] bg-[#161515]/90 backdrop-blur-md border border-white/10 shadow-2xl">
-        <button
-          type="button"
-          onClick={handleHangup}
-          title="Leave Call"
-          aria-label="Leave call"
-          className="size-10 rounded-[7px] bg-[#d40000] hover:bg-[#b80000] text-white inline-flex items-center justify-center transition-colors cursor-pointer"
-        >
-          <GrupoLeaveCallIcon className="size-[22px]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => (screenSharing ? void stopScreenShare() : void startScreenShare())}
-          title={screenSharing ? 'Stop sharing screen' : 'Share your screen'}
-          aria-label={screenSharing ? 'Stop sharing screen' : 'Share your screen'}
-          className={cn(
-            'size-10 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer',
-            screenSharing
-              ? 'bg-[#03A9F4] text-white'
-              : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
-          )}
-        >
-          <GrupoShareScreenIcon active={screenSharing} className="size-[22px]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setPttLocked(false);
-            setPttActive(false);
-            toggleMic();
-          }}
-          title={micMuted ? 'Unmute microphone' : 'Mute microphone'}
-          aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
-          className={cn(
-            'size-10 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer',
-            micMuted ? 'bg-[#3b1515] text-white' : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
-          )}
-        >
-          <GrupoDockMicIcon muted={micMuted} className="size-[22px]" />
-        </button>
-
-        {chatType === 'group' && (
+        {/* Exact Grupo Pro Bottom Controls Dock (`.video_chat_container > .icons`) — ZERO additional icons */}
+        <div className="absolute bottom-[25px] left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-[8px]">
           <button
             type="button"
-            onMouseDown={() => handlePttPressStart(false)}
-            onMouseUp={handlePttPressEnd}
-            onMouseLeave={handlePttPressEnd}
-            onTouchStart={() => handlePttPressStart(true)}
-            onTouchEnd={handlePttPressEnd}
-            onTouchCancel={handlePttPressEnd}
-            onDoubleClick={handlePttDoubleToggle}
-            title="Push to Talk (Hold or double-tap to lock, or hold Space)"
-            aria-label="Push to Talk"
+            onClick={handleHangup}
+            title="Leave Call"
+            aria-label="Leave call"
+            className="size-[35px] sm:size-[38px] rounded-[8px] bg-[#d40000] hover:bg-[#b80000] text-white inline-flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <GrupoLeaveCallIcon className="size-[21px]" />
+          </button>
+
+          {!audioOnly && (
+            <button
+              type="button"
+              onClick={() => (screenSharing ? void stopScreenShare() : void startScreenShare())}
+              title={screenSharing ? 'Stop sharing screen' : 'Share your screen'}
+              aria-label={screenSharing ? 'Stop sharing screen' : 'Share your screen'}
+              className={cn(
+                'size-[35px] sm:size-[38px] rounded-[8px] inline-flex items-center justify-center transition-colors cursor-pointer',
+                screenSharing
+                  ? 'bg-[#03A9F4] text-white'
+                  : 'bg-[#161515] hover:bg-[#161616] text-[#e7e7e7]'
+              )}
+            >
+              <GrupoShareScreenIcon active={screenSharing} className="size-[21px]" />
+            </button>
+          )}
+
+          {chatType !== 'group' && (
+            <button
+              type="button"
+              onClick={() => {
+                setPttLocked(false);
+                setPttActive(false);
+                toggleMic();
+              }}
+              title={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+              aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}
+              className="size-[35px] sm:size-[38px] rounded-[8px] bg-[#161515] hover:bg-[#161616] text-[#e7e7e7] hover:text-white inline-flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <GrupoDockMicIcon muted={micMuted} className="size-[21px]" />
+            </button>
+          )}
+
+          {!audioOnly && !screenSharing && (
+            <button
+              type="button"
+              onClick={() => void toggleCamera()}
+              title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
+              aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'}
+              className="size-[35px] sm:size-[38px] rounded-[8px] bg-[#161515] hover:bg-[#161616] text-[#e7e7e7] hover:text-white inline-flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <GrupoDockCamIcon off={cameraOff} className="size-[21px]" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onToggleChatWindow}
+            title={chatWindowVisible ? 'Hide chat' : 'Show chat'}
+            aria-label="Toggle chat window"
             className={cn(
-              'size-10 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer select-none touch-manipulation',
-              pttActive || pttLocked
+              'size-[35px] sm:size-[38px] rounded-[8px] inline-flex items-center justify-center transition-colors cursor-pointer',
+              chatWindowVisible
                 ? 'bg-[#03A9F4] text-white'
-                : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
+                : 'bg-[#161515] hover:bg-[#161616] text-[#e7e7e7] hover:text-white'
             )}
           >
-            {pttActive || pttLocked ? (
-              <GrupoPttActiveIcon className="size-[22px]" />
-            ) : (
-              <GrupoPttInactiveIcon className="size-[22px]" />
-            )}
+            <GrupoToggleChatIcon className="size-[21px]" />
           </button>
-        )}
 
-        {!audioOnly && (
           <button
             type="button"
-            onClick={() => void toggleCamera()}
-            title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
-            aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'}
-            className={cn(
-              'size-10 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer',
-              cameraOff ? 'bg-[#3b1515] text-white' : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
-            )}
+            onClick={() => setSettingsOpen((v) => !v)}
+            title="Audio & camera settings"
+            aria-label="Call settings"
+            className="size-[35px] sm:size-[38px] rounded-[8px] bg-[#161515] hover:bg-[#161616] text-[#e7e7e7] hover:text-white inline-flex items-center justify-center transition-colors cursor-pointer"
           >
-            <GrupoDockCamIcon off={cameraOff} className="size-[22px]" />
+            <GrupoSettingsIcon className="size-[21px]" />
           </button>
-        )}
 
-        <button
-          type="button"
-          onClick={onToggleChatWindow}
-          title={chatWindowVisible ? 'Hide chat' : 'Show chat alongside call'}
-          aria-label="Toggle chat window"
-          className={cn(
-            'size-10 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer',
-            chatWindowVisible ? 'bg-[#03A9F4] text-white' : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
+          {chatType === 'group' && (
+            <button
+              type="button"
+              onMouseDown={() => handlePttPressStart(false)}
+              onMouseUp={handlePttPressEnd}
+              onMouseLeave={handlePttPressEnd}
+              onTouchStart={() => handlePttPressStart(true)}
+              onTouchEnd={handlePttPressEnd}
+              onTouchCancel={handlePttPressEnd}
+              onDoubleClick={handlePttDoubleToggle}
+              title="Push to Talk (Hold or double-tap to lock, or hold Space)"
+              aria-label="Push to Talk"
+              className={cn(
+                'size-[35px] sm:size-[38px] rounded-[8px] inline-flex items-center justify-center transition-colors cursor-pointer select-none touch-manipulation',
+                pttActive || pttLocked
+                  ? 'bg-[#03A9F4] text-white'
+                  : 'bg-[#161515] hover:bg-[#161616] text-[#e7e7e7] hover:text-white'
+              )}
+            >
+              {pttActive || pttLocked ? (
+                <GrupoPttActiveIcon className="size-[21px]" />
+              ) : (
+                <GrupoPttInactiveIcon className="size-[21px]" />
+              )}
+            </button>
           )}
-        >
-          <GrupoToggleChatIcon className="size-[22px]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((v) => !v)}
-          title="Audio & camera settings"
-          aria-label="Call settings"
-          className={cn(
-            'size-10 rounded-[7px] flex items-center justify-center transition-colors cursor-pointer',
-            settingsOpen ? 'bg-white/25 text-white' : 'bg-[#2a2929] hover:bg-[#3a3939] text-[#e7e7e7]'
-          )}
-        >
-          <GrupoSettingsIcon className="size-[22px]" />
-        </button>
+        </div>
       </div>
     </div>
   );

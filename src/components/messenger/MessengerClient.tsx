@@ -409,8 +409,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [directInfoOpen, setDirectInfoOpen] = useState(false);
   const [mobileActionMsg, setMobileActionMsg] = useState<ChatMessage | null>(null);
-  const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
-  const [deleteMenuMsgId, setDeleteMenuMsgId] = useState<string | null>(null);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
@@ -419,7 +417,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   const [callMode, setCallMode] = useState<'video' | 'audio' | null>(null);
   const [showChatInCall, setShowChatInCall] = useState(false);
-  const [callMinimized, setCallMinimized] = useState(false);
   const [activeCall, setActiveCall] = useState<ActiveCallSummary | null>(null);
   const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
   const [pinIndex, setPinIndex] = useState(0);
@@ -692,15 +689,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         setDirectInfoOpen(false);
         setGroupInfoOpen(false);
         setMobileActionMsg(null);
-        setReactionPickerMsgId(null);
-        setDeleteMenuMsgId(null);
         setTypingUsers([]);
         setShowGifPicker(false);
         setShowStickerPicker(false);
         setAttachMenuOpen(false);
         setCallMode(null);
         setShowChatInCall(false);
-        setCallMinimized(false);
         setActiveCall(null);
         setPinnedMessages([]);
         setPinIndex(0);
@@ -712,7 +706,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         const answerMode = qsParams?.get('answerCall');
         if (answerMode === 'video' || answerMode === 'audio') {
           setShowChatInCall(false);
-          setCallMinimized(false);
           setCallMode(answerMode);
           qsParams?.delete('answerCall');
           const nextSearch = qsParams?.toString();
@@ -1235,7 +1228,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   async function handleDeleteMessage(messageId: string, scope: 'local' | 'global') {
     if (!activeChatId) return;
-    setDeleteMenuMsgId(null);
     try {
       await apiFetch(`/chats/${activeChatId}/messages/${messageId}?scope=${scope}`, { method: 'DELETE' });
       if (scope === 'local') {
@@ -1458,7 +1450,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   function handleStartCall(mode: 'video' | 'audio') {
     if (!activeChatId) return;
     setShowChatInCall(false);
-    setCallMinimized(false);
     setGroupInfoOpen(false);
     setThreadMenuOpen(false);
     setCallMode(mode);
@@ -1466,7 +1457,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   async function handleToggleReaction(messageId: string, unifiedId: string, nativeSymbol: string) {
     if (!activeChatId) return;
-    setReactionPickerMsgId(null);
     try {
       const res = await apiFetch<{
         reactionSummary: Array<{ unifiedId: string; nativeSymbol: string; count: number }>;
@@ -2058,12 +2048,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   };
 
   return (
-    <div
-      className={cn(
-        'flex overflow-hidden bg-bg-pr w-full',
-        activeChatId ? 'h-[100dvh]' : 'h-[calc(100dvh-7rem)] md:h-screen'
-      )}
-    >
+    <div className="flex overflow-hidden bg-bg-pr w-full max-w-full h-full">
       {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden in Expand mode) */}
       <aside
         className={cn(
@@ -2178,7 +2163,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       {/* Left Conversation List (Simplified Grupo aside + Homepage typography) */}
       <div
         className={cn(
-          'w-full md:w-[340px] lg:w-[380px] shrink-0 md:border-r border-bord-pr flex flex-col bg-bg-pr min-w-0',
+          'w-full md:w-[320px] lg:w-[350px] shrink-0 h-full min-h-0 overflow-hidden md:border-r border-bord-pr flex flex-col bg-bg-pr min-w-0',
           activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
@@ -2501,7 +2486,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       {/* Right Active Thread */}
       <div
         className={cn(
-          'flex-1 flex flex-col bg-bg-pr min-w-0 max-w-full overflow-x-hidden',
+          'flex-1 flex flex-col bg-bg-pr min-w-0 min-h-0 h-full max-w-full overflow-hidden',
           activeChatId ? 'fixed inset-0 z-[60] md:static md:inset-auto md:z-auto' : 'hidden md:flex'
         )}
       >
@@ -2608,69 +2593,69 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 </div>
 
                 {!joinPreviewStatus && (
-                <div className="flex items-center gap-1 shrink-0 relative">
-                  <button
-                    type="button"
-                    onClick={() => handleStartCall('audio')}
-                    className={cn(
-                      'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                      (callMode === 'audio' || activeCall?.audioOnly) &&
+                  <div className="flex items-center gap-1 shrink-0 relative">
+                    <button
+                      type="button"
+                      onClick={() => handleStartCall('audio')}
+                      className={cn(
+                        'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        (callMode === 'audio' || activeCall?.audioOnly) &&
                         'bg-green-600/15 text-green-600'
-                    )}
-                    title={activeCall?.audioOnly ? 'Join active audio call' : 'Start audio call'}
-                    aria-label="Audio call"
-                  >
-                    <GrupoVoiceCallIcon className="size-[19px]" />
-                  </button>
+                      )}
+                      title={activeCall?.audioOnly ? 'Join active audio call' : 'Start audio call'}
+                      aria-label="Audio call"
+                    >
+                      <GrupoVoiceCallIcon className="size-[19px]" />
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleStartCall('video')}
-                    className={cn(
-                      'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                      (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
+                    <button
+                      type="button"
+                      onClick={() => handleStartCall('video')}
+                      className={cn(
+                        'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
                         'bg-brand-900/15 text-brand-900'
-                    )}
-                    title={
-                      activeCall && !activeCall.audioOnly ? 'Join active video call' : 'Start video call'
-                    }
-                    aria-label="Video call"
-                  >
-                    <GrupoVideoCallIcon className="size-[20px]" />
-                  </button>
+                      )}
+                      title={
+                        activeCall && !activeCall.audioOnly ? 'Join active video call' : 'Start video call'
+                      }
+                      aria-label="Video call"
+                    >
+                      <GrupoVideoCallIcon className="size-[20px]" />
+                    </button>
 
-                  {/* Exact Grupo Pro Expand Chat Icon & toggle_middle_full_screen Usage */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMiddleFullScreen((prev) => {
-                        const next = !prev;
-                        if (next) setGroupInfoOpen(false);
-                        return next;
-                      });
-                    }}
-                    className={cn(
-                      'hidden md:inline-flex size-9 rounded-full items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                      middleFullScreen && 'bg-brand-900/15 text-brand-900'
-                    )}
-                    title={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
-                    aria-label={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
-                  >
-                    <GrupoExpandChatIcon expanded={middleFullScreen} className="size-[19px]" />
-                  </button>
+                    {/* Exact Grupo Pro Expand Chat Icon & toggle_middle_full_screen Usage */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMiddleFullScreen((prev) => {
+                          const next = !prev;
+                          if (next) setGroupInfoOpen(false);
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        'hidden md:inline-flex size-9 rounded-full items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        middleFullScreen && 'bg-brand-900/15 text-brand-900'
+                      )}
+                      title={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
+                      aria-label={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
+                    >
+                      <GrupoExpandChatIcon expanded={middleFullScreen} className="size-[19px]" />
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setThreadMenuOpen((prev) => !prev)}
-                    className={cn(
-                      'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                      threadMenuOpen && 'bg-fill-sc text-lab-pr'
-                    )}
-                    title="Conversation options"
-                    aria-label="Conversation options"
-                  >
-                    <GrupoOptionsIcon className="size-[19px]" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setThreadMenuOpen((prev) => !prev)}
+                      className={cn(
+                        'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        threadMenuOpen && 'bg-fill-sc text-lab-pr'
+                      )}
+                      title="Conversation options"
+                      aria-label="Conversation options"
+                    >
+                      <GrupoOptionsIcon className="size-[19px]" />
+                    </button>
 
                     {threadMenuOpen && (
                       <div className="absolute right-0 top-11 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl py-1.5 divide-y divide-bord-tr">
@@ -2922,23 +2907,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     }
                     socket={socket}
                     chatWindowVisible={showChatInCall}
-                    minimized={callMinimized}
-                    onToggleChatWindow={() => {
-                      setCallMinimized(false);
-                      setShowChatInCall((v) => !v);
-                    }}
-                    onToggleMinimize={() => setCallMinimized((v) => !v)}
+                    onToggleChatWindow={() => setShowChatInCall((v) => !v)}
                     onExit={() => {
                       setCallMode(null);
                       setShowChatInCall(false);
-                      setCallMinimized(false);
                       void loadConversation(activeChat.id, '', true);
                     }}
                   />
                 )}
 
                 {/* Pinned Messages Carousel (Grupo Pro parity) */}
-                {currentPinned && pinnedMessages.length > 0 && (!callMode || callMinimized || showChatInCall) && (
+                {currentPinned && pinnedMessages.length > 0 && (!callMode || showChatInCall) && (
                   <div className="px-3 sm:px-4 py-2 border-b border-bord-card bg-fill-qt flex items-center justify-between gap-2 shrink-0">
                     <button
                       type="button"
@@ -2995,15 +2974,15 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </div>
                 )}
 
-                {/* Messages Timeline (Grupo Pro chatbox canvas + Homepage typography) */}
+                {/* Messages Timeline (Clean Grupo Pro message bubbles + Homepage typography) */}
                 <div
                   className={cn(
-                    'flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe md:px-0 md:py-5 space-y-2.5 md:space-y-1 bg-fill-fv/35',
-                    callMode && !callMinimized && !showChatInCall && 'hidden'
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 px-safe sm:px-5 space-y-1.5 bg-fill-fv/35',
+                    callMode && !showChatInCall && 'hidden'
                   )}
                 >
                   {!loadingThread && !threadSearchQ && (
-                    <div className="border-b border-bord-card px-4 py-7 mb-3 text-center">
+                    <div className="border-b border-bord-card px-4 py-6 mb-3 text-center">
                       <div className="flex justify-center mb-3">
                         <Avatar src={activeAvatar} alt={activeTitle} size="lg" />
                       </div>
@@ -3041,7 +3020,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   )}
 
                   {loadingThread && messages.length === 0 && (
-                    <div className="space-y-4 animate-pulse py-2 px-2 md:px-5">
+                    <div className="space-y-4 animate-pulse py-2 px-2 sm:px-4">
                       <div className="h-10 w-52 rounded-2xl bg-fill-fv" />
                       <div className="h-12 w-64 rounded-2xl bg-fill-fv ml-auto" />
                       <div className="h-9 w-44 rounded-2xl bg-fill-fv" />
@@ -3069,25 +3048,45 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       !showDateDivider &&
                       Boolean(prevMsg) &&
                       !prevMsg?.isDeleted &&
+                      prevMsg?.type !== 'system' &&
+                      m.type !== 'system' &&
                       prevSenderId === currSenderId &&
                       timeDiffMs >= 0 &&
                       timeDiffMs < 180_000;
                     const senderName =
                       `${m.sender?.firstName || ''} ${m.sender?.lastName || ''}`.trim() ||
                       (m.sender?.username ? `@${m.sender.username}` : 'User');
+                    const isStickerOnly = m.type === 'sticker' && !m.content && !m.parentId && !m.isDeleted;
+
+                    if (m.type === 'system') {
+                      return (
+                        <React.Fragment key={m.id}>
+                          <span id={`msg-${m.id}`} className="sr-only" />
+                          {showDateDivider && (
+                            <div className="flex justify-center py-2.5">
+                              <span className="px-3.5 py-1 rounded-full bg-fill-sc text-par-s text-lab-sc font-medium">
+                                {formatDateDivider(m.createdAt, locale)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-center py-1">
+                            {renderMessageBody(m, 'desktop')}
+                          </div>
+                        </React.Fragment>
+                      );
+                    }
 
                     return (
                       <React.Fragment key={m.id}>
                         <span id={`msg-${m.id}`} className="sr-only" />
                         {showDateDivider && (
-                          <div className="flex justify-center py-3">
+                          <div className="flex justify-center py-2.5">
                             <span className="px-3.5 py-1 rounded-full bg-fill-sc text-par-s text-lab-sc font-medium">
                               {formatDateDivider(m.createdAt, locale)}
                             </span>
                           </div>
                         )}
 
-                        {/* DESKTOP MESSAGE ROW (Grupo chatbox + PHP ChatMessage parity) */}
                         <div
                           onDoubleClick={() => {
                             if (m.isDeleted) return;
@@ -3095,25 +3094,37 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             messageInputRef.current?.focus();
                           }}
                           className={cn(
-                            'hidden md:flex items-start gap-3.5 px-6 hover:bg-fill-fv transition-colors group relative',
-                            isCompacted ? 'py-0.5' : 'pt-3 pb-1'
+                            'flex items-start gap-2.5 group relative w-full min-w-0',
+                            mine ? 'justify-end' : 'justify-start',
+                            isCompacted ? 'pt-0.5' : 'pt-2.5'
                           )}
                         >
-                          {isCompacted ? (
-                            <div className="w-[38px] shrink-0 text-cap-s text-lab-tr opacity-0 group-hover:opacity-100 select-none text-right pt-1 tabular-nums">
-                              {formatMessageTime(m.createdAt, locale)}
-                            </div>
-                          ) : (
-                            <div className="shrink-0 mt-0.5">
-                              <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="sm" />
-                            </div>
-                          )}
+                          {!mine &&
+                            (isCompacted ? (
+                              <div className="w-9 shrink-0" />
+                            ) : (
+                              <div className="shrink-0 mt-0.5">
+                                <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="sm" />
+                              </div>
+                            ))}
 
-                          <div className="flex-1 min-w-0 space-y-1">
+                          <div
+                            className={cn(
+                              'min-w-0 max-w-[82%] sm:max-w-[70%] lg:max-w-[62%] flex flex-col',
+                              mine ? 'items-end' : 'items-start'
+                            )}
+                          >
                             {!isCompacted && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-par-n font-bold text-lab-pr truncate">{senderName}</span>
-                                <span className="text-cap-l text-lab-tr shrink-0">
+                              <div
+                                className={cn(
+                                  'flex items-center gap-1.5 mb-1 px-0.5',
+                                  mine && 'flex-row-reverse'
+                                )}
+                              >
+                                <span className="text-par-s font-semibold text-lab-pr truncate">
+                                  {mine ? 'You' : senderName}
+                                </span>
+                                <span className="text-cap-s text-lab-tr shrink-0 tabular-nums">
                                   {formatMessageTime(m.createdAt, locale)}
                                 </span>
                                 {mine &&
@@ -3125,217 +3136,55 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               </div>
                             )}
 
-                            {m.parentId && !m.isDeleted && (
-                              <div className="rounded-r-lg border-l-2 border-brand-900 bg-fill-qt px-3 py-1.5 text-par-s text-lab-sc max-w-lg">
-                                <p className="text-cap-l font-semibold text-lab-pr truncate">
-                                  {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
-                                </p>
-                                <p className="truncate">{getMessagePreviewLabel(m.parentId)}</p>
-                              </div>
-                            )}
-
-                            <div className="space-y-1.5">{renderMessageBody(m, 'desktop')}</div>
-
-                            {m.reactionSummary && m.reactionSummary.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-0.5">
-                                {m.reactionSummary.map((rs) => (
-                                  <button
-                                    key={rs.unifiedId}
-                                    type="button"
-                                    onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-fill-qt border border-bord-card px-2.5 py-0.5 text-cap-l text-lab-pr hover:bg-fill-sc cursor-pointer"
-                                  >
-                                    <span>{rs.nativeSymbol}</span>
-                                    <span className="font-semibold text-lab-sc">{rs.count}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {!m.isDeleted && m.type !== 'system' && (
-                            <div className="absolute -top-3 right-5 z-10 flex items-center gap-0.5 rounded-full border border-bord-pr bg-bg-pr px-1.5 py-0.5 shadow-sm opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => setReactionPickerMsgId((prev) => (prev === m.id ? null : m.id))}
-                                className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
-                                title="React"
-                              >
-                                <Smile className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReplyTo(m);
-                                  messageInputRef.current?.focus();
-                                }}
-                                className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
-                                title="Reply"
-                              >
-                                <CornerUpLeft className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handlePinToggle(m.id)}
+                            <div className={cn('flex items-center gap-1.5 max-w-full min-w-0', mine && 'flex-row-reverse')}>
+                              <div
                                 className={cn(
-                                  'p-1 rounded-full hover:bg-fill-fv cursor-pointer',
-                                  pinnedMessages.some((pm) => pm.id === m.id)
-                                    ? 'text-brand-900'
-                                    : 'text-lab-sc hover:text-lab-pr'
+                                  'min-w-0 max-w-full overflow-hidden space-y-1.5',
+                                  isStickerOnly
+                                    ? 'bg-transparent p-0'
+                                    : cn(
+                                        'rounded-xl px-3.5 py-2 border shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+                                        mine
+                                          ? 'bg-fill-qt border-bord-pr/80 text-lab-pr rounded-tr-xs'
+                                          : 'bg-bg-pr border-bord-card text-lab-pr rounded-tl-xs'
+                                      )
                                 )}
-                                title={
-                                  pinnedMessages.some((pm) => pm.id === m.id) ? 'Unpin message' : 'Pin message'
-                                }
                               >
-                                {pinnedMessages.some((pm) => pm.id === m.id) ? (
-                                  <PinOff className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Pin className="h-3.5 w-3.5" />
+                                {m.parentId && !m.isDeleted && (
+                                  <div className="max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-2 border-brand-900 bg-fill-fv/80 text-par-s text-lab-sc text-left">
+                                    <p className="text-cap-l font-semibold text-lab-pr truncate">
+                                      {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
+                                    </p>
+                                    <p className="truncate">{getMessagePreviewLabel(m.parentId)}</p>
+                                  </div>
                                 )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setForwardMsg(m);
-                                  setForwardTargets([]);
-                                }}
-                                className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer"
-                                title="Forward message"
-                              >
-                                <Forward className="h-3.5 w-3.5" />
-                              </button>
-                              {!mine && m.content?.trim() && (
+
+                                <div className="space-y-1.5 text-left">
+                                  {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
+                                </div>
+                              </div>
+
+                              {!m.isDeleted && (
                                 <button
                                   type="button"
-                                  disabled={translatingMsgId === m.id}
-                                  onClick={() => void handleTranslateMessage(m)}
-                                  className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                  title={msgTranslations[m.id] ? 'Show original' : 'Translate message'}
+                                  onClick={() => setMobileActionMsg(m)}
+                                  className="shrink-0 size-7 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+                                  title="Message options"
+                                  aria-label="Message actions"
                                 >
-                                  <Languages className="h-3.5 w-3.5" />
+                                  <MoreHorizontal className="h-4 w-4" />
                                 </button>
-                              )}
-                              {mine && (
-                                <div className="relative">
-                                  <button
-                                    type="button"
-                                    onClick={() => setDeleteMenuMsgId((prev) => (prev === m.id ? null : m.id))}
-                                    className="p-1 rounded-full text-lab-sc hover:text-red-600 hover:bg-fill-fv cursor-pointer"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                  {deleteMenuMsgId === m.id && (
-                                    <div className="absolute right-0 top-7 z-20 w-40 rounded-xl border border-bord-pr bg-bg-pr shadow-lg py-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteMessage(m.id, 'global')}
-                                        className="w-full px-3 py-1.5 text-left text-cap-l text-red-600 hover:bg-fill-pr cursor-pointer"
-                                      >
-                                        Delete for everyone
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteMessage(m.id, 'local')}
-                                        className="w-full px-3 py-1.5 text-left text-cap-l text-lab-pr hover:bg-fill-pr cursor-pointer"
-                                      >
-                                        Delete for me
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {reactionPickerMsgId === m.id && (
-                                <div className="absolute right-0 top-8 z-20 flex items-center gap-1 rounded-full border border-bord-pr bg-bg-pr px-2 py-1 shadow-lg">
-                                  {CHAT_REACTIONS.map((r) => (
-                                    <button
-                                      key={r.unifiedId}
-                                      type="button"
-                                      onClick={() => handleToggleReaction(m.id, r.unifiedId, r.nativeSymbol)}
-                                      className="h-7 w-7 rounded-full hover:bg-fill-sc flex items-center justify-center text-base cursor-pointer"
-                                    >
-                                      {r.nativeSymbol}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* MOBILE BUBBLE ROW (matches PHP mobile ChatMessage.vue) */}
-                        <div
-                          className={cn(
-                            'flex md:hidden w-full min-w-0 items-end gap-1.5 group relative',
-                            mine ? 'justify-end' : 'justify-start'
-                          )}
-                        >
-                          {!mine && <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="xs" />}
-
-                          <div className={cn('min-w-0 max-w-[82%] overflow-hidden space-y-1', mine && 'items-end flex flex-col')}>
-                            <div
-                              className={cn(
-                                'w-fit max-w-full min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 space-y-1.5 relative border',
-                                mine
-                                  ? 'bg-fill-qt border-fill-fv text-lab-pr rounded-br-sm'
-                                  : 'bg-bg-pr border-bord-pr text-lab-pr rounded-bl-sm'
-                              )}
-                            >
-                              {!mine && activeChat.type === 'group' && (
-                                <p className="text-cap-l font-bold text-lab-sc truncate">@{m.sender?.username}</p>
-                              )}
-
-                              {m.parentId && !m.isDeleted && (
-                                <div className="max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-2 border-brand-900 bg-bg-pr/70 text-par-s text-lab-sc">
-                                  <p className="text-cap-l font-semibold text-lab-pr truncate">
-                                    {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
-                                  </p>
-                                  <p className="truncate">{getMessagePreviewLabel(m.parentId)}</p>
-                                </div>
-                              )}
-
-                              {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
-
-                              <div className="flex items-center justify-end gap-1 text-cap-s text-lab-sc">
-                                <span>{formatMessageTime(m.createdAt, locale)}</span>
-                                {mine &&
-                                  (readByOther ? (
-                                    <CheckCheck className="h-3.5 w-3.5 text-brand-900" />
-                                  ) : (
-                                    <Check className="h-3.5 w-3.5 text-lab-sc" />
-                                  ))}
-                              </div>
-
-                              {reactionPickerMsgId === m.id && (
-                                <div
-                                  className={cn(
-                                    'absolute bottom-full mb-1.5 z-20 flex items-center gap-1 rounded-full border border-bord-pr bg-bg-pr px-2 py-1 shadow-lg',
-                                    mine ? 'right-0' : 'left-0'
-                                  )}
-                                >
-                                  {CHAT_REACTIONS.map((r) => (
-                                    <button
-                                      key={r.unifiedId}
-                                      type="button"
-                                      onClick={() => handleToggleReaction(m.id, r.unifiedId, r.nativeSymbol)}
-                                      className="h-7 w-7 rounded-full hover:bg-fill-sc flex items-center justify-center text-base cursor-pointer"
-                                    >
-                                      {r.nativeSymbol}
-                                    </button>
-                                  ))}
-                                </div>
                               )}
                             </div>
 
                             {m.reactionSummary && m.reactionSummary.length > 0 && (
-                              <div className={cn('flex flex-wrap gap-1', mine ? 'justify-end' : 'justify-start')}>
+                              <div className={cn('flex flex-wrap gap-1 pt-1', mine ? 'justify-end' : 'justify-start')}>
                                 {m.reactionSummary.map((rs) => (
                                   <button
                                     key={rs.unifiedId}
                                     type="button"
                                     onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-fill-qt border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                    className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
                                   >
                                     <span>{rs.nativeSymbol}</span>
                                     <span className="font-semibold text-lab-sc">{rs.count}</span>
@@ -3344,30 +3193,19 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               </div>
                             )}
                           </div>
-
-                          {!m.isDeleted && m.type !== 'system' && (
-                            <button
-                              type="button"
-                              onClick={() => setMobileActionMsg(m)}
-                              className="md:hidden self-center p-1 rounded-full text-lab-tr hover:bg-fill-sc shrink-0"
-                              aria-label="Message actions"
-                            >
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </button>
-                          )}
                         </div>
                       </React.Fragment>
                     );
                   })}
 
                   {typingUsers.length > 0 && (
-                    <div className="flex items-end gap-2 justify-start px-1 md:px-5 py-1">
+                    <div className="flex items-end gap-2 justify-start px-1 py-1">
                       <Avatar
                         src={typingUsers[0]?.avatar || activeAvatar}
                         alt={typingUsers[0]?.username || 'Typing'}
                         size="xs"
                       />
-                      <div className="rounded-2xl rounded-bl-sm bg-fill-qt border border-bord-card px-3.5 py-2.5 flex items-center gap-1.5">
+                      <div className="rounded-xl rounded-tl-xs bg-bg-pr border border-bord-card px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.3s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.15s]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce" />
@@ -3378,7 +3216,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {(!callMode || callMinimized || showChatInCall) && (
+                {(!callMode || showChatInCall) && (
                   <>
                     {/* Reply Preview Banner */}
                     {replyTo && (
@@ -3507,13 +3345,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             ))}
                           </div>
                         )}
-
                         {/* Grupo-Style Minimal Plus (+) Action Menu */}
                         {attachMenuOpen && (
                           <div className="absolute bottom-full left-3 mb-2 z-30 w-52 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5">
-                            <label
-                              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
-                            >
+                            <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
                               <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
                               <span>Photo or Video</span>
                               <input
@@ -3528,9 +3363,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               />
                             </label>
 
-                            <label
-                              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer"
-                            >
+                            <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
                               <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
                               <span>Attach File</span>
                               <input
@@ -3570,7 +3403,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                             >
                               <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                              <span>Stickers & Emoji</span>
+                              <span>Stickers &amp; Emoji</span>
                             </button>
 
                             <button
@@ -3693,9 +3526,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         </form>
                       </div>
                     )}
+                  </>
+                )}
               </>
-            )}
-            </>
             )}
           </>
         )}
@@ -3703,7 +3536,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
       {/* Grupo Pro 3rd Column: Docked Right Room Info Panel on Desktop */}
       {activeChat?.type === 'group' && groupInfoOpen && !joinPreviewStatus && (
-        <div className="hidden lg:flex w-[320px] xl:w-[340px] shrink-0 h-full">
+        <div className="hidden lg:flex w-[300px] xl:w-[320px] shrink-0 h-full min-h-0 overflow-hidden">
           <div className="w-full h-full">
             <GroupInfoPanel
               key={activeChat.id}
@@ -3860,6 +3693,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </div>
                 )}
               </div>
+
               <AvatarPresetPicker
                 selectedUrl={groupAvatar}
                 onSelect={(url) => setGroupAvatar(url)}
@@ -4096,7 +3930,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             <div className="divide-y divide-bord-pr rounded-2xl border border-bord-pr overflow-hidden">
               {interlocutor?.username && (
                 <Link
-                  href={`/${interlocutor.username}`}
+                  href={`/@${interlocutor.username}`}
                   onClick={() => setDirectInfoOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 text-par-n text-lab-pr hover:bg-fill-pr"
                 >
@@ -4153,7 +3987,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </Modal>
       )}
 
-      {/* Mobile Touch Message Action Sheet Modal */}
+      {/* Message Actions Modal */}
       {mobileActionMsg && (
         <Modal
           open={Boolean(mobileActionMsg)}
@@ -4233,12 +4067,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 <>
                   <button
                     type="button"
+                    disabled={translatingMsgId === mobileActionMsg.id}
                     onClick={() => {
                       const target = mobileActionMsg;
                       setMobileActionMsg(null);
                       void handleTranslateMessage(target);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-lab-pr hover:bg-fill-pr cursor-pointer"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-n text-lab-pr hover:bg-fill-pr cursor-pointer disabled:opacity-50"
                   >
                     <Languages className="h-4 w-4 text-lab-sc" />
                     {msgTranslations[mobileActionMsg.id] ? 'Show original' : 'Translate message'}
@@ -4293,163 +4128,163 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </Modal>
       )}
 
-            {/* Create Poll Modal (Grupo Pro parity) */}
-            <Modal
-              open={pollModalOpen}
-              onClose={() => setPollModalOpen(false)}
-              title="Create In-Chat Poll"
-            >
-              <form onSubmit={handleCreatePoll} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-cap-l font-semibold text-lab-pr">Question</label>
-                  <Input
-                    value={pollQuestion}
-                    onChange={(e) => setPollQuestion(e.target.value)}
-                    placeholder="Ask the chat a question..."
-                    maxLength={240}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-cap-l font-semibold text-lab-pr">Options</label>
-                  {pollOptions.map((opt, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Input
-                        value={opt}
-                        onChange={(e) => {
-                          const next = [...pollOptions];
-                          next[idx] = e.target.value;
-                          setPollOptions(next);
-                        }}
-                        placeholder={`Option ${idx + 1}`}
-                        maxLength={120}
-                        required={idx < 2}
-                      />
-                      {pollOptions.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))}
-                          className="p-2 rounded-full text-lab-sc hover:text-red-600 hover:bg-fill-fv cursor-pointer"
-                          aria-label="Remove option"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {pollOptions.length < 6 && (
-                    <button
-                      type="button"
-                      onClick={() => setPollOptions((prev) => [...prev, ''])}
-                      className="inline-flex items-center gap-1.5 text-cap-l font-semibold text-brand-900 hover:underline cursor-pointer"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Add option
-                    </button>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setPollModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="primary" disabled={sending}>
-                    Post Poll
-                  </Button>
-                </div>
-              </form>
-            </Modal>
+      {/* Create Poll Modal (Grupo Pro parity) */}
+      <Modal
+        open={pollModalOpen}
+        onClose={() => setPollModalOpen(false)}
+        title="Create In-Chat Poll"
+      >
+        <form onSubmit={handleCreatePoll} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-cap-l font-semibold text-lab-pr">Question</label>
+            <Input
+              value={pollQuestion}
+              onChange={(e) => setPollQuestion(e.target.value)}
+              placeholder="Ask the chat a question..."
+              maxLength={240}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-cap-l font-semibold text-lab-pr">Options</label>
+            {pollOptions.map((opt, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Input
+                  value={opt}
+                  onChange={(e) => {
+                    const next = [...pollOptions];
+                    next[idx] = e.target.value;
+                    setPollOptions(next);
+                  }}
+                  placeholder={`Option ${idx + 1}`}
+                  maxLength={120}
+                  required={idx < 2}
+                />
+                {pollOptions.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))}
+                    className="p-2 rounded-full text-lab-sc hover:text-red-600 hover:bg-fill-fv cursor-pointer"
+                    aria-label="Remove option"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {pollOptions.length < 6 && (
+              <button
+                type="button"
+                onClick={() => setPollOptions((prev) => [...prev, ''])}
+                className="inline-flex items-center gap-1.5 text-cap-l font-semibold text-brand-900 hover:underline cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add option
+              </button>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setPollModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={sending}>
+              Post Poll
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-            {/* Forward Message Modal (Grupo Pro parity) */}
-            <Modal
-              open={Boolean(forwardMsg)}
-              onClose={() => {
+      {/* Forward Message Modal (Grupo Pro parity) */}
+      <Modal
+        open={Boolean(forwardMsg)}
+        onClose={() => {
+          setForwardMsg(null);
+          setForwardTargets([]);
+        }}
+        title="Forward Message"
+      >
+        <form onSubmit={handleForwardSubmit} className="space-y-4">
+          {forwardMsg && (
+            <div className="rounded-xl border border-bord-card bg-fill-qt px-3 py-2 text-cap-l text-lab-sc truncate">
+              {getMessagePreviewLabel(forwardMsg)}
+            </div>
+          )}
+          <div className="max-h-64 overflow-y-auto divide-y divide-bord-pr rounded-xl border border-bord-pr">
+            {chats.length === 0 ? (
+              <p className="p-4 text-center text-par-n text-lab-sc">No conversations found.</p>
+            ) : (
+              chats.map((c) => {
+                const label =
+                  c.type === 'group'
+                    ? c.group?.name || 'Group Chat'
+                    : c.interlocutor
+                      ? `${c.interlocutor.firstName || ''} ${c.interlocutor.lastName || ''}`.trim() ||
+                      `@${c.interlocutor.username}`
+                      : 'Direct Chat';
+                const avatarSrc = c.type === 'group' ? c.group?.avatar : c.interlocutor?.avatar;
+                const checked = forwardTargets.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() =>
+                      setForwardTargets((prev) =>
+                        checked ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                      )
+                    }
+                    className={cn(
+                      'w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors cursor-pointer',
+                      checked ? 'bg-brand-900/10' : 'hover:bg-fill-fv'
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar src={avatarSrc} alt={label} size="sm" />
+                      <span className="text-par-n font-medium text-lab-pr truncate">{label}</span>
+                    </div>
+                    <span
+                      className={cn(
+                        'h-5 w-5 rounded-full border flex items-center justify-center shrink-0',
+                        checked
+                          ? 'bg-brand-900 border-brand-900 text-white'
+                          : 'border-bord-pr bg-bg-pr'
+                      )}
+                    >
+                      {checked && <Check className="h-3 w-3" />}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
                 setForwardMsg(null);
                 setForwardTargets([]);
               }}
-              title="Forward Message"
             >
-              <form onSubmit={handleForwardSubmit} className="space-y-4">
-                {forwardMsg && (
-                  <div className="rounded-xl border border-bord-card bg-fill-qt px-3 py-2 text-cap-l text-lab-sc truncate">
-                    {getMessagePreviewLabel(forwardMsg)}
-                  </div>
-                )}
-                <div className="max-h-64 overflow-y-auto divide-y divide-bord-pr rounded-xl border border-bord-pr">
-                  {chats.length === 0 ? (
-                    <p className="p-4 text-center text-par-n text-lab-sc">No conversations found.</p>
-                  ) : (
-                    chats.map((c) => {
-                      const label =
-                        c.type === 'group'
-                          ? c.group?.name || 'Group Chat'
-                          : c.interlocutor
-                            ? `${c.interlocutor.firstName || ''} ${c.interlocutor.lastName || ''}`.trim() ||
-                            `@${c.interlocutor.username}`
-                            : 'Direct Chat';
-                      const avatarSrc = c.type === 'group' ? c.group?.avatar : c.interlocutor?.avatar;
-                      const checked = forwardTargets.includes(c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() =>
-                            setForwardTargets((prev) =>
-                              checked ? prev.filter((id) => id !== c.id) : [...prev, c.id]
-                            )
-                          }
-                          className={cn(
-                            'w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors cursor-pointer',
-                            checked ? 'bg-brand-900/10' : 'hover:bg-fill-fv'
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Avatar src={avatarSrc} alt={label} size="sm" />
-                            <span className="text-par-n font-medium text-lab-pr truncate">{label}</span>
-                          </div>
-                          <span
-                            className={cn(
-                              'h-5 w-5 rounded-full border flex items-center justify-center shrink-0',
-                              checked
-                                ? 'bg-brand-900 border-brand-900 text-white'
-                                : 'border-bord-pr bg-bg-pr'
-                            )}
-                          >
-                            {checked && <Check className="h-3 w-3" />}
-                          </span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setForwardMsg(null);
-                      setForwardTargets([]);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={forwarding || forwardTargets.length === 0}
-                  >
-                    Forward ({forwardTargets.length})
-                  </Button>
-                </div>
-              </form>
-            </Modal>
-
-            {/* Fullscreen PHP-parity Media Lightbox */}
-            <MediaLightbox
-              open={Boolean(lightboxImageUrl)}
-              onClose={() => setLightboxImageUrl(null)}
-              images={lightboxItems}
-              initialIndex={lightboxInitialIndex}
-              albumName={activeTitle}
-            />
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={forwarding || forwardTargets.length === 0}
+            >
+              Forward ({forwardTargets.length})
+            </Button>
           </div>
-        );
+        </form>
+      </Modal>
+
+      {/* Fullscreen PHP-parity Media Lightbox */}
+      <MediaLightbox
+        open={Boolean(lightboxImageUrl)}
+        onClose={() => setLightboxImageUrl(null)}
+        images={lightboxItems}
+        initialIndex={lightboxInitialIndex}
+        albumName={activeTitle}
+      />
+    </div>
+  );
 }

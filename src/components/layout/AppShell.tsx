@@ -277,8 +277,15 @@ export function AppShell({
                       ? dict.nav.settings
                       : appName;
 
+  const viewportLocked = Boolean(fullWidth && hideDesktopSidebar);
+
   return (
-    <div className="min-h-screen bg-bg-pr text-lab-pr">
+    <div
+      className={cn(
+        'bg-bg-pr text-lab-pr',
+        viewportLocked ? 'h-[100dvh] flex flex-col overflow-hidden' : 'min-h-screen'
+      )}
+    >
       {/* Mobile Sticky Top Header matching mobile/components/layout/ApplicationHeader.vue */}
       {!hideMobileChrome && (
         <header className="md:hidden sticky top-0 z-40 pt-safe px-safe bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr">
@@ -345,12 +352,12 @@ export function AppShell({
         </header>
       )}
 
-      {/* Desktop Fixed Left Sidebar matching ApplicationSidebar.vue */}
+      {/* Desktop Fixed Left Sidebar matching ApplicationSidebar.vue (340px w-page-offset, NO right border) */}
       {!hideDesktopSidebar && (
-        <aside className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-[250px] xl:w-[290px]">
+        <aside className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-[260px] xl:w-[340px]">
           {/* Left ActionBar gutter (ApplicationActionBar.vue) */}
-          <div className="hidden xl:flex pl-4 shrink-0">
-            <div className="flex w-[28px] flex-col h-full justify-end items-center pb-6" />
+          <div className="hidden xl:flex pl-6 shrink-0">
+            <div className="flex w-[56px] flex-col h-full justify-end items-center pb-6" />
           </div>
 
           {/* Main Nav Column */}
@@ -633,23 +640,33 @@ export function AppShell({
         </aside>
       )}
 
-      {/* Main Content Wrapper matching ApplicationMainLayout */}
+      {/* Main Content Wrapper matching ApplicationMainLayout (ml-page-offset) */}
       <div
         className={cn(
           'flex-1 min-w-0',
-          !hideDesktopSidebar && 'md:ml-[250px] xl:ml-[290px]',
+          viewportLocked && 'min-h-0 flex flex-col overflow-hidden',
+          !hideDesktopSidebar && 'md:ml-[260px] xl:ml-[340px]',
           hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6',
-          hideMobileChrome ? 'pb-0' : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
+          hideMobileChrome
+            ? 'pb-0'
+            : viewportLocked
+              ? 'pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0'
+              : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
         )}
       >
         {fullWidth || hideRightRail ? (
-          <main className={cn('min-h-screen', fullWidth && !hideDesktopSidebar ? 'max-w-[1280px]' : 'w-full')}>
+          <main
+            className={cn(
+              viewportLocked ? 'flex-1 min-h-0 h-full overflow-hidden' : 'min-h-screen',
+              fullWidth && !hideDesktopSidebar ? 'max-w-[1280px]' : 'w-full'
+            )}
+          >
             {children}
           </main>
         ) : (
-          /* Balanced SidedContentLayout with wider RightRail and matched outer margins */
-          <div className="w-full max-w-[1100px] flex gap-6 lg:pr-6 xl:pr-8">
-            <main className="w-full max-w-[600px] xl:max-w-[640px] min-w-0 border-x border-bord-tr min-h-screen shrink-0">
+          /* Exact SidedContentLayout (w-sided-content = 960px, flex gap-6, w-content = 600px border-x border-bord-tr + sticky sidebar) */
+          <div className="w-full max-w-[984px] flex gap-6">
+            <main className="w-full max-w-[600px] min-w-0 border-x border-bord-tr min-h-screen">
               {children}
             </main>
             <RightRail />
