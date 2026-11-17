@@ -352,12 +352,12 @@ export function AppShell({
         </header>
       )}
 
-      {/* Desktop Fixed Left Sidebar matching ApplicationSidebar.vue (340px w-page-offset, NO right border) */}
+      {/* Desktop Fixed Left Sidebar matching ApplicationSidebar.vue */}
       {!hideDesktopSidebar && (
-        <aside className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-[260px] xl:w-[340px]">
+        <aside className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-[250px] xl:w-[290px]">
           {/* Left ActionBar gutter (ApplicationActionBar.vue) */}
-          <div className="hidden xl:flex pl-6 shrink-0">
-            <div className="flex w-[56px] flex-col h-full justify-end items-center pb-6" />
+          <div className="hidden xl:flex pl-4 shrink-0">
+            <div className="flex w-[28px] flex-col h-full justify-end items-center pb-6" />
           </div>
 
           {/* Main Nav Column */}
@@ -640,12 +640,12 @@ export function AppShell({
         </aside>
       )}
 
-      {/* Main Content Wrapper matching ApplicationMainLayout (ml-page-offset) */}
+      {/* Main Content Wrapper matching ApplicationMainLayout */}
       <div
         className={cn(
           'flex-1 min-w-0',
           viewportLocked && 'min-h-0 flex flex-col overflow-hidden',
-          !hideDesktopSidebar && 'md:ml-[260px] xl:ml-[340px]',
+          !hideDesktopSidebar && 'md:ml-[250px] xl:ml-[290px]',
           hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6',
           hideMobileChrome
             ? 'pb-0'
@@ -664,9 +664,9 @@ export function AppShell({
             {children}
           </main>
         ) : (
-          /* Exact SidedContentLayout (w-sided-content = 960px, flex gap-6, w-content = 600px border-x border-bord-tr + sticky sidebar) */
-          <div className="w-full max-w-[984px] flex gap-6">
-            <main className="w-full max-w-[600px] min-w-0 border-x border-bord-tr min-h-screen">
+          /* Balanced SidedContentLayout with wider RightRail and matched outer margins */
+          <div className="w-full max-w-[1100px] flex gap-6 lg:pr-6 xl:pr-8">
+            <main className="w-full max-w-[600px] xl:max-w-[640px] min-w-0 border-x border-bord-tr min-h-screen shrink-0">
               {children}
             </main>
             <RightRail />
