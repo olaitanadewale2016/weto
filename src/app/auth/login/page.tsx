@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   getRedirectResult,
   signInWithEmailAndPassword,
@@ -66,14 +65,14 @@ function formatFirebaseAuthError(err: unknown): { title: string; description: st
 }
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { user, loading: appLoading, bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
+  const { user, loading: appLoading, bootstrap, refreshBootstrap } = useApp();
   const { error, success } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
+  const redirectCheckedRef = useRef(false);
 
   const appName = bootstrap?.config?.appName || 'Weto';
 
@@ -92,28 +91,32 @@ export default function LoginPage() {
     }
   }, [user, appLoading]);
 
-  // Handle Google OAuth redirect on PWA standalone & mobile
+  // Handle Google OAuth redirect result — always check on mount (no URL-param gating)
   useEffect(() => {
-    if (!isFirebaseClientConfigured()) return;
+    if (!isFirebaseClientConfigured() || redirectCheckedRef.current) return;
+    redirectCheckedRef.current = true;
     try {
       const auth = getFirebaseClientAuth();
       getRedirectResult(auth)
         .then(async (cred) => {
           if (cred?.user) {
             setLoading(true);
-            const idToken = await cred.user.getIdToken();
-            await completeSessionExchange(idToken);
+            try {
+              const idToken = await cred.user.getIdToken();
+              await completeSessionExchange(idToken);
+            } catch (err: unknown) {
+              const formatted = formatFirebaseAuthError(err);
+              if (!formatted.ignore && formatted.description) {
+                error(formatted.title, formatted.description);
+              }
+            } finally {
+              setLoading(false);
+            }
           }
         })
         .catch((err: unknown) => {
           const formatted = formatFirebaseAuthError(err);
-          // Only show error if an OAuth callback was actively returning
-          const isOAuthCallback =
-            typeof window !== 'undefined' &&
-            (window.location.hash.includes('access_token') ||
-              window.location.search.includes('apiKey') ||
-              window.location.search.includes('mode=signIn'));
-          if (!formatted.ignore && formatted.description && isOAuthCallback) {
+          if (!formatted.ignore && formatted.description) {
             error(formatted.title, formatted.description);
           }
         });
@@ -125,20 +128,22 @@ export default function LoginPage() {
 
   async function completeSessionExchange(idToken: string) {
     clearBootstrapCache();
+    // Also pre-store the idToken so apiFetch can attach it as Bearer during the session POST itself
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem('cp_token', idToken); } catch { /* ignore */ }
+    }
     const res = await apiFetch<{
       token?: string;
+      idToken?: string;
       user: { status: string; onboardingStep?: string; firstName?: string; username?: string };
     }>('/auth/session', {
       method: 'POST',
       json: { idToken, remember },
     });
-    const sessionToken = res.token || idToken;
+    // Prefer the long-lived session cookie token (14 days) over the short idToken (1 hour)
+    const sessionToken = res.token || res.idToken || idToken;
     if (typeof window !== 'undefined' && sessionToken) {
-      try {
-        localStorage.setItem('cp_token', sessionToken);
-      } catch {
-        // ignore
-      }
+      try { localStorage.setItem('cp_token', sessionToken); } catch { /* ignore */ }
     }
     await refreshBootstrap();
     success(`Welcome back, ${res.user.firstName || res.user.username || 'user'}!`);
@@ -156,7 +161,7 @@ export default function LoginPage() {
       } else {
         window.location.assign(safeRedirect);
       }
-    }, 200);
+    }, 300);
   }
 
   async function handleEmailLogin(e: React.FormEvent) {
@@ -172,7 +177,16 @@ export default function LoginPage() {
       const idToken = await cred.user.getIdToken();
       await completeSessionExchange(idToken);
     } catch (err) {
-      error('Sign in failed', err instanceof Error ? err.message : 'Invalid credentials');
+      const fbCode = (err as { code?: string })?.code || '';
+      const msg =
+        fbCode === 'auth/user-not-found' || fbCode === 'auth/wrong-password' || fbCode === 'auth/invalid-credential'
+          ? 'Invalid email or password. Please try again.'
+          : fbCode === 'auth/too-many-requests'
+          ? 'Too many failed attempts. Please wait a moment and try again.'
+          : err instanceof Error
+          ? err.message.replace(/^Firebase:\s*/i, '')
+          : 'Invalid credentials';
+      error('Sign in failed', msg);
     } finally {
       setLoading(false);
     }
@@ -198,23 +212,21 @@ export default function LoginPage() {
           return;
         }
 
-        // If domain is unauthorized, don't attempt redirect (same failure)
+        // If domain is unauthorized, show helpful message immediately
         if (pCode === 'auth/unauthorized-domain') {
           throw popupErr;
         }
 
-        // Attempt redirect if popup was blocked or unsupported
+        // Attempt redirect flow if popup was blocked or unsupported (PWA standalone)
         if (
           pCode === 'auth/popup-blocked' ||
           pCode === 'auth/operation-not-supported-in-this-environment' ||
-          (popupErr instanceof Error && popupErr.message.includes('popup'))
+          (popupErr instanceof Error && popupErr.message.toLowerCase().includes('popup'))
         ) {
-          try {
-            await signInWithRedirect(auth, googleAuthProvider);
-            return;
-          } catch (redirectErr: unknown) {
-            throw redirectErr;
-          }
+          // Store a flag so getRedirectResult knows to show errors
+          try { sessionStorage.setItem('cp_google_redirect', '1'); } catch { /* ignore */ }
+          await signInWithRedirect(auth, googleAuthProvider);
+          return; // Page will redirect away; getRedirectResult handles the return
         }
         throw popupErr;
       }

@@ -509,26 +509,37 @@ export function AppProvider({
     }
   }, [bootstrap?.config?.logos?.favicon]);
 
-  // Firebase Auth ID token sync — persist client token and establish server session if needed
+  // Firebase Auth ID token sync — keep cp_token fresh and establish server session if needed
   useEffect(() => {
     if (!isFirebaseClientConfigured()) return;
     try {
       const auth = getFirebaseClientAuth();
       const unsub = onIdTokenChanged(auth, async (fbUser) => {
-        if (fbUser) {
+        if (fbUser && !isLoggingOutRef.current) {
           try {
             const idToken = await fbUser.getIdToken();
-            if (!bootstrapUserRef.current && !isLoggingOutRef.current) {
-              const res = await apiFetch<{ token?: string }>('/auth/session', {
+            // Always store the latest idToken so Bearer auth stays fresh for PWA
+            if (typeof window !== 'undefined') {
+              try {
+                const stored = localStorage.getItem('cp_token');
+                // Only overwrite with idToken if no long-lived session token is stored,
+                // or if the stored one is very short (looks like an idToken not a session cookie)
+                if (!stored || stored.length < 200) {
+                  localStorage.setItem('cp_token', idToken);
+                }
+              } catch {
+                // ignore
+              }
+            }
+            // If no server session established yet (fresh PWA open), create one
+            if (!bootstrapUserRef.current) {
+              const res = await apiFetch<{ token?: string; idToken?: string }>('/auth/session', {
                 method: 'POST',
                 json: { idToken },
               });
-              if (res?.token && typeof window !== 'undefined') {
-                try {
-                  localStorage.setItem('cp_token', res.token);
-                } catch {
-                  // ignore
-                }
+              const sessionToken = res?.token || res?.idToken || idToken;
+              if (sessionToken && typeof window !== 'undefined') {
+                try { localStorage.setItem('cp_token', sessionToken); } catch { /* ignore */ }
               }
               await refreshBootstrap();
             }
