@@ -63,6 +63,9 @@ export const MODERATION_ACTION_TYPES = [
   'reject_cashout',
   'delete_chat',
   'delete_chat_message',
+  'create_group',
+  'update_group',
+  'broadcast_group_message',
 ] as const;
 
 export type ModerationActionType = (typeof MODERATION_ACTION_TYPES)[number];

@@ -6,20 +6,31 @@ import { Notification } from '@/models/Notification';
 import { Chat, Message } from '@/models/Messaging';
 import { Currency, Locale } from '@/models/System';
 import { User } from '@/models/User';
-import { UserStatus } from '@/types/enums';
+import { ChatType, GroupStatus, GroupVisibility, UserStatus } from '@/types/enums';
 import { connectDB } from '@/lib/db';
 import { ensureDefaultCurrenciesAndLocales } from '@/services/localization-seed.service';
+import { ensureDefaultCommunityGroups, syncAutoJoinGroupsForUser } from '@/services/group-seed.service';
 import { resolveMediaUrl } from '@/lib/media-url';
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
     await ensureDefaultCurrenciesAndLocales();
-    const [config, authCtx, currencies, locales] = await Promise.all([
+    await ensureDefaultCommunityGroups();
+    const [config, authCtx, currencies, locales, publicGroupsRaw] = await Promise.all([
       getPublicBootstrapConfig(),
       getOptionalAuth(req),
       Currency.find({ status: true }).sort({ order: 1 }).lean(),
       Locale.find({ status: true }).sort({ order: 1 }).lean(),
+      Chat.find({
+        type: ChatType.GROUP,
+        'group.status': GroupStatus.ACTIVE,
+        'group.visibility': GroupVisibility.PUBLIC,
+      })
+        .sort({ 'group.isPinned': -1, lastActivity: -1 })
+        .limit(6)
+        .select('_id chatUuid group participants lastMessagePreview lastActivity')
+        .lean(),
     ]);
 
     let unreadNotifications = 0;
@@ -35,6 +46,7 @@ export async function GET(req: NextRequest) {
 
     if (authCtx?.user) {
       const u = authCtx.user;
+      await syncAutoJoinGroupsForUser(u._id).catch(() => {});
       const masterId = u.ownerAccountId || u._id;
       const prevCookieId = req.cookies.get(PREVIOUS_ACCOUNT_COOKIE_NAME)?.value;
       const shouldResolvePrev =
@@ -137,10 +149,27 @@ export async function GET(req: NextRequest) {
       isRtl: l.direction === 'rtl',
     }));
 
+    const viewerId = authCtx?.user?._id ? String(authCtx.user._id) : null;
+    const communityGroups = publicGroupsRaw.map((g) => ({
+      id: String(g._id),
+      name: g.group?.name || 'Community Group',
+      description: g.group?.description || '',
+      avatar: resolveMediaUrl(g.group?.avatar) || '/assets/avatars/default-avatar.png',
+      category: g.group?.category || 'General',
+      verified: Boolean(g.group?.verified),
+      isPinned: Boolean(g.group?.isPinned),
+      isPasswordProtected: Boolean(g.group?.isPasswordProtected),
+      membersCount: Array.isArray(g.participants) ? g.participants.length : 0,
+      isJoined: viewerId
+        ? (g.participants || []).some((p) => String(p.userId) === viewerId)
+        : false,
+    }));
+
     return apiSuccess({
       config,
       currencies: normalizedCurrencies,
       locales: normalizedLocales,
+      communityGroups,
       user: userPayload,
       previousAccount: previousAccountPayload,
       counters: {

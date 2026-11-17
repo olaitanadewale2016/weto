@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -27,8 +28,13 @@ import {
   CategoryStatus,
   CategoryType,
   CensorLevel,
+  ChatType,
+  GroupPrivacy,
+  GroupStatus,
+  GroupVisibility,
   JobApproval,
   JobStatus,
+  MessageType,
   PostStatus,
   ProductApproval,
   ProductStatus,
@@ -51,6 +57,12 @@ import { dispatchNotification } from '@/services/notification.service';
 import { writeAuditLog } from '@/lib/audit';
 import { sendEmail } from '@/services/mail.service';
 import { emitToAdmins, emitToChat, emitToUser } from '@/lib/realtime-emitter';
+import { publishChatRealtimeEvent } from '@/lib/firebase/realtime';
+import {
+  generateGroupInviteCode,
+  hashGroupPassword,
+  sanitizeGroupForClient,
+} from '@/services/group-seed.service';
 
 export async function GET(req: NextRequest) {
   try {
@@ -203,13 +215,22 @@ export async function GET(req: NextRequest) {
 
     if (resource === 'chats') {
       const chatFilter: Record<string, unknown> = re
-        ? { $or: [{ 'group.name': re }, { 'group.description': re }, { chatUuid: re }] }
+        ? { $or: [{ 'group.name': re }, { 'group.description': re }, { 'group.category': re }, { chatUuid: re }] }
         : {};
       if (filterParam === 'group' || filterParam === 'direct') {
         chatFilter.type = filterParam;
+      } else if (filterParam === 'pinned') {
+        chatFilter.type = ChatType.GROUP;
+        chatFilter['group.isPinned'] = true;
+      } else if (filterParam === 'auto_join') {
+        chatFilter.type = ChatType.GROUP;
+        chatFilter['group.autoJoin'] = true;
+      } else if (filterParam === 'suspended') {
+        chatFilter.type = ChatType.GROUP;
+        chatFilter['group.status'] = GroupStatus.SUSPENDED;
       }
       const chats = await Chat.find(chatFilter)
-        .sort({ lastActivity: -1 })
+        .sort({ 'group.isPinned': -1, lastActivity: -1 })
         .limit(limit)
         .populate('participants.userId', 'username firstName lastName avatar verified status role')
         .lean();
@@ -225,6 +246,7 @@ export async function GET(req: NextRequest) {
       return apiSuccess(
         chats.map((c) => ({
           ...c,
+          group: sanitizeGroupForClient(c.group as unknown as Record<string, unknown>),
           participantsCount: Array.isArray(c.participants) ? c.participants.length : 0,
           messagesCount: countMap.get(String(c._id)) || 0,
         }))
@@ -1123,6 +1145,152 @@ export async function POST(req: NextRequest) {
       await emitToChat(chatIdStr, 'message:deleted', {
         chatId: chatIdStr,
         messageId: String(msgDoc._id),
+      });
+    } else if (action === 'chat.create_group') {
+      const groupName = String(payload.name || '').trim();
+      if (groupName.length < 2) {
+        throw new ValidationError('Group name must be at least 2 characters.');
+      }
+      const rawPwd = String(payload.password || '').trim();
+      const slugBase = groupName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40);
+      const createdGroup = await Chat.create({
+        chatUuid: crypto.randomUUID(),
+        type: ChatType.GROUP,
+        participants: [{ userId: admin._id, role: 'owner', joinedAt: new Date() }],
+        group: {
+          ownerId: admin._id,
+          name: groupName.slice(0, 80),
+          description: String(payload.description || '').trim().slice(0, 500),
+          avatar: String(payload.avatar || '/assets/avatars/presets/avatar-h2mjRO.png').trim(),
+          category: String(payload.category || 'General').trim() || 'General',
+          slug: `${slugBase || 'room'}-${crypto.randomBytes(2).toString('hex')}`,
+          inviteCode: generateGroupInviteCode(groupName),
+          visibility:
+            payload.visibility === GroupVisibility.PRIVATE
+              ? GroupVisibility.PRIVATE
+              : GroupVisibility.PUBLIC,
+          privacy: payload.requiresApproval ? GroupPrivacy.CLOSED : GroupPrivacy.OPEN,
+          status: GroupStatus.ACTIVE,
+          verified: payload.verified !== false,
+          verifiedAt: payload.verified !== false ? new Date() : null,
+          isPinned: Boolean(payload.isPinned),
+          autoJoin: Boolean(payload.autoJoin),
+          unleavable: Boolean(payload.unleavable),
+          postingMode: payload.postingMode === 'admins_only' ? 'admins_only' : 'everyone',
+          requiresApproval: Boolean(payload.requiresApproval),
+          isPasswordProtected: rawPwd.length > 0,
+          passwordHash: rawPwd.length > 0 ? hashGroupPassword(rawPwd) : null,
+        },
+        lastMessagePreview: String(payload.welcomeMessage || 'Community group created').slice(0, 120),
+        lastActivity: new Date(),
+      });
+      if (String(payload.welcomeMessage || '').trim()) {
+        const welcome = await Message.create({
+          chatId: createdGroup._id,
+          chatUuid: createdGroup.chatUuid,
+          senderId: admin._id,
+          type: MessageType.TEXT,
+          content: String(payload.welcomeMessage).trim(),
+          deliveredTo: [admin._id],
+          readBy: [admin._id],
+        });
+        createdGroup.lastMessageId = welcome._id;
+        await createdGroup.save();
+      }
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetType: 'chat',
+        targetId: String(createdGroup._id),
+        action: 'create_group',
+        reason: `Created community group "${groupName}"`,
+      });
+    } else if (action === 'chat.update_group' && targetId) {
+      const chatDoc = await Chat.findById(targetId);
+      if (!chatDoc || chatDoc.type !== ChatType.GROUP || !chatDoc.group) {
+        throw new NotFoundError('Group not found.');
+      }
+      if (typeof payload.name === 'string' && payload.name.trim()) {
+        chatDoc.group.name = payload.name.trim().slice(0, 80);
+      }
+      if (typeof payload.description === 'string') {
+        chatDoc.group.description = payload.description.trim().slice(0, 500);
+      }
+      if (typeof payload.category === 'string' && payload.category.trim()) {
+        chatDoc.group.category = payload.category.trim().slice(0, 40);
+      }
+      if (typeof payload.avatar === 'string' && payload.avatar.trim()) {
+        chatDoc.group.avatar = payload.avatar.trim();
+      }
+      if (typeof payload.isPinned === 'boolean') chatDoc.group.isPinned = payload.isPinned;
+      if (typeof payload.autoJoin === 'boolean') chatDoc.group.autoJoin = payload.autoJoin;
+      if (typeof payload.unleavable === 'boolean') chatDoc.group.unleavable = payload.unleavable;
+      if (typeof payload.requiresApproval === 'boolean') {
+        chatDoc.group.requiresApproval = payload.requiresApproval;
+      }
+      if (payload.postingMode === 'admins_only' || payload.postingMode === 'everyone') {
+        chatDoc.group.postingMode = payload.postingMode;
+      }
+      if (payload.visibility === GroupVisibility.PUBLIC || payload.visibility === GroupVisibility.PRIVATE) {
+        chatDoc.group.visibility = payload.visibility as GroupVisibility;
+      }
+      if (typeof payload.verified === 'boolean') {
+        chatDoc.group.verified = payload.verified;
+        chatDoc.group.verifiedAt = payload.verified ? new Date() : null;
+      }
+      if (payload.status === GroupStatus.ACTIVE || payload.status === GroupStatus.SUSPENDED) {
+        chatDoc.group.status = payload.status as GroupStatus;
+      }
+      if (payload.clearPassword) {
+        chatDoc.group.isPasswordProtected = false;
+        chatDoc.group.passwordHash = null;
+      } else if (typeof payload.password === 'string' && payload.password.trim()) {
+        chatDoc.group.isPasswordProtected = true;
+        chatDoc.group.passwordHash = hashGroupPassword(payload.password.trim());
+      }
+      await chatDoc.save();
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetType: 'chat',
+        targetId,
+        action: 'update_group',
+        reason: `Admin updated group "${chatDoc.group.name}"`,
+      });
+    } else if (action === 'chat.broadcast_groups') {
+      const content = String(payload.message || '').trim();
+      if (!content) {
+        throw new ValidationError('Broadcast message content is required.');
+      }
+      const targetGroups = await Chat.find({
+        type: ChatType.GROUP,
+        'group.status': GroupStatus.ACTIVE,
+      }).limit(50);
+      for (const grp of targetGroups) {
+        const bMsg = await Message.create({
+          chatId: grp._id,
+          chatUuid: grp.chatUuid,
+          senderId: admin._id,
+          type: MessageType.TEXT,
+          content,
+          deliveredTo: [admin._id],
+          readBy: [admin._id],
+        });
+        grp.lastMessageId = bMsg._id;
+        grp.lastMessagePreview = content.slice(0, 120);
+        grp.lastActivity = new Date();
+        await grp.save();
+        await emitToChat(String(grp._id), 'chat:message:received', { chatId: String(grp._id) });
+        publishChatRealtimeEvent(String(grp._id), 'message', { lastMessageId: String(bMsg._id) });
+      }
+      await ModerationAction.create({
+        moderatorId: admin._id,
+        targetType: 'chat',
+        targetId: 'broadcast',
+        action: 'broadcast_group_message',
+        reason: `Broadcasted announcement to ${targetGroups.length} group(s)`,
       });
     } else if (action === 'ad.set_approval' && targetId) {
       const approval = payload.approval as AdApproval;

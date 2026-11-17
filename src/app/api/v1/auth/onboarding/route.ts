@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { apiError, apiSuccess, ConflictError } from '@/lib/api-response';
 import { User } from '@/models/User';
 import { UserStatus } from '@/types/enums';
+import { syncAutoJoinGroupsForUser } from '@/services/group-seed.service';
 
 const onboardingSchema = z.object({
   step: z.enum(['profile', 'country', 'city', 'username']),
@@ -53,6 +54,10 @@ export async function POST(req: NextRequest) {
     }
 
     await user.save();
+
+    if (body.step === 'username') {
+      await syncAutoJoinGroupsForUser(user._id).catch(() => {});
+    }
 
     return apiSuccess({
       status: user.status,

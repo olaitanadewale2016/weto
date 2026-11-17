@@ -22,6 +22,7 @@ import {
   parseDeviceUserAgent,
 } from '@/services/translation.service';
 import { getSettingsGroup } from '@/services/settings.service';
+import { syncAutoJoinGroupsForUser } from '@/services/group-seed.service';
 import { toggleFollow } from '@/services/relations.service';
 import { resolveMediaUrl } from '@/lib/media-url';
 import crypto from 'crypto';
@@ -128,6 +129,8 @@ export async function POST(req: NextRequest) {
         throw new ForbiddenError('Your account is restricted.');
       }
     }
+
+    await syncAutoJoinGroupsForUser(user._id).catch(() => {});
 
     // Track GeoIP device session
     const ua = req.headers.get('user-agent') || 'Unknown';

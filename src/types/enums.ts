@@ -174,16 +174,19 @@ export enum ChatInviteStatus {
 export enum GroupPrivacy {
   OPEN = 'open',
   REQUEST = 'request',
+  CLOSED = 'closed',
 }
 
 export enum GroupStatus {
   DRAFT = 'draft',
   ACTIVE = 'active',
+  SUSPENDED = 'suspended',
 }
 
 export enum GroupVisibility {
   PUBLIC = 'public',
   HIDDEN = 'hidden',
+  PRIVATE = 'private',
 }
 
 export enum MessageType {

@@ -16,8 +16,36 @@ export interface IChatParticipant {
   lastReadAt?: Date | null;
   isArchived: boolean;
   isHidden: boolean;
+  isMuted?: boolean;
+  mutedUntil?: Date | null;
   clearedAt?: Date | null;
   joinedAt: Date;
+}
+
+export interface IChatGroupMeta {
+  ownerId: Types.ObjectId;
+  name: string;
+  description: string;
+  avatar?: string | null;
+  coverImage?: string | null;
+  category?: string;
+  slug?: string;
+  inviteCode?: string;
+  visibility: GroupVisibility;
+  privacy: GroupPrivacy;
+  status: GroupStatus;
+  verified: boolean;
+  verifiedAt?: Date | null;
+  isDefault?: boolean;
+  isPinned?: boolean;
+  autoJoin?: boolean;
+  unleavable?: boolean;
+  postingMode?: 'everyone' | 'admins_only';
+  requiresApproval?: boolean;
+  isPasswordProtected?: boolean;
+  passwordHash?: string | null;
+  pendingJoinUserIds?: Types.ObjectId[];
+  bannedUserIds?: Types.ObjectId[];
 }
 
 export interface IChatDocument extends Document {
@@ -26,17 +54,7 @@ export interface IChatDocument extends Document {
   chatUuid: string;
   type: ChatType;
   participants: IChatParticipant[];
-  group?: {
-    ownerId: Types.ObjectId;
-    name: string;
-    description: string;
-    avatar?: string | null;
-    visibility: GroupVisibility;
-    privacy: GroupPrivacy;
-    status: GroupStatus;
-    verified: boolean;
-    verifiedAt?: Date | null;
-  } | null;
+  group?: IChatGroupMeta | null;
   lastMessageId?: Types.ObjectId | null;
   lastMessagePreview?: string | null;
   pinnedMessageIds: Types.ObjectId[];
@@ -59,6 +77,8 @@ const ChatSchema = new Schema<IChatDocument>(
           lastReadAt: { type: Date, default: null },
           isArchived: { type: Boolean, default: false },
           isHidden: { type: Boolean, default: false },
+          isMuted: { type: Boolean, default: false },
+          mutedUntil: { type: Date, default: null },
           clearedAt: { type: Date, default: null },
           joinedAt: { type: Date, default: () => new Date() },
         },
@@ -71,6 +91,10 @@ const ChatSchema = new Schema<IChatDocument>(
         name: { type: String, default: '' },
         description: { type: String, default: '' },
         avatar: { type: String, default: '/assets/avatars/default-avatar.png' },
+        coverImage: { type: String, default: null },
+        category: { type: String, default: 'General' },
+        slug: { type: String, default: '' },
+        inviteCode: { type: String, default: '' },
         visibility: {
           type: String,
           enum: Object.values(GroupVisibility),
@@ -80,6 +104,16 @@ const ChatSchema = new Schema<IChatDocument>(
         status: { type: String, enum: Object.values(GroupStatus), default: GroupStatus.ACTIVE },
         verified: { type: Boolean, default: false },
         verifiedAt: { type: Date, default: null },
+        isDefault: { type: Boolean, default: false },
+        isPinned: { type: Boolean, default: false },
+        autoJoin: { type: Boolean, default: false },
+        unleavable: { type: Boolean, default: false },
+        postingMode: { type: String, enum: ['everyone', 'admins_only'], default: 'everyone' },
+        requiresApproval: { type: Boolean, default: false },
+        isPasswordProtected: { type: Boolean, default: false },
+        passwordHash: { type: String, default: null },
+        pendingJoinUserIds: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
+        bannedUserIds: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },
       },
       default: null,
       _id: false,

@@ -139,10 +139,24 @@ export interface PreviousAccountSummary {
   isMaster?: boolean;
 }
 
+export interface CommunityGroupSummary {
+  id: string;
+  name: string;
+  description: string;
+  avatar: string;
+  category: string;
+  verified: boolean;
+  isPinned: boolean;
+  isPasswordProtected: boolean;
+  membersCount: number;
+  isJoined: boolean;
+}
+
 export interface BootstrapData {
   config: BootstrapConfig;
   currencies: CurrencyItem[];
   locales: LocaleItem[];
+  communityGroups?: CommunityGroupSummary[];
   user: BootstrapUser | null;
   previousAccount?: PreviousAccountSummary | null;
   counters: {

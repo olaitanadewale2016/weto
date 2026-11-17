@@ -5,6 +5,11 @@ import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { PRESET_AVATARS, isPresetAvatarUrl } from '@/lib/preset-avatars';
 import { STICKER_PACKS, EMOJI_GROUPS, isValidStickerUrl } from '@/lib/stickers';
+import {
+  DEFAULT_COMMUNITY_GROUPS,
+  hashGroupPassword,
+  verifyGroupPassword,
+} from '@/services/group-seed.service';
 
 const user1Id = new Types.ObjectId('661111111111111111111111');
 const user2Id = new Types.ObjectId('662222222222222222222222');
@@ -74,6 +79,21 @@ vi.mock('@/lib/firebase/realtime', () => ({
 
 vi.mock('@/services/notification.service', () => ({
   dispatchNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/services/censor-blacklist.service', () => ({
+  enforceCensorForUser: vi.fn().mockImplementation(async ({ text }: { text: string }) => ({
+    cleanText: text,
+    triggeredBanned: [],
+    triggeredWarnings: [],
+  })),
+}));
+
+vi.mock('@/models/User', () => ({
+  User: {
+    find: vi.fn(() => makeQuery([])),
+    findOne: vi.fn(() => makeQuery(null)),
+  },
 }));
 
 vi.mock('@/models/Post', () => ({
@@ -529,5 +549,109 @@ describe('Grupo Pro Parity (Avatars, Stickers, Polls, Location, Pin, Forward & C
       'chat:call:remote_mute',
       expect.objectContaining({ muted: true })
     );
+  });
+
+  it('provides pre-created community groups, password protection, roles, mute/ban moderation & posting rules', async () => {
+    expect(DEFAULT_COMMUNITY_GROUPS.length).toBeGreaterThanOrEqual(4);
+    expect(DEFAULT_COMMUNITY_GROUPS.some((g) => g.autoJoin && g.isPinned)).toBe(true);
+
+    const pwdHash = hashGroupPassword('secret123');
+    expect(verifyGroupPassword('secret123', pwdHash)).toBe(true);
+    expect(verifyGroupPassword('wrong', pwdHash)).toBe(false);
+
+    const groupDoc = {
+      _id: chat1Id,
+      chatUuid: 'group-mod-uuid',
+      type: 'group',
+      participants: [
+        { userId: user1Id, role: 'owner', isMuted: false, isHidden: false },
+        { userId: user2Id, role: 'member', isMuted: false, isHidden: false },
+      ] as Array<{
+        userId: Types.ObjectId;
+        role: 'owner' | 'admin' | 'member';
+        isMuted?: boolean;
+        mutedUntil?: Date | null;
+        isHidden: boolean;
+      }>,
+      group: {
+        ownerId: user1Id,
+        name: 'Community Hub',
+        visibility: 'public',
+        status: 'active',
+        postingMode: 'admins_only' as 'everyone' | 'admins_only',
+        isPasswordProtected: true,
+        passwordHash: pwdHash,
+        bannedUserIds: [] as Types.ObjectId[],
+        pendingJoinUserIds: [] as Types.ObjectId[],
+      },
+      save: vi.fn().mockResolvedValue(undefined),
+    };
+    mockChatFindById.mockResolvedValue(groupDoc);
+
+    const { PATCH, POST } = await import('@/app/api/v1/chats/[chatId]/route');
+
+    // Member cannot post in admins_only room
+    authUser = { ...authUser, _id: user2Id, username: 'bob' };
+    const blockedPost = await POST(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat1Id}`, {
+        method: 'POST',
+        body: JSON.stringify({ type: 'text', content: 'Hello everyone' }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat1Id) }) }
+    );
+    expect(blockedPost.status).toBe(403);
+
+    // Owner promotes user2 to admin and mutes/unmutes cleanly
+    authUser = { ...authUser, _id: user1Id, username: 'alice' };
+    const promoteRes = await PATCH(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat1Id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          action: 'set_role',
+          targetUserId: String(user2Id),
+          role: 'admin',
+        }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat1Id) }) }
+    );
+    expect(promoteRes.status).toBe(200);
+    expect(groupDoc.participants[1].role).toBe('admin');
+
+    const muteRes = await PATCH(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat1Id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          action: 'mute_participant',
+          targetUserId: String(user2Id),
+          muted: true,
+        }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat1Id) }) }
+    );
+    expect(muteRes.status).toBe(200);
+    expect(groupDoc.participants[1].isMuted).toBe(true);
+
+    // Muted admin is blocked from sending messages
+    authUser = { ...authUser, _id: user2Id, username: 'bob' };
+    const mutedPost = await POST(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat1Id}`, {
+        method: 'POST',
+        body: JSON.stringify({ type: 'text', content: 'Am I muted?' }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat1Id) }) }
+    );
+    expect(mutedPost.status).toBe(403);
+
+    // Owner bans user2, blocking rejoin
+    authUser = { ...authUser, _id: user1Id, username: 'alice' };
+    const banRes = await PATCH(
+      new NextRequest(`https://app.example.com/api/v1/chats/${chat1Id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'ban_participant', targetUserId: String(user2Id) }),
+      }),
+      { params: Promise.resolve({ chatId: String(chat1Id) }) }
+    );
+    expect(banRes.status).toBe(200);
+    expect(groupDoc.group.bannedUserIds.map(String)).toContain(String(user2Id));
   });
 });

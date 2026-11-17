@@ -6,12 +6,20 @@ import { connectDB } from '@/lib/db';
 import { requireAuth } from '@/lib/auth/session';
 import { apiError, apiSuccess, ForbiddenError, NotFoundError, ValidationError } from '@/lib/api-response';
 import { Chat, ChatCall, ChatInvite, Message } from '@/models/Messaging';
+import { User } from '@/models/User';
 import { Media } from '@/models/Media';
-import { ChatInviteStatus, ChatType, MediaType, MessageType } from '@/types/enums';
+import { ChatInviteStatus, ChatType, GroupPrivacy, GroupStatus, GroupVisibility, MediaType, MessageType } from '@/types/enums';
 import { extractUrls } from '@/lib/utils';
 import { isValidStickerUrl } from '@/lib/stickers';
 import { fetchLinkSnapshot } from '@/services/link-preview.service';
 import { serializeMedia } from '@/services/media.service';
+import { enforceCensorForUser } from '@/services/censor-blacklist.service';
+import {
+  generateGroupInviteCode,
+  hashGroupPassword,
+  sanitizeGroupForClient,
+  verifyGroupPassword,
+} from '@/services/group-seed.service';
 import { emitToChat, emitToUser } from '@/lib/realtime-emitter';
 import { dispatchNotification } from '@/services/notification.service';
 import {
@@ -34,10 +42,42 @@ export async function GET(
       .lean();
     if (!chat) throw new NotFoundError('Conversation not found.');
 
+    const uid = String(user._id);
     const mePart = chat.participants.find(
-      (p) => String((p.userId as { _id?: unknown })?._id || p.userId) === String(user._id)
+      (p) => String((p.userId as { _id?: unknown })?._id || p.userId) === uid
     );
-    if (!mePart) throw new ForbiddenError('You are not a participant in this chat.');
+
+    const inviteCodeParam = (new URL(req.url).searchParams.get('inviteCode') || '').trim().toUpperCase();
+    const safeGroup = sanitizeGroupForClient(chat.group as unknown as Record<string, unknown>);
+
+    if (!mePart) {
+      const isPublicGroup =
+        chat.type === ChatType.GROUP &&
+        chat.group?.status === GroupStatus.ACTIVE &&
+        (chat.group?.visibility === GroupVisibility.PUBLIC ||
+          (inviteCodeParam && chat.group?.inviteCode?.toUpperCase() === inviteCodeParam));
+
+      if (isPublicGroup) {
+        const isPending = (chat.group?.pendingJoinUserIds || []).some((id) => String(id) === uid);
+        const isBanned = (chat.group?.bannedUserIds || []).some((id) => String(id) === uid);
+        return apiSuccess({
+          joinPreview: true,
+          membershipStatus: isBanned ? 'banned' : isPending ? 'pending' : 'not_joined',
+          chat: {
+            id: String(chat._id),
+            chatUuid: chat.chatUuid,
+            type: chat.type,
+            group: safeGroup,
+            membersCount: chat.participants.length,
+          },
+          messages: [],
+          pinnedMessages: [],
+          activeCall: null,
+          typingUsers: [],
+        });
+      }
+      throw new ForbiddenError('You are not a participant in this chat.');
+    }
 
     const q = (new URL(req.url).searchParams.get('q') || '').trim();
     const msgFilter: Record<string, unknown> = {
@@ -49,11 +89,15 @@ export async function GET(
 
     const pinnedIds = Array.isArray(chat.pinnedMessageIds) ? chat.pinnedMessageIds : [];
     const activeCallCutoff = new Date(Date.now() - 4 * 60 * 1000);
+    const isGroupModerator =
+      chat.type === ChatType.GROUP && (mePart.role === 'owner' || mePart.role === 'admin');
+    const pendingIds = isGroupModerator ? chat.group?.pendingJoinUserIds || [] : [];
+    const bannedIds = isGroupModerator ? chat.group?.bannedUserIds || [] : [];
 
-    const [messages, pinnedRaw, activeCall] = await Promise.all([
+    const [messages, pinnedRaw, activeCall, pendingUsersRaw, bannedUsersRaw] = await Promise.all([
       Message.find(msgFilter)
         .sort({ createdAt: 1 })
-        .limit(100)
+        .limit(120)
         .populate('senderId', 'username firstName lastName avatar verified')
         .populate('mediaId')
         .populate({
@@ -79,6 +123,16 @@ export async function GET(
       })
         .select('_id callUuid audioOnly status initiatorId participants startedAt')
         .lean(),
+      pendingIds.length > 0
+        ? User.find({ _id: { $in: pendingIds } })
+            .select('_id username firstName lastName avatar verified')
+            .lean()
+        : Promise.resolve([]),
+      bannedIds.length > 0
+        ? User.find({ _id: { $in: bannedIds } })
+            .select('_id username firstName lastName avatar verified')
+            .lean()
+        : Promise.resolve([]),
     ]);
 
     return apiSuccess({
@@ -86,12 +140,35 @@ export async function GET(
         id: String(chat._id),
         chatUuid: chat.chatUuid,
         type: chat.type,
-        group: chat.group,
+        group: safeGroup,
         isArchived: Boolean(mePart.isArchived),
+        isMuted:
+          Boolean(mePart.isMuted) &&
+          (!mePart.mutedUntil || new Date(mePart.mutedUntil).getTime() > Date.now()),
+        mutedUntil: mePart.mutedUntil || null,
         pinnedMessageIds: pinnedIds.map((id) => String(id)),
+        pendingJoinUsers: pendingUsersRaw.map((u) => ({
+          _id: String(u._id),
+          username: u.username,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          avatar: u.avatar,
+          verified: Boolean(u.verified),
+        })),
+        bannedUsers: bannedUsersRaw.map((u) => ({
+          _id: String(u._id),
+          username: u.username,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          avatar: u.avatar,
+          verified: Boolean(u.verified),
+        })),
         participants: chat.participants.map((p) => ({
           user: p.userId,
           role: p.role,
+          isMuted:
+            Boolean(p.isMuted) && (!p.mutedUntil || new Date(p.mutedUntil).getTime() > Date.now()),
+          mutedUntil: p.mutedUntil || null,
           lastReadAt: p.lastReadAt,
         })),
       },
@@ -164,8 +241,23 @@ export async function POST(
 
     const chat = await Chat.findById(chatId);
     if (!chat) throw new NotFoundError('Conversation not found.');
-    const isMember = chat.participants.some((p) => String(p.userId) === String(user._id));
-    if (!isMember) throw new ForbiddenError('Not a participant.');
+    const mePart = chat.participants.find((p) => String(p.userId) === String(user._id));
+    if (!mePart) throw new ForbiddenError('Not a participant.');
+
+    if (chat.type === ChatType.GROUP && chat.group) {
+      if (chat.group.status === GroupStatus.SUSPENDED) {
+        throw new ForbiddenError('This group is currently suspended.');
+      }
+      const stillMuted =
+        Boolean(mePart.isMuted) &&
+        (!mePart.mutedUntil || new Date(mePart.mutedUntil).getTime() > Date.now());
+      if (stillMuted) {
+        throw new ForbiddenError('You are muted in this group.');
+      }
+      if (chat.group.postingMode === 'admins_only' && mePart.role === 'member') {
+        throw new ForbiddenError('Only group admins can send messages in this room.');
+      }
+    }
 
     if (
       !body.content?.trim() &&
@@ -237,13 +329,24 @@ export async function POST(
       resolvedType = MessageType.GIF;
     }
 
+    let cleanContent = body.content?.trim() || null;
+    if (cleanContent) {
+      const censored = await enforceCensorForUser({
+        text: cleanContent,
+        userId: String(user._id),
+        email: user.email || '',
+        ipAddress: user.ipAddress || '0.0.0.0',
+      });
+      cleanContent = censored.cleanText;
+    }
+
     const msg = await Message.create({
       chatId: chat._id,
       chatUuid: chat.chatUuid,
       senderId: user._id,
       parentId: body.parentId ? new Types.ObjectId(body.parentId) : null,
       type: resolvedType,
-      content: body.content?.trim() || null,
+      content: cleanContent,
       mediaId: resolvedMediaId,
       stickerUrl,
       poll: pollPayload,
@@ -262,7 +365,7 @@ export async function POST(
     }
 
     const preview =
-      body.content?.trim() ||
+      cleanContent ||
       (resolvedType === MessageType.STICKER
         ? 'Sticker'
         : resolvedType === MessageType.POLL
@@ -365,6 +468,14 @@ const patchChatSchema = z.object({
     'pin_message',
     'unpin_message',
     'forward_message',
+    'join_group',
+    'cancel_join_request',
+    'approve_join',
+    'reject_join',
+    'set_role',
+    'mute_participant',
+    'ban_participant',
+    'unban_participant',
   ]),
   lastReadMessageId: z.string().optional(),
   messageId: z.string().optional(),
@@ -372,6 +483,19 @@ const patchChatSchema = z.object({
   groupName: z.string().optional(),
   groupDescription: z.string().optional(),
   groupAvatar: z.string().optional(),
+  groupCover: z.string().nullable().optional(),
+  category: z.string().optional(),
+  visibility: z.nativeEnum(GroupVisibility).optional(),
+  privacy: z.nativeEnum(GroupPrivacy).optional(),
+  postingMode: z.enum(['everyone', 'admins_only']).optional(),
+  requiresApproval: z.boolean().optional(),
+  password: z.string().max(64).optional(),
+  clearPassword: z.boolean().optional(),
+  regenerateInviteCode: z.boolean().optional(),
+  inviteCode: z.string().optional(),
+  role: z.enum(['owner', 'admin', 'member']).optional(),
+  muted: z.boolean().optional(),
+  durationMinutes: z.number().int().min(1).max(43200).optional(),
   targetUserId: z.string().optional(),
   accept: z.boolean().optional(),
 });
@@ -387,6 +511,74 @@ export async function PATCH(
     const chat = await Chat.findById(chatId);
     if (!chat) throw new NotFoundError('Conversation not found.');
 
+    const uid = String(user._id);
+
+    if (body.action === 'join_group') {
+      if (chat.type !== ChatType.GROUP || !chat.group) {
+        throw new ValidationError('This conversation is not a group.');
+      }
+      if (chat.group.status === GroupStatus.SUSPENDED) {
+        throw new ForbiddenError('This group is currently suspended.');
+      }
+      if ((chat.group.bannedUserIds || []).some((id) => String(id) === uid)) {
+        throw new ForbiddenError('You are banned from joining this group.');
+      }
+      if (chat.participants.some((p) => String(p.userId) === uid)) {
+        return apiSuccess({ joined: true, status: 'member' });
+      }
+      const codeMatches =
+        Boolean(body.inviteCode) &&
+        chat.group.inviteCode?.toUpperCase() === body.inviteCode?.trim().toUpperCase();
+      if (chat.group.visibility !== GroupVisibility.PUBLIC && !codeMatches) {
+        throw new ForbiddenError('This group is private and requires an invite.');
+      }
+      if (chat.group.isPasswordProtected) {
+        if (!body.password || !verifyGroupPassword(body.password, chat.group.passwordHash)) {
+          throw new ForbiddenError('Incorrect group password.');
+        }
+      }
+      if (chat.group.requiresApproval && !codeMatches) {
+        const alreadyPending = (chat.group.pendingJoinUserIds || []).some((id) => String(id) === uid);
+        if (!alreadyPending) {
+          chat.group.pendingJoinUserIds = [...(chat.group.pendingJoinUserIds || []), user._id];
+          await chat.save();
+          if (chat.group.ownerId) {
+            await dispatchNotification({
+              recipientId: chat.group.ownerId,
+              actorId: user._id,
+              type: 'GROUP_INVITE',
+              title: 'Group Join Request',
+              message: `@${user.username} requested to join ${chat.group.name}.`,
+              actionUrl: `/messenger/c/${chat._id}`,
+            });
+          }
+        }
+        return apiSuccess({ joined: false, pending: true, status: 'pending' });
+      }
+
+      chat.participants.push({
+        userId: user._id,
+        role: 'member',
+        isArchived: false,
+        isHidden: false,
+        joinedAt: new Date(),
+      });
+      chat.group.pendingJoinUserIds = (chat.group.pendingJoinUserIds || []).filter(
+        (id) => String(id) !== uid
+      );
+      await chat.save();
+      await emitToChat(String(chat._id), 'chat:inbox:update', { chatId: String(chat._id) });
+      return apiSuccess({ joined: true, status: 'member' });
+    }
+
+    if (body.action === 'cancel_join_request' && chat.group) {
+      chat.group.pendingJoinUserIds = (chat.group.pendingJoinUserIds || []).filter(
+        (id) => String(id) !== uid
+      );
+      await chat.save();
+      return apiSuccess({ cancelled: true });
+    }
+
     if (body.action === 'invite_respond') {
       const invite = await ChatInvite.findOne({
         chatId: chat._id,
@@ -397,7 +589,7 @@ export async function PATCH(
       if (body.accept) {
         invite.status = ChatInviteStatus.ACCEPTED;
         await invite.save();
-        if (!chat.participants.some((p) => String(p.userId) === String(user._id))) {
+        if (!chat.participants.some((p) => String(p.userId) === uid)) {
           chat.participants.push({
             userId: user._id,
             role: 'member',
@@ -414,8 +606,11 @@ export async function PATCH(
       return apiSuccess({ accepted: Boolean(body.accept) });
     }
 
-    const meIndex = chat.participants.findIndex((p) => String(p.userId) === String(user._id));
+    const meIndex = chat.participants.findIndex((p) => String(p.userId) === uid);
     if (meIndex === -1) throw new ForbiddenError('Not a participant.');
+    const myRole = chat.participants[meIndex].role;
+    const isOwner = myRole === 'owner' || String(chat.group?.ownerId) === uid;
+    const isAdminOrOwner = isOwner || myRole === 'admin';
 
     if (body.action === 'read') {
       await Message.updateMany(
@@ -445,22 +640,132 @@ export async function PATCH(
       chat.participants[meIndex].clearedAt = new Date();
       await chat.save();
     } else if (body.action === 'leave_group' && chat.type === ChatType.GROUP) {
-      if (chat.participants[meIndex].role === 'owner') {
+      if (isOwner) {
         throw new ForbiddenError('Group owner cannot leave without deleting or transferring ownership.');
+      }
+      if (chat.group?.unleavable) {
+        throw new ForbiddenError('This mandatory community group cannot be left.');
       }
       chat.participants.splice(meIndex, 1);
       await chat.save();
     } else if (body.action === 'update_group' && chat.type === ChatType.GROUP && chat.group) {
-      if (String(chat.group.ownerId) !== String(user._id)) {
-        throw new ForbiddenError('Only the group owner can update group settings.');
+      if (!isAdminOrOwner) {
+        throw new ForbiddenError('Only group admins or owners can update group settings.');
       }
-      if (body.groupName) chat.group.name = body.groupName.trim();
-      if (body.groupDescription !== undefined) chat.group.description = body.groupDescription.trim();
-      if (body.groupAvatar) chat.group.avatar = body.groupAvatar;
+      if (body.groupName?.trim()) chat.group.name = body.groupName.trim().slice(0, 80);
+      if (body.groupDescription !== undefined) {
+        chat.group.description = body.groupDescription.trim().slice(0, 500);
+      }
+      if (body.groupAvatar) chat.group.avatar = body.groupAvatar.trim();
+      if (body.groupCover !== undefined) chat.group.coverImage = body.groupCover;
+      if (body.category?.trim()) chat.group.category = body.category.trim().slice(0, 40);
+      if (body.visibility) chat.group.visibility = body.visibility;
+      if (body.privacy) chat.group.privacy = body.privacy;
+      if (body.postingMode) chat.group.postingMode = body.postingMode;
+      if (body.requiresApproval !== undefined) {
+        chat.group.requiresApproval = body.requiresApproval;
+      }
+      if (body.clearPassword) {
+        chat.group.isPasswordProtected = false;
+        chat.group.passwordHash = null;
+      } else if (body.password?.trim()) {
+        chat.group.isPasswordProtected = true;
+        chat.group.passwordHash = hashGroupPassword(body.password.trim());
+      }
+      if (body.regenerateInviteCode) {
+        chat.group.inviteCode = generateGroupInviteCode(chat.group.name);
+      }
+      await chat.save();
+      await emitToChat(String(chat._id), 'chat:inbox:update', { chatId: String(chat._id) });
+    } else if (body.action === 'set_role' && chat.type === ChatType.GROUP && chat.group && body.targetUserId && body.role) {
+      if (!isOwner) {
+        throw new ForbiddenError('Only the group owner can manage admin roles.');
+      }
+      const targetPart = chat.participants.find((p) => String(p.userId) === body.targetUserId);
+      if (!targetPart) throw new NotFoundError('Participant not found.');
+      if (body.role === 'owner') {
+        chat.participants[meIndex].role = 'admin';
+        targetPart.role = 'owner';
+        chat.group.ownerId = new Types.ObjectId(body.targetUserId);
+      } else if (body.targetUserId !== uid) {
+        targetPart.role = body.role;
+      }
+      await chat.save();
+    } else if (body.action === 'mute_participant' && chat.type === ChatType.GROUP && body.targetUserId) {
+      if (!isAdminOrOwner) {
+        throw new ForbiddenError('Only group admins can mute members.');
+      }
+      const targetPart = chat.participants.find((p) => String(p.userId) === body.targetUserId);
+      if (!targetPart) throw new NotFoundError('Participant not found.');
+      if (targetPart.role === 'owner') {
+        throw new ForbiddenError('Group owner cannot be muted.');
+      }
+      const nextMuted = body.muted !== false;
+      targetPart.isMuted = nextMuted;
+      targetPart.mutedUntil =
+        nextMuted && body.durationMinutes
+          ? new Date(Date.now() + body.durationMinutes * 60 * 1000)
+          : null;
+      await chat.save();
+    } else if (body.action === 'ban_participant' && chat.type === ChatType.GROUP && chat.group && body.targetUserId) {
+      if (!isAdminOrOwner) {
+        throw new ForbiddenError('Only group admins can ban members.');
+      }
+      const targetPart = chat.participants.find((p) => String(p.userId) === body.targetUserId);
+      if (targetPart?.role === 'owner') {
+        throw new ForbiddenError('Group owner cannot be banned.');
+      }
+      chat.participants = chat.participants.filter((p) => String(p.userId) !== body.targetUserId);
+      const bannedOid = new Types.ObjectId(body.targetUserId);
+      if (!(chat.group.bannedUserIds || []).some((id) => String(id) === body.targetUserId)) {
+        chat.group.bannedUserIds = [...(chat.group.bannedUserIds || []), bannedOid];
+      }
+      await chat.save();
+    } else if (body.action === 'unban_participant' && chat.type === ChatType.GROUP && chat.group && body.targetUserId) {
+      if (!isAdminOrOwner) {
+        throw new ForbiddenError('Only group admins can unban users.');
+      }
+      chat.group.bannedUserIds = (chat.group.bannedUserIds || []).filter(
+        (id) => String(id) !== body.targetUserId
+      );
+      await chat.save();
+    } else if (body.action === 'approve_join' && chat.type === ChatType.GROUP && chat.group && body.targetUserId) {
+      if (!isAdminOrOwner) {
+        throw new ForbiddenError('Only group admins can approve join requests.');
+      }
+      chat.group.pendingJoinUserIds = (chat.group.pendingJoinUserIds || []).filter(
+        (id) => String(id) !== body.targetUserId
+      );
+      if (!chat.participants.some((p) => String(p.userId) === body.targetUserId)) {
+        chat.participants.push({
+          userId: new Types.ObjectId(body.targetUserId),
+          role: 'member',
+          isArchived: false,
+          isHidden: false,
+          joinedAt: new Date(),
+        });
+      }
+      await chat.save();
+      await dispatchNotification({
+        recipientId: body.targetUserId,
+        actorId: user._id,
+        type: 'GROUP_INVITE',
+        title: 'Join Request Approved',
+        message: `You were approved to join ${chat.group.name}.`,
+        actionUrl: `/messenger/c/${chat._id}`,
+      });
+    } else if (body.action === 'reject_join' && chat.type === ChatType.GROUP && chat.group && body.targetUserId) {
+      if (!isAdminOrOwner) {
+        throw new ForbiddenError('Only group admins can review join requests.');
+      }
+      chat.group.pendingJoinUserIds = (chat.group.pendingJoinUserIds || []).filter(
+        (id) => String(id) !== body.targetUserId
+      );
       await chat.save();
     } else if (body.action === 'remove_participant' && chat.type === ChatType.GROUP && body.targetUserId) {
-      if (String(chat.group?.ownerId) !== String(user._id)) {
-        throw new ForbiddenError('Only group owner can remove participants.');
+      const targetPart = chat.participants.find((p) => String(p.userId) === body.targetUserId);
+      if (!isAdminOrOwner || targetPart?.role === 'owner' || (!isOwner && targetPart?.role === 'admin')) {
+        throw new ForbiddenError('Insufficient permissions to remove this participant.');
       }
       chat.participants = chat.participants.filter((p) => String(p.userId) !== body.targetUserId);
       await chat.save();
