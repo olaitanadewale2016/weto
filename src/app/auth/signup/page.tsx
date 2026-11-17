@@ -22,6 +22,51 @@ import {
 import { clearBootstrapCache, useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
+function formatFirebaseAuthError(err: unknown): { title: string; description: string; ignore?: boolean } {
+  const code = (err as { code?: string })?.code || '';
+  const rawMsg = err instanceof Error ? err.message : String(err || '');
+
+  if (
+    code === 'auth/popup-closed-by-user' ||
+    code === 'auth/cancelled-popup-request' ||
+    code === 'auth/null-user'
+  ) {
+    return { title: '', description: '', ignore: true };
+  }
+
+  if (code === 'auth/unauthorized-domain') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+    return {
+      title: 'Domain not authorized in Firebase',
+      description: `"${host}" is not in Firebase Console > Authentication > Settings > Authorized Domains. Add it to allow Google signup.`,
+    };
+  }
+
+  if (code === 'auth/operation-not-supported-in-this-environment') {
+    return {
+      title: 'Google Sign-In unavailable in PWA container',
+      description: 'Google popup/redirect is restricted in this standalone PWA. Please create an account using email & password, or open Weto in your mobile browser.',
+    };
+  }
+
+  if (code === 'auth/network-request-failed') {
+    return {
+      title: 'Network error',
+      description: 'Could not connect to Firebase authentication servers. Please check your connection.',
+    };
+  }
+
+  const cleanMsg = rawMsg
+    .replace(/^Firebase:\s*/i, '')
+    .replace(/^Error\s*\((auth\/[^)]+)\)\.?/i, '$1')
+    .trim();
+
+  return {
+    title: 'Google sign up failed',
+    description: cleanMsg || 'Unable to authenticate with Google.',
+  };
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const { user, loading: appLoading, bootstrap, refreshBootstrap, isPwaInstalled } = useApp();
@@ -54,8 +99,16 @@ export default function SignupPage() {
             await completeSession(idToken);
           }
         })
-        .catch((err) => {
-          error('Google sign up failed', err instanceof Error ? err.message : undefined);
+        .catch((err: unknown) => {
+          const formatted = formatFirebaseAuthError(err);
+          const isOAuthCallback =
+            typeof window !== 'undefined' &&
+            (window.location.hash.includes('access_token') ||
+              window.location.search.includes('apiKey') ||
+              window.location.search.includes('mode=signIn'));
+          if (!formatted.ignore && formatted.description && isOAuthCallback) {
+            error(formatted.title, formatted.description);
+          }
         });
     } catch {
       // ignore
@@ -122,26 +175,48 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const auth = getFirebaseClientAuth();
+      let cred = null;
       try {
-        const cred = await signInWithPopup(auth, googleAuthProvider);
-        const idToken = await cred.user.getIdToken();
-        await completeSession(idToken);
+        cred = await signInWithPopup(auth, googleAuthProvider);
       } catch (popupErr: unknown) {
-        const msg = popupErr instanceof Error ? popupErr.message : '';
-        const code = (popupErr as { code?: string })?.code;
-        if (
-          code === 'auth/popup-blocked' ||
-          code === 'auth/popup-closed-by-user' ||
-          code === 'auth/operation-not-supported-in-this-environment' ||
-          msg.includes('popup')
-        ) {
-          await signInWithRedirect(auth, googleAuthProvider);
+        const pCode = (popupErr as { code?: string })?.code;
+
+        // If user dismissed popup, return cleanly
+        if (pCode === 'auth/popup-closed-by-user' || pCode === 'auth/cancelled-popup-request') {
+          setLoading(false);
           return;
+        }
+
+        // If domain is unauthorized, don't attempt redirect (same failure)
+        if (pCode === 'auth/unauthorized-domain') {
+          throw popupErr;
+        }
+
+        // Attempt redirect if popup was blocked or unsupported
+        if (
+          pCode === 'auth/popup-blocked' ||
+          pCode === 'auth/operation-not-supported-in-this-environment' ||
+          (popupErr instanceof Error && popupErr.message.includes('popup'))
+        ) {
+          try {
+            await signInWithRedirect(auth, googleAuthProvider);
+            return;
+          } catch (redirectErr: unknown) {
+            throw redirectErr;
+          }
         }
         throw popupErr;
       }
-    } catch (err) {
-      error('Google sign up failed', err instanceof Error ? err.message : undefined);
+
+      if (cred?.user) {
+        const idToken = await cred.user.getIdToken();
+        await completeSession(idToken);
+      }
+    } catch (err: unknown) {
+      const formatted = formatFirebaseAuthError(err);
+      if (!formatted.ignore) {
+        error(formatted.title, formatted.description);
+      }
     } finally {
       setLoading(false);
     }
