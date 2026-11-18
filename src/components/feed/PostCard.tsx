@@ -204,7 +204,7 @@ export function PostCard({
     useApp();
   const { error, success } = useToast();
 
-  const [liked, setLiked] = useState((post.viewerReactions || []).length > 0);
+  const [viewerReactions, setViewerReactions] = useState<string[]>(post.viewerReactions || []);
   const [reactionsCount, setReactionsCount] = useState(post.reactionsCount || 0);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
   const [repostsCount, setRepostsCount] = useState(post.repostsCount || 0);
@@ -221,9 +221,10 @@ export function PostCard({
   const [quoteDraft, setQuoteDraft] = useState('');
   const [submittingQuote, setSubmittingQuote] = useState(false);
   const [mobileCommentsOpen, setMobileCommentsOpen] = useState(false);
-  const [inlineCommentsOpen, setInlineCommentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const liked = viewerReactions.length > 0;
 
   const postImages = (post.media || []).filter((m) => m.type === 'image');
   const postGifOffset = post.gifUrl ? 1 : 0;
@@ -275,11 +276,19 @@ export function PostCard({
     socket.emit('join:post', { postId: post.id });
     const onReactionUpdate = (data: {
       postId?: string;
+      postHashId?: string;
       reactionsCount?: number;
       repostsCount?: number;
       poll?: SerializedPost['poll'];
     }) => {
-      if (data.postId !== post.id) return;
+      if (
+        data.postId !== post.id &&
+        data.postId !== post.hashId &&
+        data.postHashId !== post.id &&
+        data.postHashId !== post.hashId
+      ) {
+        return;
+      }
       if (typeof data.reactionsCount === 'number') setReactionsCount(data.reactionsCount);
       if (typeof data.repostsCount === 'number') setRepostsCount(data.repostsCount);
       if (data.poll && Array.isArray(data.poll.choices)) setPollState(data.poll);
@@ -371,22 +380,37 @@ export function PostCard({
       error('Please sign in to react');
       return;
     }
-    const prevLiked = liked;
+    const prevReactions = viewerReactions;
     const prevCount = reactionsCount;
-    setLiked(!prevLiked);
-    setReactionsCount(prevLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
+    const isAlreadyReacted = prevReactions.includes(unifiedId);
+    const nextReactions = isAlreadyReacted
+      ? prevReactions.filter((id) => id !== unifiedId)
+      : [...prevReactions, unifiedId];
+    const nextCount = isAlreadyReacted ? Math.max(0, prevCount - 1) : prevCount + 1;
+
+    setViewerReactions(nextReactions);
+    setReactionsCount(nextCount);
+
     try {
-      const res = await apiFetch<{ reacted: boolean; reactionsCount: number }>(
-        `/posts/${post.id}/react`,
-        {
-          method: 'POST',
-          json: { action: 'react', unifiedId },
-        }
-      );
-      setLiked(res.reacted);
-      if (typeof res.reactionsCount === 'number') setReactionsCount(res.reactionsCount);
+      const res = await apiFetch<{
+        active?: boolean;
+        reacted?: boolean;
+        reactionsCount?: number;
+        viewerReactions?: string[];
+      }>(`/posts/${post.id}/react`, {
+        method: 'POST',
+        json: { action: 'react', unifiedId },
+      });
+      if (Array.isArray(res.viewerReactions)) {
+        setViewerReactions(res.viewerReactions);
+      } else if (typeof res.reacted === 'boolean') {
+        setViewerReactions(res.reacted ? [unifiedId] : []);
+      }
+      if (typeof res.reactionsCount === 'number') {
+        setReactionsCount(res.reactionsCount);
+      }
     } catch {
-      setLiked(prevLiked);
+      setViewerReactions(prevReactions);
       setReactionsCount(prevCount);
     }
   }
@@ -1378,17 +1402,23 @@ export function PostCard({
               <span>{reactionsCount}</span>
             </button>
             <div className="hidden sm:flex items-center gap-0.5">
-              {REACTION_EMOJIS.slice(1).map((em) => (
-                <button
-                  key={em.id}
-                  type="button"
-                  onClick={() => toggleReaction(em.id)}
-                  className="h-7 w-7 rounded-full hover:bg-fill-tr text-sm flex items-center justify-center cursor-pointer"
-                  title="React"
-                >
-                  {em.label}
-                </button>
-              ))}
+              {REACTION_EMOJIS.slice(1).map((em) => {
+                const isReacted = viewerReactions.includes(em.id);
+                return (
+                  <button
+                    key={em.id}
+                    type="button"
+                    onClick={() => toggleReaction(em.id)}
+                    className={cn(
+                      'h-7 w-7 rounded-full hover:bg-fill-tr text-sm flex items-center justify-center cursor-pointer transition-transform',
+                      isReacted && 'bg-fill-sc scale-110 ring-1 ring-brand-900/40'
+                    )}
+                    title={isReacted ? `Remove ${em.label}` : `React ${em.label}`}
+                  >
+                    {em.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1477,64 +1507,53 @@ export function PostCard({
           </div>
         </div>
 
-        {/* Comment Bar matching Facebook Timeline Post style */}
-          {!isDetailView && (
-            <div className="pt-1.5 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setInlineCommentsOpen((prev) => !prev)}
-                className="inline-flex items-center gap-2 text-[14px] sm:text-[15px] text-lab-sc hover:text-lab-pr font-medium cursor-pointer transition-colors"
-              >
-                <span>
-                  {commentsCount > 0
-                    ? inlineCommentsOpen
-                      ? 'Hide comments'
-                      : `View all ${commentsCount} ${commentsCount === 1 ? 'comment' : 'comments'}`
-                    : 'Write a comment...'}
-                </span>
-              </button>
-            </div>
-          )}
-
-          {/* Inline Facebook Comments on Post in Feed */}
-          {!isDetailView && inlineCommentsOpen && (
-            <div className="pt-2 border-t border-bord-tr/60">
-              <PublicationCommentsSection
-                postId={post.id}
-                postHashId={post.hashId}
-                postOwnerId={String(post.author?._id || post.author?.id || '')}
-                commentsCount={commentsCount}
-                onCommentsCountChange={(nextCount) => setCommentsCount(nextCount)}
-                inlineMode
-                autoFocusEditor={false}
-              />
-            </div>
-          )}
-        </div>
+        {/* Comment Bar matching PHP desktop/components/timeline/feed/TimelinePublication.vue */}
+        {!isDetailView && (
+          <div className="pt-1.5 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                  setMobileCommentsOpen(true);
+                } else {
+                  router.push(`/publication/${post.hashId}`);
+                }
+              }}
+              className="inline-flex items-center gap-2 text-par-s text-lab-sc hover:text-lab-pr font-medium cursor-pointer transition-colors"
+            >
+              <span>
+                {commentsCount > 0
+                  ? `Show all comments (${commentsCount})`
+                  : 'Leave a comment'}
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="h-2 bg-fill-fv/50 border-t border-bord-tr/60" />
 
-      {/* Mobile Comments ActionSheet matching PHP mobile/components/timeline/feed/parts/comments/PublicationComments.vue */ }
-          <Modal
-            open={mobileCommentsOpen}
-            onClose={() => setMobileCommentsOpen(false)}
-            title={`Comments (${commentsCount})`}
-            maxWidthClass="max-w-lg"
-            bodyClassName="p-0"
-          >
-            {mobileCommentsOpen && (
-              <PublicationCommentsSection
-                postId={post.id}
-                postHashId={post.hashId}
-                postOwnerId={String(post.author?._id || post.author?.id || '')}
-                commentsCount={commentsCount}
-                onCommentsCountChange={(nextCount) => setCommentsCount(nextCount)}
-                sheetMode
-              />
-            )}
-          </Modal>
+      {/* Mobile Comments ActionSheet matching PHP mobile/components/timeline/feed/parts/comments/PublicationComments.vue */}
+      <Modal
+        open={mobileCommentsOpen}
+        onClose={() => setMobileCommentsOpen(false)}
+        title={`Comments (${commentsCount})`}
+        maxWidthClass="max-w-lg"
+        bodyClassName="p-0"
+      >
+        {mobileCommentsOpen && (
+          <PublicationCommentsSection
+            postId={post.id}
+            postHashId={post.hashId}
+            postOwnerId={String(post.author?._id || post.author?.id || '')}
+            commentsCount={commentsCount}
+            onCommentsCountChange={(nextCount) => setCommentsCount(nextCount)}
+            sheetMode
+          />
+        )}
+      </Modal>
 
-          {/* Fallback Quote Post Modal when parent page does not supply onQuote */ }
+      {/* Fallback Quote Post Modal when parent page does not supply onQuote */}
       <Modal
         open={internalQuoteOpen}
         onClose={() => {

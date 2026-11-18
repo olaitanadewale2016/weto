@@ -275,11 +275,16 @@ export async function POST(
 
     if (body.targetType === 'post') {
       await Post.updateOne({ _id: post._id }, { $set: { reactionSummary: summary } });
-      await emitToPost(String(post._id), 'post:reaction:update', {
+      const reactionPayload = {
         postId: String(post._id),
+        postHashId: post.hashId,
         reactionSummary: summary,
         reactionsCount,
-      });
+      };
+      await emitToPost(String(post._id), 'post:reaction:update', reactionPayload);
+      if (post.hashId) {
+        await emitToPost(String(post.hashId), 'post:reaction:update', reactionPayload);
+      }
       publishPostRealtimeEvent(String(post._id), 'reaction', { reactionsCount });
       if (active) {
         await dispatchNotification({
