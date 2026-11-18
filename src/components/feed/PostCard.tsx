@@ -612,12 +612,12 @@ export function PostCard({
                   <Link
                     href={authorHref}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-[17px] sm:text-[18px] font-semibold text-lab-pr hover:underline truncate cursor-pointer leading-snug"
+                    className="text-par-n font-bold text-lab-pr hover:underline truncate cursor-pointer"
                   >
                     {authorDisplayName}
                   </Link>
                 ) : (
-                  <span className="text-[17px] sm:text-[18px] font-semibold text-lab-pr truncate leading-snug">
+                  <span className="text-par-n font-bold text-lab-pr truncate">
                     {authorDisplayName}
                   </span>
                 )}
@@ -627,7 +627,7 @@ export function PostCard({
                   </span>
                 )}
                 {authorHandle && (
-                  <span className="text-[15px] text-lab-sc font-normal truncate hidden sm:inline">
+                  <span className="text-cap-l text-lab-sc font-normal truncate hidden sm:inline">
                     @{authorHandle}
                   </span>
                 )}
@@ -639,7 +639,7 @@ export function PostCard({
               </div>
 
               {/* Line 2: Timestamp · Audience / Globe · Location */}
-              <div className="flex items-center gap-1 text-[14.5px] sm:text-[15px] text-lab-sc font-normal leading-tight mt-0.5 whitespace-nowrap overflow-hidden min-w-0">
+              <div className="flex items-center gap-1 text-cap-l text-lab-sc font-normal leading-tight mt-0.5 whitespace-nowrap overflow-hidden min-w-0">
                 <Link
                   href={`/publication/${post.hashId}`}
                   className="hover:underline shrink-0 text-lab-sc"
@@ -720,16 +720,9 @@ export function PostCard({
         {post.title && <h3 className="text-title-3 font-semibold text-lab-pr">{post.title}</h3>}
 
         {post.content && (
-          <div
-            className={cn(
-              'text-lab-pr whitespace-pre-wrap break-words',
-              isShortStatusPost
-                ? 'text-[24px] sm:text-[28px] font-normal leading-[1.35] py-1'
-                : 'text-[17px] sm:text-[18px] leading-relaxed tracking-normal'
-            )}
-          >
+          <div className="text-par-m text-lab-pr whitespace-pre-wrap break-words leading-relaxed">
             {renderRichContent(translatedText || post.content)}
-            {translating && <span className="ml-2 text-cap-l text-lab-tr">Translating...</span>}
+            {translating && <span className="ml-2 text-cap-s text-lab-tr">Translating...</span>}
           </div>
         )}
       </div>
