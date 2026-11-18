@@ -671,6 +671,47 @@ export function AppProvider({
         }
       });
 
+      client.on(
+        'chat:inbox:update',
+        (payload: { chatId?: string; senderId?: string; title?: string; message?: string }) => {
+          const inActiveChat =
+            typeof window !== 'undefined' &&
+            Boolean(payload?.chatId) &&
+            window.location.pathname === `/messenger/c/${payload.chatId}`;
+          if (!inActiveChat && payload?.senderId !== userId) {
+            setCounters((prev) => ({ ...prev, unreadMessages: prev.unreadMessages + 1 }));
+            if (
+              typeof window !== 'undefined' &&
+              'Notification' in window &&
+              Notification.permission === 'granted' &&
+              document.visibilityState !== 'visible'
+            ) {
+              const title = payload.title || 'New Message';
+              const body = payload.message || 'You received a new message';
+              navigator.serviceWorker?.ready
+                .then((reg) => {
+                  reg.showNotification(title, {
+                    body,
+                    icon: '/pwa/icons/192x192.png',
+                    badge: '/assets/logos/favicon.png',
+                    tag: payload.chatId ? `chat-${payload.chatId}` : 'chat-msg',
+                    data: {
+                      actionUrl: payload.chatId ? `/messenger/c/${payload.chatId}` : '/messenger',
+                    },
+                  });
+                })
+                .catch(() => {
+                  try {
+                    new Notification(title, { body, icon: '/pwa/icons/192x192.png' });
+                  } catch {
+                    // ignore
+                  }
+                });
+            }
+          }
+        }
+      );
+
       client.on('counter:update', (payload: Partial<{ unreadNotifications: number; unreadMessages: number }>) => {
         setCounters((prev) => ({
           unreadNotifications: payload.unreadNotifications ?? prev.unreadNotifications,
@@ -734,7 +775,32 @@ export function AppProvider({
         }
         if (!inActiveChat) {
           setCounters((prev) => ({ ...prev, unreadMessages: prev.unreadMessages + 1 }));
-          if (title || body) info(title, body);
+          if (
+            typeof window !== 'undefined' &&
+            'Notification' in window &&
+            Notification.permission === 'granted' &&
+            document.visibilityState !== 'visible'
+          ) {
+            navigator.serviceWorker?.ready
+              .then((reg) => {
+                reg.showNotification(title || 'New message', {
+                  body: body || 'You received a new message',
+                  icon: '/pwa/icons/192x192.png',
+                  badge: '/assets/logos/favicon.png',
+                  tag: chatId ? `chat-${chatId}` : 'chat-msg',
+                  data: { actionUrl: chatId ? `/messenger/c/${chatId}` : '/messenger' },
+                });
+              })
+              .catch(() => {
+                try {
+                  new Notification(title || 'New message', { body, icon: '/pwa/icons/192x192.png' });
+                } catch {
+                  // ignore
+                }
+              });
+          } else if (title || body) {
+            info(title, body);
+          }
         }
         return;
       }
@@ -827,7 +893,10 @@ export function AppProvider({
       .catch(() => undefined);
 
     const onSwMessage = (ev: MessageEvent) => {
-      if (ev.data?.type === 'WETO_FCM_EVENT' && ev.data?.data) {
+      if (
+        (ev.data?.type === 'WETO_FCM_EVENT' || ev.data?.type === 'WETO_PUSH_EVENT') &&
+        ev.data?.data
+      ) {
         dispatchRealtimePayload(ev.data.data as Record<string, unknown>);
       }
     };
@@ -925,10 +994,24 @@ export function AppProvider({
   );
 
   const enablePushNotifications = useCallback(async (): Promise<boolean> => {
-    const ok = await registerFcmDeviceToken(true);
-    if (ok) success('Push notifications enabled');
-    return ok;
-  }, [registerFcmDeviceToken, success]);
+    try {
+      if (typeof window === 'undefined' || !('Notification' in window)) return false;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        showError('Push notification permission denied');
+        return false;
+      }
+      void registerFcmDeviceToken(false).catch(() => false);
+      success('Push notifications enabled');
+      return true;
+    } catch (err) {
+      showError(
+        'Could not enable push notifications',
+        err instanceof Error ? err.message : undefined
+      );
+      return false;
+    }
+  }, [registerFcmDeviceToken, showError, success]);
 
   const logout = useCallback(async () => {
     isLoggingOutRef.current = true;

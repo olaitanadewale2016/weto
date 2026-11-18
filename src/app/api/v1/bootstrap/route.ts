@@ -123,7 +123,11 @@ export async function GET(req: NextRequest) {
         (isValidPrevId && prevCookieId !== String(u._id)) || Boolean(u.ownerAccountId);
 
       const [notifCount, chats, prevCandidate] = await Promise.all([
-        Notification.countDocuments({ userId: u._id, readAt: null }),
+        Notification.countDocuments({
+          userId: u._id,
+          readAt: null,
+          type: { $nin: ['CHAT_MESSAGE', 'CHAT_CALL'] },
+        }),
         Chat.find({ 'participants.userId': u._id }).select('_id participants').lean(),
         shouldResolvePrev
           ? User.findOne({

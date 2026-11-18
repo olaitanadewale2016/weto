@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weto-pwa-v5';
+const CACHE_NAME = 'weto-pwa-v6';
 const MEDIA_CACHE_NAME = 'weto-media-cache-v1';
 const PRECACHE_ASSETS = [
   '/pwa/manifest.json',
@@ -38,6 +38,68 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Native Web Push notifications in PWA and Web App
+self.addEventListener('push', (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { message: event.data.text() };
+    }
+  }
+
+  const title = payload.title || payload.notification?.title || 'Weto';
+  const body = payload.body || payload.message || payload.notification?.body || 'New notification';
+  const data = payload.data || payload;
+  const chatId = data.chatId || payload.chatId;
+  const actionUrl =
+    payload.actionUrl || data.actionUrl || (chatId ? `/messenger/c/${chatId}` : '/messenger');
+
+  // Broadcast to all active client windows
+  self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    for (const client of clients) {
+      client.postMessage({
+        type: 'WETO_PUSH_EVENT',
+        data: { ...data, chatId, title, message: body },
+      });
+    }
+  });
+
+  const options = {
+    body,
+    icon: '/pwa/icons/192x192.png',
+    badge: '/assets/logos/favicon.png',
+    tag: chatId ? `chat-${chatId}` : (data.notificationId || 'weto-push'),
+    data: {
+      actionUrl,
+      chatId,
+    },
+    vibrate: [120, 60, 120],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const rawUrl = event.notification.data?.actionUrl || '/messenger';
+  const targetUrl = new URL(rawUrl, self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {

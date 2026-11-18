@@ -155,7 +155,11 @@ export default function NotificationsPage() {
     setLoading(true);
     try {
       const data = await apiFetch<NotificationItem[]>(`/notifications?tab=${tab}`);
-      setItems(Array.isArray(data) ? data : []);
+      setItems(
+        Array.isArray(data)
+          ? data.filter((n) => n.type !== 'CHAT_MESSAGE' && n.type !== 'CHAT_CALL')
+          : []
+      );
     } catch {
       setItems([]);
     } finally {

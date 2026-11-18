@@ -10,7 +10,10 @@ export async function GET(req: NextRequest) {
     const tab = searchParams.get('tab') || 'all';
     const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || 30)));
 
-    const filter: Record<string, unknown> = { userId: user._id };
+    const filter: Record<string, unknown> = {
+      userId: user._id,
+      type: { $nin: ['CHAT_MESSAGE', 'CHAT_CALL'] },
+    };
     if (tab === 'mentions') filter.category = 'mentions';
     else if (tab === 'important') filter.category = 'important';
 
@@ -20,7 +23,11 @@ export async function GET(req: NextRequest) {
         .limit(limit)
         .populate('actorId', 'username firstName lastName avatar verified')
         .lean(),
-      Notification.countDocuments({ userId: user._id, readAt: null }),
+      Notification.countDocuments({
+        userId: user._id,
+        readAt: null,
+        type: { $nin: ['CHAT_MESSAGE', 'CHAT_CALL'] },
+      }),
     ]);
 
     return apiSuccess(
@@ -95,7 +102,11 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const unreadCount = await Notification.countDocuments({ userId: user._id, readAt: null });
+    const unreadCount = await Notification.countDocuments({
+      userId: user._id,
+      readAt: null,
+      type: { $nin: ['CHAT_MESSAGE', 'CHAT_CALL'] },
+    });
     return apiSuccess({ unreadCount });
   } catch (err) {
     return apiError(err);

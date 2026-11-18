@@ -414,6 +414,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [directInfoOpen, setDirectInfoOpen] = useState(false);
   const [mobileActionMsg, setMobileActionMsg] = useState<ChatMessage | null>(null);
+  const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
@@ -1934,8 +1935,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   const renderMessageBody = (
     m: ChatMessage,
-    variant: 'desktop' | 'mobile-mine' | 'mobile-other',
-    inlineTimestampNode?: React.ReactNode
+    variant: 'desktop' | 'mobile-mine' | 'mobile-other'
   ) => {
     if (m.isDeleted) {
       return <p className="text-cap-l italic text-lab-sc">Message deleted</p>;
@@ -1987,11 +1987,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               decoding="async"
               className="h-32 w-32 object-contain"
             />
-            {inlineTimestampNode && (
-              <div className="absolute bottom-1 right-1 z-10 px-1.5 py-0.5 rounded-full bg-black/45 backdrop-blur-xs text-[10px] text-white font-medium inline-flex items-center gap-0.5 pointer-events-none shadow-xs">
-                {inlineTimestampNode}
-              </div>
-            )}
           </div>
         )}
 
@@ -2046,7 +2041,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               <p className="text-[11px] text-lab-sc">
                 {totalPollVotes} {totalPollVotes === 1 ? 'vote' : 'votes'} · Tap an option to vote
               </p>
-              {!m.content && inlineTimestampNode}
             </div>
           </div>
         )}
@@ -2074,11 +2068,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               </div>
               <ExternalLink className="h-3.5 w-3.5 shrink-0 text-lab-sc" />
             </a>
-            {!m.content && inlineTimestampNode && (
-              <div className="flex justify-end pt-0.5">
-                {inlineTimestampNode}
-              </div>
-            )}
           </div>
         )}
 
@@ -2105,11 +2094,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     )}
                   />
                 </button>
-                {!m.content && inlineTimestampNode && (
-                  <div className="absolute bottom-1.5 right-1.5 z-10 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-xs text-[10.5px] text-white font-medium inline-flex items-center gap-1 shadow-xs pointer-events-none">
-                    {inlineTimestampNode}
-                  </div>
-                )}
                 {m.type === 'gif' && <GiphyAttribution className="absolute bottom-2 left-2 z-10" />}
               </div>
             )}
@@ -2127,11 +2111,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       : 'max-h-72 sm:max-h-80'
                   )}
                 />
-                {!m.content && inlineTimestampNode && (
-                  <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-[10.5px] text-white font-medium inline-flex items-center gap-1 shadow-xs pointer-events-none">
-                    {inlineTimestampNode}
-                  </div>
-                )}
               </div>
             )}
 
@@ -2143,15 +2122,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 )}
               >
                 <audio src={mediaUrl} controls className="w-full h-9 max-w-full" />
-                <div className="flex items-center justify-between text-cap-s text-lab-sc">
-                  {m.media?.durationSeconds ? (
-                    <p className="text-[11px] text-lab-sc">
-                      Voice note · {Math.floor(m.media.durationSeconds / 60)}:
-                      {String(Math.floor(m.media.durationSeconds % 60)).padStart(2, '0')}
-                    </p>
-                  ) : <span />}
-                  {!m.content && inlineTimestampNode}
-                </div>
+                {m.media?.durationSeconds ? (
+                  <p className="text-[11px] text-lab-sc">
+                    Voice note · {Math.floor(m.media.durationSeconds / 60)}:
+                    {String(Math.floor(m.media.durationSeconds % 60)).padStart(2, '0')}
+                  </p>
+                ) : null}
               </div>
             )}
 
@@ -2180,11 +2156,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       ) : null}
                     </div>
                   </a>
-                  {!m.content && inlineTimestampNode && (
-                    <div className="flex justify-end pt-0.5">
-                      {inlineTimestampNode}
-                    </div>
-                  )}
                 </div>
               )}
           </>
@@ -2192,10 +2163,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
         {m.content && (
           <div className="space-y-1 min-w-0 max-w-full">
-            <div className="text-[15.5px] sm:text-[16px] leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-              <span>{msgTranslations[m.id] || m.content}</span>
-              {inlineTimestampNode}
-            </div>
+            <p className="text-par-n leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {msgTranslations[m.id] || m.content}
+            </p>
             {msgTranslations[m.id] && (
               <button
                 type="button"
@@ -2235,11 +2205,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 </p>
               )}
             </a>
-            {!m.content && inlineTimestampNode && (
-              <div className="flex justify-end pt-0.5">
-                {inlineTimestampNode}
-              </div>
-            )}
           </div>
         )}
 
@@ -2279,11 +2244,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 </div>
                 <ExternalLink className="h-3.5 w-3.5 text-lab-sc shrink-0" />
               </Link>
-              {!m.content && inlineTimestampNode && (
-                <div className="flex justify-end pt-0.5">
-                  {inlineTimestampNode}
-                </div>
-              )}
             </div>
           );
         })()}
@@ -3466,19 +3426,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         );
                       }
 
-                      const inlineTimestampNode = (
-                        <span className="float-right ml-2.5 mt-1 -mb-0.5 inline-flex items-center gap-0.5 text-[12px] sm:text-[12.5px] select-none text-lab-sc tabular-nums">
-                          {m.isEdited && <span className="text-[10.5px] italic mr-0.5">edited</span>}
-                          <span>{formatMessageTime(m.createdAt, locale)}</span>
-                          {mine &&
-                            (readByOther ? (
-                              <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0 ml-0.5" />
-                            ) : (
-                              <Check className="h-3.5 w-3.5 text-lab-tr shrink-0 ml-0.5" />
-                            ))}
-                        </span>
-                      );
-
                       return (
                         <React.Fragment key={m.id}>
                           <span id={`msg-${m.id}`} className="sr-only" />
@@ -3491,110 +3438,161 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                           )}
 
                           <div
-                            onDoubleClick={() => {
-                              if (m.isDeleted) return;
-                              setReplyTo(m);
-                              messageInputRef.current?.focus();
-                            }}
                             className={cn(
                               'flex items-end gap-2 group relative w-full min-w-0 transition-all',
                               mine ? 'justify-end' : 'justify-start',
                               isFirstInCluster ? 'mt-3 mb-0.5' : 'mt-0.5 mb-0.5'
                             )}
                           >
-                            {/* Telegram Group Avatar (at bottom of cluster, incoming only) */}
-                            {!mine && isGroupChat && (
-                              <div className="w-7 shrink-0 flex flex-col justify-end self-end mb-0.5">
-                                {isLastInCluster ? (
-                                  <Avatar src={m.sender?.avatar} alt={m.sender?.username} size="xs" />
-                                ) : (
-                                  <div className="w-6 h-6" />
-                                )}
+                            {!mine && (
+                              <Avatar
+                                src={m.sender?.avatar}
+                                alt={m.sender?.username}
+                                size="sm"
+                                className="shrink-0 mb-0.5"
+                              />
+                            )}
+
+                            {/* Action Buttons for mine (left side on hover) */}
+                            {mine && !m.isDeleted && (
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity relative">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setReactionPickerMsgId((prev) => (prev === m.id ? null : m.id))
+                                  }
+                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                  title="React"
+                                >
+                                  <Smile className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplyTo(m);
+                                    messageInputRef.current?.focus();
+                                  }}
+                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                  title="Reply"
+                                >
+                                  <CornerUpLeft className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setMobileActionMsg(m)}
+                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                  title="Options"
+                                >
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </button>
                               </div>
                             )}
 
                             <div
                               className={cn(
-                                'min-w-0 flex flex-col transition-all',
+                                'min-w-0 space-y-1',
                                 middleFullScreen
                                   ? 'max-w-[85%] sm:max-w-[72%] lg:max-w-[60%] xl:max-w-[52%]'
                                   : 'max-w-[85%] sm:max-w-[76%] lg:max-w-[68%]',
-                                mine ? 'items-end' : 'items-start'
+                                mine && 'items-end flex flex-col'
                               )}
                             >
                               <div
+                                onDoubleClick={() => {
+                                  if (m.isDeleted) return;
+                                  setReplyTo(m);
+                                  messageInputRef.current?.focus();
+                                }}
                                 className={cn(
-                                  'flex items-center gap-1.5 max-w-full min-w-0',
-                                  mine && 'flex-row-reverse'
+                                  isStickerOnly
+                                    ? 'bg-transparent border-0 shadow-none p-0'
+                                    : cn(
+                                        'rounded-2xl px-3.5 py-2.5 space-y-1.5 relative shadow-xs transition-shadow',
+                                        mine
+                                          ? 'bg-brand-900 text-white rounded-br-sm'
+                                          : 'bg-fill-sc text-lab-pr rounded-bl-sm'
+                                      )
                                 )}
                               >
-                                <div
-                                  className={cn(
-                                    'min-w-0 max-w-full overflow-hidden space-y-1',
-                                    isStickerOnly
-                                      ? 'bg-transparent border-0 shadow-none p-0'
-                                      : cn(
-                                        'rounded-2xl px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
-                                        mine
-                                          ? cn(
-                                            'bg-fill-qt border border-bord-pr/80 text-lab-pr',
-                                            isLastInCluster ? 'rounded-br-[4px]' : 'rounded-br-2xl'
-                                          )
-                                          : cn(
-                                            'bg-bg-pr border border-bord-card text-lab-pr',
-                                            isLastInCluster ? 'rounded-bl-[4px]' : 'rounded-bl-2xl'
-                                          )
-                                      )
-                                  )}
-                                >
-                                  {/* Telegram Group Sender Name inside bubble */}
-                                  {!mine && isGroupChat && isFirstInCluster && (
-                                    <div className="font-semibold text-[14px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
-                                      {senderName}
-                                    </div>
-                                  )}
-
-                                  {/* Telegram Quote Reply Block */}
-                                  {m.parentId && !m.isDeleted && (
-                                    <div
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const el = document.getElementById(`msg-${m.parentId?.id}`);
-                                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                      }}
-                                      className="max-w-full min-w-0 overflow-hidden rounded-md px-2.5 py-1 mb-1.5 border-l-[3px] border-brand-900 bg-fill-fv/80 text-left cursor-pointer hover:bg-fill-sc transition-colors"
-                                    >
-                                      <p className="text-[13px] font-semibold text-brand-900 truncate">
-                                        {m.parentId.senderId?.firstName || m.parentId.senderId?.username || 'Reply'}
-                                      </p>
-                                      <p className="text-[13.5px] text-lab-sc truncate">
-                                        {getMessagePreviewLabel(m.parentId)}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  <div className="space-y-1 text-left">
-                                    {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other', inlineTimestampNode)}
+                                {!mine && isGroupChat && isFirstInCluster && (
+                                  <div className="font-semibold text-[13.5px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
+                                    {senderName}
                                   </div>
+                                )}
+
+                                {m.parentId && !m.isDeleted && (
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const el = document.getElementById(`msg-${m.parentId?.id}`);
+                                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }}
+                                    className={cn(
+                                      'max-w-full min-w-0 overflow-hidden rounded-xl px-2.5 py-1.5 border-l-2 text-cap-l cursor-pointer transition-colors',
+                                      mine
+                                        ? 'bg-black/15 border-white/60 text-white/90 hover:bg-black/25'
+                                        : 'bg-bg-pr/70 border-brand-900 text-lab-sc hover:bg-bg-pr'
+                                    )}
+                                  >
+                                    <p className="text-cap-s font-semibold truncate">
+                                      {m.parentId.senderId?.firstName ||
+                                        m.parentId.senderId?.username ||
+                                        'Reply'}
+                                    </p>
+                                    <p className="truncate opacity-85">{getMessagePreviewLabel(m.parentId)}</p>
+                                  </div>
+                                )}
+
+                                <div className="space-y-1 text-left">
+                                  {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
                                 </div>
 
-                                {!m.isDeleted && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setMobileActionMsg(m)}
-                                    className="shrink-0 size-7 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer self-center"
-                                    title="Message options"
-                                    aria-label="Message actions"
+                                {!isStickerOnly && !m.isDeleted && (
+                                  <div
+                                    className={cn(
+                                      'flex items-center justify-end gap-1 text-[10.5px] select-none tabular-nums mt-1',
+                                      mine ? 'text-white/80' : 'text-lab-tr'
+                                    )}
                                   >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </button>
+                                    {m.isEdited && <span className="text-[9.5px] italic mr-0.5">edited</span>}
+                                    <span>{formatMessageTime(m.createdAt, locale)}</span>
+                                    {mine &&
+                                      (readByOther ? (
+                                        <CheckCheck className="h-3.5 w-3.5 text-white/95" />
+                                      ) : (
+                                        <Check className="h-3.5 w-3.5 text-white/70" />
+                                      ))}
+                                  </div>
+                                )}
+
+                                {reactionPickerMsgId === m.id && (
+                                  <div
+                                    className={cn(
+                                      'absolute bottom-full mb-1.5 z-20 flex items-center gap-1 rounded-full border border-bord-pr bg-bg-pr px-2 py-1 shadow-lg',
+                                      mine ? 'right-0' : 'left-0'
+                                    )}
+                                  >
+                                    {CHAT_REACTIONS.map((r) => (
+                                      <button
+                                        key={r.unifiedId}
+                                        type="button"
+                                        onClick={() => {
+                                          setReactionPickerMsgId(null);
+                                          void handleToggleReaction(m.id, r.unifiedId, r.nativeSymbol);
+                                        }}
+                                        className="h-7 w-7 rounded-full hover:bg-fill-sc flex items-center justify-center text-base cursor-pointer"
+                                      >
+                                        {r.nativeSymbol}
+                                      </button>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
 
                               {m.reactionSummary && m.reactionSummary.length > 0 && (
                                 <div
                                   className={cn(
-                                    'flex flex-wrap gap-1 pt-1',
+                                    'flex flex-wrap gap-1 pt-0.5',
                                     mine ? 'justify-end' : 'justify-start'
                                   )}
                                 >
@@ -3602,8 +3600,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                     <button
                                       key={rs.unifiedId}
                                       type="button"
-                                      onClick={() => handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                      className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
+                                      onClick={() => void handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
+                                      className="inline-flex items-center gap-1 rounded-full bg-fill-qt border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
                                     >
                                       <span>{rs.nativeSymbol}</span>
                                       <span className="font-semibold text-lab-sc text-[11px]">
@@ -3614,6 +3612,54 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 </div>
                               )}
                             </div>
+
+                            {/* Action Buttons for incoming messages (right side on hover) */}
+                            {!mine && !m.isDeleted && (
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplyTo(m);
+                                    messageInputRef.current?.focus();
+                                  }}
+                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                  title="Reply"
+                                >
+                                  <CornerUpLeft className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setReactionPickerMsgId((prev) => (prev === m.id ? null : m.id))
+                                  }
+                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                  title="React"
+                                >
+                                  <Smile className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setMobileActionMsg(m)}
+                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                  title="Options"
+                                >
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Mobile action button (visible on touch viewports) */}
+                            {!m.isDeleted && (
+                              <button
+                                type="button"
+                                onClick={() => setMobileActionMsg(m)}
+                                className="md:hidden shrink-0 size-6 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer self-center"
+                                title="Message options"
+                                aria-label="Message actions"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </React.Fragment>
                       );

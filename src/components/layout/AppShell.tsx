@@ -43,6 +43,7 @@ import { Soundbar } from './Soundbar';
 import { AccountSwitcherModal } from '@/components/modals/AccountSwitcherModal';
 import { HotkeysModal } from '@/components/modals/HotkeysModal';
 import { DeviceSwitcherOverlay } from './DeviceSwitcherOverlay';
+import { PushNotificationPrompt } from '@/components/notifications/PushNotificationPrompt';
 import { clearBootstrapCache } from '@/components/providers/AppContext';
 import { apiFetch } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -909,6 +910,7 @@ export function AppShell({
       </ActionSheet>
 
       <Soundbar />
+      <PushNotificationPrompt />
       <DeviceSwitcherOverlay />
       <AccountSwitcherModal open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />

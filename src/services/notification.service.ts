@@ -103,49 +103,78 @@ export async function dispatchNotification(input: DispatchNotificationInput): Pr
         ? input.message
         : formatChannelMessage(input.message, actorSnapshot);
 
-    const category = input.category || 'all';
-    const notif = await Notification.create({
-      userId: recipientObjId,
-      actorId: actorObjId,
-      type: input.type,
-      category,
-      title: resolvedTitle,
-      message: input.message,
-      entityType: input.entityType ?? null,
-      entityId: input.entityId ?? null,
-      actionUrl: input.actionUrl ?? null,
-      previewLqip: input.previewLqip ?? null,
-      data: {
-        ...(input.data ?? {}),
-        ...(actorSnapshot ? { actor: actorSnapshot } : {}),
-      },
-    });
+    const isChatMessage = input.type === 'CHAT_MESSAGE';
 
-    const unreadCount = await Notification.countDocuments({ userId: recipientObjId, readAt: null });
+    let notifId: string | null = null;
+    let unreadCount = 0;
 
-    // 1. Real-time Socket.IO & Firebase Firestore user channel delivery
-    await emitToUser(String(recipientObjId), 'notification:new', {
-      title: resolvedTitle,
-      message: channelMessage,
-      actor: actorSnapshot,
-      notification: {
-        ...notif.toObject(),
-        id: String(notif._id),
+    if (!isChatMessage) {
+      const category = input.category || 'all';
+      const notif = await Notification.create({
+        userId: recipientObjId,
+        actorId: actorObjId,
+        type: input.type,
+        category,
+        title: resolvedTitle,
+        message: input.message,
+        entityType: input.entityType ?? null,
+        entityId: input.entityId ?? null,
+        actionUrl: input.actionUrl ?? null,
+        previewLqip: input.previewLqip ?? null,
+        data: {
+          ...(input.data ?? {}),
+          ...(actorSnapshot ? { actor: actorSnapshot } : {}),
+        },
+      });
+      notifId = String(notif._id);
+
+      unreadCount = await Notification.countDocuments({
+        userId: recipientObjId,
+        readAt: null,
+        type: { $nin: ['CHAT_MESSAGE', 'CHAT_CALL'] },
+      });
+
+      // 1. Real-time Socket.IO & Firebase Firestore user channel delivery for general notifications
+      await emitToUser(String(recipientObjId), 'notification:new', {
+        title: resolvedTitle,
+        message: channelMessage,
         actor: actorSnapshot,
-      },
-      unreadCount,
-    });
-    publishUserRealtimeEvent(String(recipientObjId), input.type === 'CHAT_MESSAGE' ? 'chat:inbox:update' : 'notification:new', {
-      unreadNotifications: unreadCount,
-      notificationId: String(notif._id),
-      type: input.type,
-      title: resolvedTitle,
-      message: channelMessage,
-      actorName: actorSnapshot?.name || '',
-      actorUsername: actorSnapshot?.username || '',
-      actionUrl: input.actionUrl || '/notifications',
-      ...(input.data || {}),
-    });
+        notification: {
+          ...notif.toObject(),
+          id: notifId,
+          actor: actorSnapshot,
+        },
+        unreadCount,
+      });
+      publishUserRealtimeEvent(String(recipientObjId), 'notification:new', {
+        unreadNotifications: unreadCount,
+        notificationId: notifId,
+        type: input.type,
+        title: resolvedTitle,
+        message: channelMessage,
+        actorName: actorSnapshot?.name || '',
+        actorUsername: actorSnapshot?.username || '',
+        actionUrl: input.actionUrl || '/notifications',
+        ...(input.data || {}),
+      });
+    } else {
+      // Chat message notification: deliver directly to chat channel without polluting general notifications
+      await emitToUser(String(recipientObjId), 'chat:inbox:update', {
+        chatId: input.data?.chatId,
+        senderId: input.actorId,
+        title: resolvedTitle,
+        message: channelMessage,
+        actionUrl: input.actionUrl || (input.data?.chatId ? `/messenger/c/${input.data.chatId}` : '/messenger'),
+      });
+      publishUserRealtimeEvent(String(recipientObjId), 'chat:inbox:update', {
+        chatId: input.data?.chatId,
+        type: 'CHAT_MESSAGE',
+        title: resolvedTitle,
+        message: channelMessage,
+        actionUrl: input.actionUrl || (input.data?.chatId ? `/messenger/c/${input.data.chatId}` : '/messenger'),
+        ...(input.data || {}),
+      });
+    }
 
     // 2. Push Notification via Firebase Cloud Messaging (FCM)
     const pushAllowed =
@@ -178,8 +207,10 @@ export async function dispatchNotification(input: DispatchNotificationInput): Pr
           data: {
             ...stringData,
             type: input.type,
-            actionUrl: input.actionUrl || '/notifications',
-            notificationId: String(notif._id),
+            actionUrl:
+              input.actionUrl ||
+              (input.data?.chatId ? `/messenger/c/${input.data.chatId}` : '/notifications'),
+            notificationId: notifId || String(input.data?.chatId || 'chat'),
             unreadCount: String(unreadCount),
             actorName: actorSnapshot?.name || '',
             actorUsername: actorSnapshot?.username || '',
