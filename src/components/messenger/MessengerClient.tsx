@@ -3439,23 +3439,27 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                           <div
                             className={cn(
-                              'flex items-end gap-2 group relative w-full min-w-0 transition-all',
+                              'flex items-start gap-2 group relative w-full min-w-0 transition-all',
                               mine ? 'justify-end' : 'justify-start',
-                              isFirstInCluster ? 'mt-3 mb-0.5' : 'mt-0.5 mb-0.5'
+                              isFirstInCluster ? 'mt-2.5 mb-0.5' : 'mt-0.5 mb-0.5'
                             )}
                           >
-                            {!mine && (
-                              <Avatar
-                                src={m.sender?.avatar}
-                                alt={m.sender?.username}
-                                size="sm"
-                                className="shrink-0 mb-0.5"
-                              />
-                            )}
+                            {!mine &&
+                              (isFirstInCluster ? (
+                                <div className="shrink-0 mt-0.5">
+                                  <Avatar
+                                    src={m.sender?.avatar}
+                                    alt={m.sender?.username}
+                                    size="sm"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-8 shrink-0" />
+                              ))}
 
                             {/* Action Buttons for mine (left side on hover) */}
                             {mine && !m.isDeleted && (
-                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity relative">
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity relative self-center">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -3490,13 +3494,37 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                             <div
                               className={cn(
-                                'min-w-0 space-y-1',
+                                'min-w-0 flex flex-col',
                                 middleFullScreen
-                                  ? 'max-w-[85%] sm:max-w-[72%] lg:max-w-[60%] xl:max-w-[52%]'
-                                  : 'max-w-[85%] sm:max-w-[76%] lg:max-w-[68%]',
-                                mine && 'items-end flex flex-col'
+                                  ? 'max-w-[85%] sm:max-w-[75%] lg:max-w-[65%]'
+                                  : 'max-w-[85%] sm:max-w-[74%] lg:max-w-[64%]',
+                                mine ? 'items-end' : 'items-start'
                               )}
                             >
+                              {/* Grupo Sender Name & Timestamp Header */}
+                              {isFirstInCluster && (
+                                <div
+                                  className={cn(
+                                    'flex items-center gap-1.5 mb-1 px-1',
+                                    mine && 'flex-row-reverse'
+                                  )}
+                                >
+                                  <span className="text-par-s font-semibold text-lab-pr truncate">
+                                    {mine ? 'You' : senderName}
+                                  </span>
+                                  {m.isEdited && <span className="text-[10px] italic text-lab-tr">edited</span>}
+                                  <span className="text-cap-s text-lab-tr shrink-0 tabular-nums">
+                                    {formatMessageTime(m.createdAt, locale)}
+                                  </span>
+                                  {mine &&
+                                    (readByOther ? (
+                                      <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+                                    ) : (
+                                      <Check className="h-3.5 w-3.5 text-lab-tr shrink-0" />
+                                    ))}
+                                </div>
+                              )}
+
                               <div
                                 onDoubleClick={() => {
                                   if (m.isDeleted) return;
@@ -3504,22 +3532,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                   messageInputRef.current?.focus();
                                 }}
                                 className={cn(
+                                  'min-w-0 max-w-full overflow-hidden space-y-1.5',
                                   isStickerOnly
-                                    ? 'bg-transparent border-0 shadow-none p-0'
+                                    ? 'bg-transparent p-0'
                                     : cn(
-                                        'rounded-2xl px-3.5 py-2.5 space-y-1.5 relative shadow-xs transition-shadow',
+                                        'rounded-xl px-3.5 py-2.5 border shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
                                         mine
-                                          ? 'bg-brand-900 text-white rounded-br-sm'
-                                          : 'bg-fill-sc text-lab-pr rounded-bl-sm'
+                                          ? 'bg-fill-qt border-bord-pr/80 text-lab-pr rounded-tr-xs'
+                                          : 'bg-bg-pr border-bord-card text-lab-pr rounded-tl-xs'
                                       )
                                 )}
                               >
-                                {!mine && isGroupChat && isFirstInCluster && (
-                                  <div className="font-semibold text-[13.5px] text-brand-900 hover:underline mb-1 truncate cursor-pointer select-none">
-                                    {senderName}
-                                  </div>
-                                )}
-
                                 {m.parentId && !m.isDeleted && (
                                   <div
                                     onClick={(e) => {
@@ -3527,40 +3550,30 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                       const el = document.getElementById(`msg-${m.parentId?.id}`);
                                       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                     }}
-                                    className={cn(
-                                      'max-w-full min-w-0 overflow-hidden rounded-xl px-2.5 py-1.5 border-l-2 text-cap-l cursor-pointer transition-colors',
-                                      mine
-                                        ? 'bg-black/15 border-white/60 text-white/90 hover:bg-black/25'
-                                        : 'bg-bg-pr/70 border-brand-900 text-lab-sc hover:bg-bg-pr'
-                                    )}
+                                    className="max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-2 border-brand-900 bg-fill-fv/80 text-par-s text-lab-sc text-left cursor-pointer hover:bg-fill-sc transition-colors"
                                   >
-                                    <p className="text-cap-s font-semibold truncate">
+                                    <p className="text-cap-l font-semibold text-brand-900 truncate">
                                       {m.parentId.senderId?.firstName ||
                                         m.parentId.senderId?.username ||
                                         'Reply'}
                                     </p>
-                                    <p className="truncate opacity-85">{getMessagePreviewLabel(m.parentId)}</p>
+                                    <p className="truncate text-lab-sc">{getMessagePreviewLabel(m.parentId)}</p>
                                   </div>
                                 )}
 
-                                <div className="space-y-1 text-left">
+                                <div className="space-y-1.5 text-left">
                                   {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
                                 </div>
 
-                                {!isStickerOnly && !m.isDeleted && (
-                                  <div
-                                    className={cn(
-                                      'flex items-center justify-end gap-1 text-[10.5px] select-none tabular-nums mt-1',
-                                      mine ? 'text-white/80' : 'text-lab-tr'
-                                    )}
-                                  >
+                                {!isFirstInCluster && !isStickerOnly && !m.isDeleted && (
+                                  <div className="flex items-center justify-end gap-1 text-[10px] select-none tabular-nums mt-0.5 text-lab-tr">
                                     {m.isEdited && <span className="text-[9.5px] italic mr-0.5">edited</span>}
                                     <span>{formatMessageTime(m.createdAt, locale)}</span>
                                     {mine &&
                                       (readByOther ? (
-                                        <CheckCheck className="h-3.5 w-3.5 text-white/95" />
+                                        <CheckCheck className="h-3 w-3 text-brand-900" />
                                       ) : (
-                                        <Check className="h-3.5 w-3.5 text-white/70" />
+                                        <Check className="h-3 w-3 text-lab-tr" />
                                       ))}
                                   </div>
                                 )}
@@ -3592,7 +3605,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               {m.reactionSummary && m.reactionSummary.length > 0 && (
                                 <div
                                   className={cn(
-                                    'flex flex-wrap gap-1 pt-0.5',
+                                    'flex flex-wrap gap-1 pt-1',
                                     mine ? 'justify-end' : 'justify-start'
                                   )}
                                 >
@@ -3601,7 +3614,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                       key={rs.unifiedId}
                                       type="button"
                                       onClick={() => void handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                      className="inline-flex items-center gap-1 rounded-full bg-fill-qt border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
+                                      className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
                                     >
                                       <span>{rs.nativeSymbol}</span>
                                       <span className="font-semibold text-lab-sc text-[11px]">
@@ -3615,7 +3628,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                             {/* Action Buttons for incoming messages (right side on hover) */}
                             {!mine && !m.isDeleted && (
-                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity self-center">
                                 <button
                                   type="button"
                                   onClick={() => {

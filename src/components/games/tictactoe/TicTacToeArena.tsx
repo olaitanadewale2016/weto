@@ -1435,7 +1435,7 @@ export function TicTacToeArena() {
 
   return (
     <div
-      className="min-h-dvh w-full text-white flex flex-col select-none relative overflow-x-hidden pt-safe pb-safe"
+      className="h-full min-h-full w-full text-white flex flex-col select-none relative overflow-y-auto overflow-x-hidden pt-safe pb-safe px-safe"
       style={{
         background: 'linear-gradient(180deg, #262C30 0%, #161719 100%)',
       }}

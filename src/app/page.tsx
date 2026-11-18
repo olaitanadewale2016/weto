@@ -23,8 +23,8 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      {/* Exact PageHeader.vue + HomeHeader.vue (Desktop only to prevent duplicate header with mobile AppShell) */}
-      <div className="hidden md:flex gap-2 items-center justify-between leading-none px-4 py-3.5 relative">
+      {/* Exact PageHeader.vue + HomeHeader.vue (Desktop sticky top header while scrolling) */}
+      <div className="hidden md:flex sticky top-0 z-30 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr gap-2 items-center justify-between leading-none px-4 py-3.5">
         <div className="shrink-0">
           <h1 className="text-title-3 2xl:text-title-2 font-bold text-lab-pr2 leading-tight">
             {!user && loading && tab !== 'trending' ? (

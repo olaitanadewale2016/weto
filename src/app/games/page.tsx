@@ -9,11 +9,11 @@ export const metadata = {
 
 export default function GamesPage() {
   return (
-    <AppShell hideMobileChrome hideRightRail>
+    <AppShell fullWidth hideDesktopSidebar hideMobileChrome hideMobileHeader viewportLocked>
       <Suspense
         fallback={
           <div
-            className="min-h-dvh flex items-center justify-center text-white font-bold"
+            className="h-full w-full flex items-center justify-center text-white font-bold"
             style={{ background: 'linear-gradient(180deg, #262C30 0%, #161719 100%)' }}
           >
             Loading Tic-Tac-Toe Arena...
