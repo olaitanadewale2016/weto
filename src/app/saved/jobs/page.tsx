@@ -28,14 +28,14 @@ export default function SavedJobsPage() {
   }, []);
 
   return (
-    <AppShell fullWidth>
+    <AppShell fullWidth hideMobileHeader>
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
+        <Link href="/jobs" className="p-1.5 rounded-full hover:bg-fill-sc" aria-label="Back to jobs">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-title-3 font-bold text-lab-pr">Saved Jobs</h1>
+      </div>
       <div className="p-4 sm:p-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <Link href="/jobs" className="p-2 rounded-full hover:bg-fill-sc">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-title-2 font-bold text-lab-pr">Saved Jobs</h1>
-        </div>
 
         {loading ? (
           <p className="text-lab-sc py-8 text-center">Loading saved jobs...</p>

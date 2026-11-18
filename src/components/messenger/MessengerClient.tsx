@@ -2298,13 +2298,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         (isDraggingLeft || isDraggingRight) && 'select-none cursor-col-resize'
       )}
     >
-      {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden in Expand mode) */}
-      <aside
-        className={cn(
-          'hidden w-16 shrink-0 h-full max-h-full border-r border-bord-pr bg-bg-pr flex flex-col items-center justify-between py-5 overflow-hidden select-none',
-          !middleFullScreen && 'md:flex'
-        )}
-      >
+      {/* Desktop Far-Left Vertical Action Bar (Hidden in integrated layout to keep single AppShell sidebar) */}
+      <aside className="hidden">
         <div className="flex flex-col items-center">
           <Link
             href="/"
@@ -2419,7 +2414,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
-        <div className="px-4 pt-3.5 pb-3 border-b border-bord-pr space-y-3 shrink-0">
+        <div className="px-4 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] pb-3 border-b border-bord-pr space-y-3 shrink-0 px-safe">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Link
@@ -2514,7 +2509,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-bord-pr">
+        <div className="flex-1 overflow-y-auto divide-y divide-bord-pr pb-safe">
           {tab === 'discover' ? (
             <div className="p-3.5 space-y-3">
               <div
@@ -3327,7 +3322,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 {/* Messages Timeline (Previous theme colors + Telegram layout & proper margins) */}
                 <div
                   className={cn(
-                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-4 px-3 px-safe sm:px-6 md:px-8 space-y-1 bg-fill-fv/35',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-3 px-1.5 sm:px-3 px-safe space-y-1 bg-fill-fv/35',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
@@ -3335,7 +3330,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     className={cn(
                       'mx-auto w-full space-y-1 transition-all duration-150',
                       middleFullScreen
-                        ? 'max-w-[1040px] lg:max-w-[1140px] px-2 sm:px-4 md:px-6'
+                        ? 'max-w-[1040px] lg:max-w-[1140px]'
                         : 'max-w-[840px]'
                     )}
                   >
@@ -3479,15 +3474,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               messageInputRef.current?.focus();
                             }}
                             className={cn(
-                              'flex items-end gap-2 group relative w-full min-w-0 transition-all',
-                              mine
-                                ? (middleFullScreen
-                                    ? 'justify-end pl-14 sm:pl-28 lg:pl-44 pr-1 sm:pr-2'
-                                    : 'justify-end pl-12 sm:pl-24 pr-1 sm:pr-2')
-                                : (middleFullScreen
-                                    ? 'justify-start pr-14 sm:pr-28 lg:pr-44 pl-1 sm:pl-2'
-                                    : 'justify-start pr-12 sm:pr-24 pl-1 sm:pl-2'),
-                              isFirstInCluster ? 'mt-3 mb-1' : 'mt-1 mb-0.5'
+                              'flex items-end gap-1.5 group relative w-full min-w-0 px-1 transition-all',
+                              mine ? 'justify-end' : 'justify-start',
+                              isFirstInCluster ? 'mt-2.5 mb-0.5' : 'mt-0.5 mb-0.5'
                             )}
                           >
                             {/* Telegram Group Avatar (at bottom of cluster, incoming only) */}
@@ -3506,7 +3495,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 'min-w-0 flex flex-col transition-all',
                                 middleFullScreen
                                   ? 'max-w-[85%] sm:max-w-[72%] lg:max-w-[60%] xl:max-w-[52%]'
-                                  : 'max-w-[85%] sm:max-w-[74%] lg:max-w-[66%]',
+                                  : 'max-w-[85%] sm:max-w-[76%] lg:max-w-[68%]',
                                 mine ? 'items-end' : 'items-start'
                               )}
                             >

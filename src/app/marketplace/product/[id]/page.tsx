@@ -221,7 +221,7 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <AppShell>
+      <AppShell hideMobileHeader>
         <div className="p-8 text-center text-lab-sc">Loading product...</div>
       </AppShell>
     );
@@ -229,7 +229,7 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <AppShell>
+      <AppShell hideMobileHeader>
         <div className="p-10 text-center space-y-3">
           <p className="text-title-3 font-bold text-lab-pr">Product listing not found</p>
           <Link href="/marketplace">
@@ -257,9 +257,9 @@ export default function ProductDetailPage() {
   const isLongDescription = (product.description || '').length > 260;
 
   return (
-    <AppShell>
+    <AppShell hideMobileHeader>
       {/* PHP ProductHeader */}
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr px-4 h-14 flex items-center justify-between gap-2">
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr px-4 h-14 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"

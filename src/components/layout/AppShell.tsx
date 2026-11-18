@@ -53,12 +53,14 @@ export function AppShell({
   fullWidth = false,
   hideMobileChrome = false,
   hideDesktopSidebar = false,
+  hideMobileHeader = false,
 }: {
   children: React.ReactNode;
   hideRightRail?: boolean;
   fullWidth?: boolean;
   hideMobileChrome?: boolean;
   hideDesktopSidebar?: boolean;
+  hideMobileHeader?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -265,7 +267,7 @@ export function AppShell({
                       ? dict.nav.settings
                       : appName;
 
-  const viewportLocked = Boolean(fullWidth && hideDesktopSidebar);
+  const viewportLocked = Boolean(fullWidth);
 
   // Strictly lock viewport to prevent document-level scrolling on desktop & mobile in locked mode
   useEffect(() => {
@@ -298,7 +300,7 @@ export function AppShell({
       )}
     >
       {/* Mobile Sticky Top Header matching mobile/components/layout/ApplicationHeader.vue */}
-      {!hideMobileChrome && (
+      {!hideMobileChrome && !hideMobileHeader && (
         <header className="md:hidden sticky top-0 z-40 pt-safe px-safe bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr">
           <div className="min-h-14 px-4 sm:px-5 py-2 flex items-center justify-between gap-2">
             <button
@@ -363,17 +365,17 @@ export function AppShell({
         </header>
       )}
 
-      {viewportLocked ? (
+      {viewportLocked && hideDesktopSidebar ? (
         <main className="flex-1 min-h-0 h-full w-full overflow-hidden flex flex-col">
           {children}
         </main>
       ) : (
         /* Centered Desktop Application Layout (Balanced Left & Right Margins) */
-        <div className="w-full min-h-screen flex justify-center">
-          <div className="w-full max-w-[1260px] xl:max-w-[1300px] flex justify-center">
+        <div className={cn('w-full flex justify-center', viewportLocked ? 'h-full flex-1 min-h-0' : 'min-h-screen')}>
+          <div className={cn('w-full flex', fullWidth ? 'max-w-full h-full' : 'max-w-[1260px] xl:max-w-[1300px] justify-center')}>
             {/* Desktop Sticky Left Sidebar (Centered with Layout) */}
             {!hideDesktopSidebar && (
-              <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[250px] xl:w-[285px] shrink-0 flex-col justify-between">
+              <aside className="hidden md:flex sticky top-0 h-screen z-40 w-[250px] xl:w-[285px] shrink-0 flex-col justify-between border-r border-bord-pr">
                 {/* Logo Header — exact ApplicationSidebar.vue */}
                 <div className="shrink-0 pt-6 px-3 xl:px-4 mb-2">
                   <Link href="/" className="inline-block">
@@ -383,8 +385,8 @@ export function AppShell({
                 </div>
 
                 {/* Main Nav Column (Scrollable within bounds) */}
-                <div className="flex-1 min-h-0 overflow-y-auto hidden-scroll px-3 xl:px-4 py-2">
-                  <nav className="flex flex-col gap-1.5 xl:gap-2">
+                <div className="flex-1 min-h-0 overflow-y-auto hidden-scroll px-3 xl:px-4 py-1.5">
+                  <nav className="flex flex-col gap-1 xl:gap-1.5">
                     {navItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = item.matchPrefix
@@ -397,21 +399,21 @@ export function AppShell({
                         <Link key={item.href} href={item.href} className="block group">
                           <div
                             className={cn(
-                              'flex items-center gap-3.5 px-3.5 py-2 xl:py-2.5 -mx-1 rounded-full transition-colors duration-150',
+                              'flex items-center gap-3 px-3 py-1.5 xl:py-2 -mx-1 rounded-full transition-colors duration-150',
                               isActive
                                 ? 'bg-fill-qt/80 text-lab-pr font-semibold'
                                 : 'text-lab-pr2 hover:bg-fill-qt/50 hover:text-lab-pr font-medium'
                             )}
                           >
-                            <span className="size-[26px] shrink-0 flex items-center justify-center">
+                            <span className="size-[24px] shrink-0 flex items-center justify-center">
                               <Icon
                                 className={cn(
-                                  'size-[26px] transition-transform duration-150 group-hover:scale-105',
+                                  'size-[24px] transition-transform duration-150 group-hover:scale-105',
                                   isActive ? 'text-lab-pr stroke-[2.25]' : 'text-lab-pr2 stroke-[1.8]'
                                 )}
                               />
                             </span>
-                            <span className="text-[20px] xl:text-[21px] leading-tight inline-flex items-center gap-2 truncate">
+                            <span className="text-[18.5px] xl:text-[19.5px] leading-tight inline-flex items-center gap-2 truncate">
                               {item.isLoadingAuth ? (
                                 <span className="inline-block h-4 w-20 rounded-md fb-shimmer" aria-hidden="true" />
                               ) : (
@@ -429,7 +431,7 @@ export function AppShell({
                     })}
 
                     {/* Hairline Divider */}
-                    <div className="my-1.5 px-2">
+                    <div className="my-1 px-2">
                       <span className="block bg-bord-sc/70 h-px" />
                     </div>
 
@@ -442,16 +444,16 @@ export function AppShell({
                           setMoreMenuOpen((o) => !o);
                         }}
                         className={cn(
-                          'w-full flex items-center gap-3.5 px-3.5 py-2 xl:py-2.5 -mx-1 rounded-full transition-colors duration-150 cursor-pointer group',
+                          'w-full flex items-center gap-3 px-3 py-1.5 xl:py-2 -mx-1 rounded-full transition-colors duration-150 cursor-pointer group',
                           moreMenuOpen
                             ? 'bg-fill-qt/80 text-lab-pr font-semibold'
                             : 'text-lab-pr2 hover:bg-fill-qt/50 hover:text-lab-pr font-medium'
                         )}
                       >
-                        <span className="size-[26px] shrink-0 flex items-center justify-center">
-                          <MoreHorizontal className="size-[26px] transition-transform duration-150 group-hover:scale-105 text-lab-pr2 stroke-[1.8]" />
+                        <span className="size-[24px] shrink-0 flex items-center justify-center">
+                          <MoreHorizontal className="size-[24px] transition-transform duration-150 group-hover:scale-105 text-lab-pr2 stroke-[1.8]" />
                         </span>
-                        <span className="text-[20px] xl:text-[21px] leading-tight">More</span>
+                        <span className="text-[18.5px] xl:text-[19.5px] leading-tight">More</span>
                       </button>
 
                       {moreMenuOpen && (
@@ -650,17 +652,19 @@ export function AppShell({
           <div
             className={cn(
               'flex-1 min-w-0',
-              hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6',
+              viewportLocked
+                ? 'h-full flex flex-col min-h-0 overflow-hidden'
+                : (hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6'),
               hideMobileChrome
                 ? 'pb-0'
-                : 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
+                : 'pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0'
             )}
           >
             {fullWidth || hideRightRail ? (
               <main
                 className={cn(
-                  'min-h-screen',
-                  fullWidth && !hideDesktopSidebar ? 'max-w-[1280px]' : 'w-full'
+                  viewportLocked ? 'h-full flex-1 min-h-0 overflow-hidden' : 'min-h-screen',
+                  fullWidth ? 'w-full' : 'max-w-[1280px]'
                 )}
               >
                 {children}

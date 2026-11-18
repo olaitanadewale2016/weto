@@ -8,7 +8,7 @@ import { MessengerClient } from '@/components/messenger/MessengerClient';
 export default function MessengerChatPage() {
   const params = useParams<{ chatId: string }>();
   return (
-    <AppShell fullWidth hideDesktopSidebar hideMobileChrome>
+    <AppShell fullWidth hideMobileChrome>
       <MessengerClient activeChatId={params.chatId} />
     </AppShell>
   );

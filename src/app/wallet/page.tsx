@@ -255,8 +255,8 @@ export default function WalletPage() {
   }
 
   return (
-    <AppShell>
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr px-4 py-3.5 flex items-center justify-between">
+    <AppShell hideMobileHeader>
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr px-4 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/"

@@ -54,9 +54,9 @@ export default function SavedProductsPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell hideMobileHeader>
       {/* PHP BookmarksHeader */}
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-tr">
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-tr">
         <div className="px-4 h-14 flex items-center gap-3">
           <button
             type="button"

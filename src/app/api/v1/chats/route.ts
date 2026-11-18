@@ -139,12 +139,19 @@ export async function GET(req: NextRequest) {
         const me = chat.participants.find(
           (p) => String((p.userId as { _id?: unknown })?._id || p.userId) === String(user._id)
         );
+        const joinedFloor = me?.joinedAt || user.createdAt;
+        const clearedFloor = me?.clearedAt;
+        const effectiveFloor =
+          clearedFloor && joinedFloor
+            ? (new Date(clearedFloor) > new Date(joinedFloor) ? clearedFloor : joinedFloor)
+            : (clearedFloor || joinedFloor);
+
         const unreadCount = await Message.countDocuments({
           chatId: chat._id,
           senderId: { $ne: user._id },
           isDeleted: false,
           readBy: { $ne: user._id },
-          ...(me?.clearedAt ? { createdAt: { $gt: me.clearedAt } } : {}),
+          ...(effectiveFloor ? { createdAt: { $gt: effectiveFloor } } : {}),
         });
 
         const interlocutor =

@@ -100,8 +100,8 @@ export default function NewStoryPage() {
   }
 
   return (
-    <AppShell>
-      <div className="border-b border-bord-pr px-4 py-3 flex items-center gap-3">
+    <AppShell hideMobileHeader>
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
         <Link href="/" className="p-1.5 rounded-full hover:bg-fill-sc">
           <ArrowLeft className="h-5 w-5" />
         </Link>

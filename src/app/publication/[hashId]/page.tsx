@@ -147,8 +147,8 @@ export default function PublicationDetailPage() {
   }, [livePostId, socket, loadData]);
 
   return (
-    <AppShell>
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3 flex items-center gap-3">
+    <AppShell hideMobileHeader>
+      <div className="sticky top-0 z-20 border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3 pt-safe px-safe flex items-center gap-3">
         <button
           type="button"
           onClick={() => router.back()}

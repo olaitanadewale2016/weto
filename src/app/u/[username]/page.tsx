@@ -239,7 +239,20 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <AppShell>
+      <AppShell hideMobileHeader>
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr/60 md:hidden">
+          <div className="px-4 py-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="p-1.5 rounded-full hover:bg-fill-sc text-lab-pr"
+              aria-label="Go back"
+            >
+              <ChevronLeft className="size-6" />
+            </button>
+            <div className="h-5 w-24 bg-fill-sc rounded" />
+          </div>
+        </div>
         <div>
           <Skeleton className="h-44 sm:h-52 w-full rounded-none" />
           <div className="p-4 space-y-4">
@@ -260,7 +273,18 @@ export default function UserProfilePage() {
 
   if (!profile) {
     return (
-      <AppShell>
+      <AppShell hideMobileHeader>
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr/60 flex items-center gap-3 px-4 py-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="p-1.5 rounded-full hover:bg-fill-sc text-lab-pr"
+            aria-label="Go back"
+          >
+            <ChevronLeft className="size-6" />
+          </button>
+          <span className="font-bold text-lab-pr">Profile</span>
+        </div>
         <div className="p-10 text-center space-y-2">
           <h1 className="text-title-2 font-bold text-lab-pr">Profile unavailable</h1>
           <p className="text-par-n text-lab-sc">This account does not exist or has been restricted.</p>
@@ -286,7 +310,7 @@ export default function UserProfilePage() {
   );
 
   return (
-    <AppShell>
+    <AppShell hideMobileHeader>
       {/* =====================================================================
        * PHP Desktop Profile Layout (md+) matching desktop/views/profile/ProfileIndex.vue
        * ===================================================================== */}
@@ -618,25 +642,32 @@ export default function UserProfilePage() {
        * ===================================================================== */}
       <div className="md:hidden">
         {/* mobile/ProfileControls.vue top bar */}
-        <div className="pt-3 mb-3 px-4 flex items-center justify-between gap-2 leading-none">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex items-center gap-1 -ml-1.5 text-lab-pr2 cursor-pointer min-w-0"
-            aria-label="Go back"
-          >
-            <ChevronLeft className="size-6 shrink-0" />
-            <span className="font-medium text-par-l truncate">@{profile.username}</span>
-          </button>
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr/60">
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2 leading-none">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-1 -ml-1.5 text-lab-pr2 cursor-pointer min-w-0"
+              aria-label="Go back"
+            >
+              <ChevronLeft className="size-6 shrink-0" />
+              <div className="min-w-0 text-left">
+                <p className="font-semibold text-par-m truncate leading-tight">{fullName}</p>
+                <p className="text-cap-m text-lab-sc truncate">
+                  {profile.publicationsCount || 0} {profile.publicationsCount === 1 ? 'post' : 'posts'}
+                </p>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer shrink-0"
-            aria-label="Profile options"
-          >
-            <MoreHorizontal className="size-5" />
-          </button>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer shrink-0"
+              aria-label="Profile options"
+            >
+              <MoreHorizontal className="size-5" />
+            </button>
+          </div>
         </div>
 
         {/* mobile/ProfileAvatar.vue: Cover image + side-by-side Avatar & Name/Caption */}
@@ -845,7 +876,7 @@ export default function UserProfilePage() {
       {/* =====================================================================
        * PHP Profile Tabs (Posts · Media · Info) — 3-column ContentTabs grid
        * ===================================================================== */}
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 bg-bg-pr z-20">
+      <div className="sticky top-[calc(3.25rem+env(safe-area-inset-top,0px))] md:top-0 bg-bg-pr z-10 border-b border-bord-pr">
         <Tabs
           variant="grid"
           value={activeTab}

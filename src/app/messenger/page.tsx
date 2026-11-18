@@ -6,7 +6,7 @@ import { MessengerClient } from '@/components/messenger/MessengerClient';
 
 export default function MessengerPage() {
   return (
-    <AppShell fullWidth hideDesktopSidebar hideMobileChrome>
+    <AppShell fullWidth hideMobileChrome>
       <MessengerClient />
     </AppShell>
   );

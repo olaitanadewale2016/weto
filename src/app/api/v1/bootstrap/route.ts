@@ -164,10 +164,18 @@ export async function GET(req: NextRequest) {
       const chatConditions = chats
         .map((chat) => {
           const mePart = (chat.participants || []).find((p) => String(p?.userId) === String(u._id));
-          if (!mePart) return null;
+          if (!mePart || mePart.isHidden || mePart.isMuted) return null;
+          // Disregard historical messages created before user joined the room or cleared history
+          const joinedFloor = mePart.joinedAt || u.createdAt;
+          const clearedFloor = mePart.clearedAt;
+          const effectiveFloor =
+            clearedFloor && joinedFloor
+              ? (new Date(clearedFloor) > new Date(joinedFloor) ? clearedFloor : joinedFloor)
+              : (clearedFloor || joinedFloor);
+
           return {
             chatId: chat._id,
-            ...(mePart.clearedAt ? { createdAt: { $gt: mePart.clearedAt } } : {}),
+            ...(effectiveFloor ? { createdAt: { $gt: effectiveFloor } } : {}),
           };
         })
         .filter((c): c is NonNullable<typeof c> => c !== null);

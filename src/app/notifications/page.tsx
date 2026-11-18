@@ -316,9 +316,9 @@ export default function NotificationsPage() {
   }
 
   return (
-    <AppShell>
-      {/* Responsive PHP Notifications Header (respects mobile sticky AppShell header & notch safe area) */}
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+    <AppShell hideMobileHeader>
+      {/* Responsive Single Notifications Header */}
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
         <div className="px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Link

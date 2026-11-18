@@ -261,7 +261,7 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <AppShell>
+      <AppShell hideMobileHeader>
         <div className="p-8 text-center space-y-3">
           <p className="text-par-l font-bold text-lab-pr">Sign in to manage account settings</p>
           <Link href="/auth/login">
@@ -286,7 +286,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell hideMobileHeader>
       {/* Desktop Header + Tabs */}
       <div className="hidden md:block border-b border-bord-pr">
         <div className="px-4 py-3.5">
@@ -307,7 +307,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Mobile Header / Toolbar matching PHP mobile/views/settings */}
-      <div className="md:hidden border-b border-bord-pr sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 bg-bg-pr/95 backdrop-blur-md">
+      <div className="md:hidden border-b border-bord-pr sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md">
         <div className="p-4 flex items-center leading-none">
           <div className="shrink-0 w-10">
             {mobileInDetail ? (

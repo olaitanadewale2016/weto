@@ -140,7 +140,13 @@ export default function JobDetailPage() {
 
   if (loading) {
     return (
-      <AppShell fullWidth>
+      <AppShell fullWidth hideMobileHeader>
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
+          <Link href="/jobs" className="p-1.5 rounded-full hover:bg-fill-sc" aria-label="Back to jobs">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-title-3 font-bold text-lab-pr">Job Details</h1>
+        </div>
         <div className="p-8 text-center text-lab-sc">Loading job details...</div>
       </AppShell>
     );
@@ -148,7 +154,13 @@ export default function JobDetailPage() {
 
   if (!job) {
     return (
-      <AppShell fullWidth>
+      <AppShell fullWidth hideMobileHeader>
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
+          <Link href="/jobs" className="p-1.5 rounded-full hover:bg-fill-sc" aria-label="Back to jobs">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-title-3 font-bold text-lab-pr">Job Details</h1>
+        </div>
         <div className="p-8 text-center text-lab-sc">Job listing not found.</div>
       </AppShell>
     );
@@ -157,11 +169,14 @@ export default function JobDetailPage() {
   const isOwner = user && String(job.employer._id) === user.id;
 
   return (
-    <AppShell fullWidth>
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
-        <Link href="/jobs" className="inline-flex items-center gap-2 text-par-n text-lab-sc hover:text-lab-pr">
-          <ArrowLeft className="h-4 w-4" /> Back to Jobs
+    <AppShell fullWidth hideMobileHeader>
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
+        <Link href="/jobs" className="p-1.5 rounded-full hover:bg-fill-sc" aria-label="Back to jobs">
+          <ArrowLeft className="h-5 w-5" />
         </Link>
+        <h1 className="text-title-3 font-bold text-lab-pr">Job Details</h1>
+      </div>
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
 
         <div className="rounded-3xl border border-bord-card bg-bg-pr p-6 space-y-4">
           <div className="flex items-start justify-between gap-4">
