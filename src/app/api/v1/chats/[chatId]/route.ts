@@ -206,6 +206,7 @@ export async function GET(
 const sendMessageSchema = z.object({
   type: z.nativeEnum(MessageType).default(MessageType.TEXT),
   content: z.string().max(5000).optional(),
+  clientTempId: z.string().max(100).optional(),
   mediaId: z.string().optional(),
   gifUrl: z.string().url().optional(),
   stickerUrl: z.string().min(1).max(300).optional(),
@@ -404,49 +405,67 @@ export async function POST(
     const payload = {
       ...populatedMsg,
       id: String(msg._id),
+      clientTempId: body.clientTempId || undefined,
       sender: populatedMsg?.senderId,
       media: populatedMsg?.mediaId ? serializeMedia(populatedMsg.mediaId as never) : null,
     };
 
-    await setChatTypingState({
-      chatId: String(chat._id),
-      userId: String(user._id),
-      username: user.username,
-      firstName: user.firstName || user.username,
-      avatar: user.avatar || '/assets/avatars/default-avatar.png',
-      typing: false,
-    });
+    // Fast-path: Fire background realtime broadcasting, typing reset, and push notifications
+    // in parallel with Promise.allSettled without blocking the HTTP response.
+    void (async () => {
+      try {
+        await Promise.allSettled([
+          emitToChat(String(chat._id), 'chat:message:received', {
+            chatId: String(chat._id),
+            message: payload,
+          }),
+          publishChatRealtimeEvent(String(chat._id), 'message', {
+            lastMessageId: String(msg._id),
+            lastSenderId: String(user._id),
+          }),
+          setChatTypingState({
+            chatId: String(chat._id),
+            userId: String(user._id),
+            username: user.username,
+            firstName: user.firstName || user.username,
+            avatar: user.avatar || '/assets/avatars/default-avatar.png',
+            typing: false,
+          }),
+        ]);
 
-    await emitToChat(String(chat._id), 'chat:message:received', {
-      chatId: String(chat._id),
-      message: payload,
-    });
-    publishChatRealtimeEvent(String(chat._id), 'message', {
-      lastMessageId: String(msg._id),
-      lastSenderId: String(user._id),
-    });
+        const otherParticipants = chat.participants.filter(
+          (p) => String(p.userId) !== String(user._id)
+        );
 
-    for (const p of chat.participants) {
-      if (String(p.userId) === String(user._id)) continue;
-      await emitToUser(String(p.userId), 'chat:inbox:update', {
-        chatId: String(chat._id),
-        lastMessagePreview: chat.lastMessagePreview,
-      });
-      publishUserRealtimeEvent(String(p.userId), 'chat:inbox:update', {
-        chatId: String(chat._id),
-        lastMessagePreview: chat.lastMessagePreview,
-      });
-      await dispatchNotification({
-        recipientId: p.userId,
-        actorId: user._id,
-        type: 'CHAT_MESSAGE',
-        preferenceKey: 'directMessages',
-        title: chat.type === ChatType.GROUP ? chat.group?.name || 'Group Message' : `@${user.username}`,
-        message: preview,
-        actionUrl: `/messenger/c/${chat._id}`,
-        data: { chatId: String(chat._id), senderId: String(user._id) },
-      });
-    }
+        await Promise.allSettled(
+          otherParticipants.flatMap((p) => [
+            emitToUser(String(p.userId), 'chat:inbox:update', {
+              chatId: String(chat._id),
+              lastMessagePreview: chat.lastMessagePreview,
+            }),
+            publishUserRealtimeEvent(String(p.userId), 'chat:inbox:update', {
+              chatId: String(chat._id),
+              lastMessagePreview: chat.lastMessagePreview,
+            }),
+            dispatchNotification({
+              recipientId: p.userId,
+              actorId: user._id,
+              type: 'CHAT_MESSAGE',
+              preferenceKey: 'directMessages',
+              title:
+                chat.type === ChatType.GROUP
+                  ? chat.group?.name || 'Group Message'
+                  : `@${user.username}`,
+              message: preview,
+              actionUrl: `/messenger/c/${chat._id}`,
+              data: { chatId: String(chat._id), senderId: String(user._id) },
+            }),
+          ])
+        );
+      } catch (err) {
+        console.error('Background message delivery error:', err);
+      }
+    })();
 
     return apiSuccess(payload, undefined, 201);
   } catch (err) {

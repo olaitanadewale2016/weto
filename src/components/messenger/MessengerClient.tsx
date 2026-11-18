@@ -188,6 +188,8 @@ interface ActiveCallSummary {
 
 interface ChatMessage {
   id: string;
+  clientTempId?: string;
+  isSending?: boolean;
   type: string;
   content?: string;
   senderId: string;
@@ -998,7 +1000,20 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       const incoming = payload.message || (payload.id ? (payload as ChatMessage) : null);
       if (!incoming?.id) return;
 
-      setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
+      setMessages((prev) => {
+        if (incoming.clientTempId) {
+          const tempIdx = prev.findIndex(
+            (m) => m.id === incoming.clientTempId || m.clientTempId === incoming.clientTempId
+          );
+          if (tempIdx !== -1) {
+            const next = [...prev];
+            next[tempIdx] = incoming;
+            return next;
+          }
+        }
+        if (prev.some((m) => m.id === incoming.id)) return prev;
+        return [...prev, incoming];
+      });
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 40);
 
       if (String(incoming.sender?._id || incoming.senderId) !== user?.id) {
@@ -1187,28 +1202,82 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   async function handleSendText(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeChatId || !msgText.trim() || sending) return;
-    setSending(true);
+    const content = msgText.trim();
+    if (!activeChatId || !content) return;
+
+    const currentReplyTo = replyTo;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    // 1. Instant optimistic UI update: clear input, reply banner, and typing status immediately (0ms)
+    setMsgText('');
+    setReplyTo(null);
+    emitTypingChange(false);
+
+    // 2. Append optimistic message to active chat log immediately
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      clientTempId: tempId,
+      isSending: true,
+      type: 'text',
+      content,
+      senderId: user?.id || '',
+      sender: user
+        ? {
+            _id: user.id,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            avatar: user.avatar,
+            verified: user.verified,
+          }
+        : undefined,
+      parentId: currentReplyTo
+        ? {
+            _id: currentReplyTo.id,
+            id: currentReplyTo.id,
+            content: currentReplyTo.content,
+            senderId: currentReplyTo.sender
+              ? {
+                  _id: currentReplyTo.sender._id,
+                  username: currentReplyTo.sender.username,
+                  firstName: currentReplyTo.sender.firstName,
+                  lastName: currentReplyTo.sender.lastName,
+                }
+              : null,
+          }
+        : null,
+      createdAt: new Date().toISOString(),
+      deliveredTo: [user?.id || ''],
+      readBy: [user?.id || ''],
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    playChatSound('sent');
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 20);
+
+    // 3. Send message payload to server in background without blocking user typing
     try {
       const sent = await apiFetch<ChatMessage>(`/chats/${activeChatId}`, {
         method: 'POST',
         json: {
           type: 'text',
-          content: msgText.trim(),
-          ...(replyTo ? { parentId: replyTo.id } : {}),
+          content,
+          clientTempId: tempId,
+          ...(currentReplyTo ? { parentId: currentReplyTo.id } : {}),
         },
       });
-      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
-      setMsgText('');
-      setReplyTo(null);
-      emitTypingChange(false);
-      playChatSound('sent');
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 40);
+      setMessages((prev) => {
+        const hasReal = prev.some((m) => m.id === sent.id);
+        if (hasReal) {
+          return prev.filter((m) => m.id !== tempId);
+        }
+        return prev.map((m) => (m.id === tempId ? sent : m));
+      });
       void loadInbox();
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setMsgText(content);
       error('Failed to send message', err instanceof Error ? err.message : undefined);
-    } finally {
-      setSending(false);
     }
   }
 
@@ -1438,50 +1507,146 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   }
 
   async function handleSendGif(gifUrl: string) {
-    if (!activeChatId || sending) return;
+    if (!activeChatId) return;
     setShowGifPicker(false);
-    setSending(true);
+    const currentReplyTo = replyTo;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setReplyTo(null);
+
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      clientTempId: tempId,
+      isSending: true,
+      type: 'gif',
+      media: {
+        url: gifUrl,
+        publicUrl: gifUrl,
+        type: 'gif',
+      },
+      senderId: user?.id || '',
+      sender: user
+        ? {
+            _id: user.id,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            avatar: user.avatar,
+            verified: user.verified,
+          }
+        : undefined,
+      parentId: currentReplyTo
+        ? {
+            _id: currentReplyTo.id,
+            id: currentReplyTo.id,
+            content: currentReplyTo.content,
+            senderId: currentReplyTo.sender
+              ? {
+                  _id: currentReplyTo.sender._id,
+                  username: currentReplyTo.sender.username,
+                  firstName: currentReplyTo.sender.firstName,
+                  lastName: currentReplyTo.sender.lastName,
+                }
+              : null,
+          }
+        : null,
+      createdAt: new Date().toISOString(),
+      deliveredTo: [user?.id || ''],
+      readBy: [user?.id || ''],
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    playChatSound('sent');
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 20);
+
     try {
       const sent = await apiFetch<ChatMessage>(`/chats/${activeChatId}`, {
         method: 'POST',
         json: {
           type: 'gif',
           gifUrl,
-          parentId: replyTo?.id,
+          clientTempId: tempId,
+          parentId: currentReplyTo?.id,
         },
       });
-      setReplyTo(null);
-      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
-      playChatSound('sent');
+      setMessages((prev) => {
+        const hasReal = prev.some((m) => m.id === sent.id);
+        if (hasReal) return prev.filter((m) => m.id !== tempId);
+        return prev.map((m) => (m.id === tempId ? sent : m));
+      });
       void loadInbox();
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       error('Could not send GIF', err instanceof Error ? err.message : undefined);
-    } finally {
-      setSending(false);
     }
   }
 
   async function handleSendSticker(stickerUrl: string) {
-    if (!activeChatId || sending) return;
+    if (!activeChatId) return;
     setShowStickerPicker(false);
-    setSending(true);
+    const currentReplyTo = replyTo;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setReplyTo(null);
+
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      clientTempId: tempId,
+      isSending: true,
+      type: 'sticker',
+      stickerUrl,
+      senderId: user?.id || '',
+      sender: user
+        ? {
+            _id: user.id,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            avatar: user.avatar,
+            verified: user.verified,
+          }
+        : undefined,
+      parentId: currentReplyTo
+        ? {
+            _id: currentReplyTo.id,
+            id: currentReplyTo.id,
+            content: currentReplyTo.content,
+            senderId: currentReplyTo.sender
+              ? {
+                  _id: currentReplyTo.sender._id,
+                  username: currentReplyTo.sender.username,
+                  firstName: currentReplyTo.sender.firstName,
+                  lastName: currentReplyTo.sender.lastName,
+                }
+              : null,
+          }
+        : null,
+      createdAt: new Date().toISOString(),
+      deliveredTo: [user?.id || ''],
+      readBy: [user?.id || ''],
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    playChatSound('sent');
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 20);
+
     try {
       const sent = await apiFetch<ChatMessage>(`/chats/${activeChatId}`, {
         method: 'POST',
         json: {
           type: 'sticker',
           stickerUrl,
-          parentId: replyTo?.id,
+          clientTempId: tempId,
+          parentId: currentReplyTo?.id,
         },
       });
-      setReplyTo(null);
-      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
-      playChatSound('sent');
+      setMessages((prev) => {
+        const hasReal = prev.some((m) => m.id === sent.id);
+        if (hasReal) return prev.filter((m) => m.id !== tempId);
+        return prev.map((m) => (m.id === tempId ? sent : m));
+      });
       void loadInbox();
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       error('Could not send sticker', err instanceof Error ? err.message : undefined);
-    } finally {
-      setSending(false);
     }
   }
 
@@ -3943,7 +4108,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                                   <button
                                     type="button"
-                                    disabled={uploadingMedia || sending}
+                                    disabled={uploadingMedia}
                                     onClick={() => {
                                       setAttachMenuOpen(false);
                                       setPollQuestion('');
@@ -4050,7 +4215,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             {msgText.trim() ? (
                               <button
                                 type="submit"
-                                disabled={sending || uploadingMedia}
+                                disabled={uploadingMedia}
                                 aria-label="Send message"
                                 className="size-10 rounded-full bg-brand-900 text-white hover:opacity-90 inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 shadow-xs"
                               >
