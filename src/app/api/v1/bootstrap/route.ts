@@ -53,7 +53,7 @@ interface CachedPublicData {
   expiresAt: number;
 }
 let cachedPublicData: CachedPublicData | null = null;
-const PUBLIC_CACHE_TTL_MS = 60_000;
+const PUBLIC_CACHE_TTL_MS = 300_000;
 
 export async function GET(req: NextRequest) {
   try {
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
 
     if (authCtx?.user) {
       const u = authCtx.user;
-      await syncAutoJoinGroupsForUser(u._id).catch(() => { });
+      void syncAutoJoinGroupsForUser(u._id).catch(() => { });
       const masterId = u.ownerAccountId || u._id;
       const prevCookieId = req.cookies.get(PREVIOUS_ACCOUNT_COOKIE_NAME)?.value;
       const isValidPrevId = Boolean(prevCookieId && /^[0-9a-fA-F]{24}$/.test(prevCookieId));

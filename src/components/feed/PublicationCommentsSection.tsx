@@ -598,7 +598,7 @@ export function PublicationCommentsSection({
                     ? `Write a comment as ${user.firstName}...`
                     : 'Write a comment...'
               }
-              className="w-full resize-none bg-transparent text-[15px] sm:text-[16px] text-lab-pr placeholder:text-lab-sc focus:outline-none max-h-36 leading-5 py-0.5"
+              className="w-full resize-none bg-transparent text-[16px] sm:text-[17px] text-lab-pr placeholder:text-lab-sc focus:outline-none max-h-36 leading-5 py-0.5"
             />
           </div>
 
@@ -691,7 +691,7 @@ export function PublicationCommentsSection({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Link
                     href={`/@${c.author?.username}`}
-                    className="text-[15px] font-semibold text-lab-pr leading-snug truncate hover:underline inline-flex items-center gap-1"
+                    className="text-[16px] font-semibold text-lab-pr leading-snug truncate hover:underline inline-flex items-center gap-1"
                   >
                     <span className="truncate">{authorName}</span>
                     {c.author?.verified && (
@@ -706,7 +706,7 @@ export function PublicationCommentsSection({
                 </div>
 
                 {/* Comment Content */}
-                <p className="text-[15px] sm:text-[16px] font-normal text-lab-pr break-words whitespace-pre-wrap leading-snug mt-0.5">
+                <p className="text-[16px] sm:text-[17px] font-normal text-lab-pr break-words whitespace-pre-wrap leading-snug mt-0.5">
                   {renderCommentRichText(c.content)}
                 </p>
 
@@ -833,7 +833,7 @@ export function PublicationCommentsSection({
             </div>
 
             {/* Action Bar: Timestamp · Like · Reply · Translate */}
-            <div className="flex items-center leading-none mt-1.5 px-2.5 gap-3.5 relative text-[13px] text-lab-sc font-medium">
+            <div className="flex items-center leading-none mt-1.5 px-2.5 gap-3.5 relative text-[13.5px] sm:text-[14px] text-lab-sc font-medium">
               <span className="font-normal text-lab-sc">{formatRelativeTime(c.createdAt, locale)}</span>
 
               <div className="relative" onClick={(e) => e.stopPropagation()}>

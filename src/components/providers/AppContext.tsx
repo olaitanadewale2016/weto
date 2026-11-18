@@ -268,17 +268,60 @@ export function AppProvider({
 }) {
   const router = useRouter();
   const { info, error: showError, success } = useToast();
-  const [loading, setLoading] = useState(!initialBootstrap);
-  const [bootstrap, setBootstrap] = useState<BootstrapData | null>(initialBootstrap ?? null);
-  const [theme, setThemeState] = useState<'light' | 'dark'>(
-    initialBootstrap?.user?.theme || initialBootstrap?.config?.defaultTheme || 'light'
-  );
-  const [locale, setLocaleState] = useState<string>(
-    initialBootstrap?.user?.language || initialBootstrap?.config?.defaultLocale || 'en'
-  );
-  const [counters, setCounters] = useState(
-    initialBootstrap?.counters || { unreadNotifications: 0, unreadMessages: 0 }
-  );
+
+  const cachedBoot = typeof window !== 'undefined' ? readCachedBootstrap() : null;
+  const [loading, setLoading] = useState(() => {
+    if (initialBootstrap) return false;
+    if (typeof window === 'undefined') return true;
+    const cached = readCachedBootstrap();
+    return !cached;
+  });
+  const [bootstrap, setBootstrap] = useState<BootstrapData | null>(() => {
+    if (initialBootstrap) return initialBootstrap;
+    if (typeof window === 'undefined') return null;
+    const cached = readCachedBootstrap();
+    return cached?.data ?? null;
+  });
+  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('cp_theme') as 'light' | 'dark' | null;
+        if (saved === 'light' || saved === 'dark') return saved;
+      } catch {
+        // ignore
+      }
+    }
+    return (
+      initialBootstrap?.user?.theme ||
+      initialBootstrap?.config?.defaultTheme ||
+      cachedBoot?.data?.user?.theme ||
+      cachedBoot?.data?.config?.defaultTheme ||
+      'light'
+    );
+  });
+  const [locale, setLocaleState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('cp_locale');
+        if (saved) return saved;
+      } catch {
+        // ignore
+      }
+    }
+    return (
+      initialBootstrap?.user?.language ||
+      initialBootstrap?.config?.defaultLocale ||
+      cachedBoot?.data?.user?.language ||
+      cachedBoot?.data?.config?.defaultLocale ||
+      'en'
+    );
+  });
+  const [counters, setCounters] = useState(() => {
+    return (
+      initialBootstrap?.counters ||
+      cachedBoot?.data?.counters || { unreadNotifications: 0, unreadMessages: 0 }
+    );
+  });
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [soundbarTrack, setSoundbarTrack] = useState<SoundbarTrack | null>(null);
@@ -289,8 +332,10 @@ export function AppProvider({
   const [pwaInstallGuideOpen, setPwaInstallGuideOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const didInitBootstrapRef = useRef(false);
-  const bootstrapResolvedRef = useRef(Boolean(initialBootstrap));
-  const bootstrapUserRef = useRef<BootstrapUser | null>(initialBootstrap?.user ?? null);
+  const bootstrapResolvedRef = useRef(Boolean(initialBootstrap || cachedBoot));
+  const bootstrapUserRef = useRef<BootstrapUser | null>(
+    initialBootstrap?.user ?? cachedBoot?.data?.user ?? null
+  );
   const isLoggingOutRef = useRef(false);
 
   const applyThemeClass = useCallback((mode: 'light' | 'dark') => {

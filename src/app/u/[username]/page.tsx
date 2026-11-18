@@ -241,7 +241,7 @@ export default function UserProfilePage() {
     return (
       <AppShell hideMobileHeader>
         <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr md:hidden">
-          <div className="px-4 py-3 flex items-center gap-2">
+          <div className="h-14 px-4 flex items-center gap-2">
             <button
               type="button"
               onClick={() => router.back()}
@@ -274,16 +274,18 @@ export default function UserProfilePage() {
   if (!profile) {
     return (
       <AppShell hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr flex items-center gap-2 px-4 py-3 md:hidden">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="p-1.5 -ml-1.5 rounded-full hover:bg-fill-tr text-lab-pr shrink-0"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <span className="font-bold text-lab-pr truncate">Profile</span>
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr md:hidden">
+          <div className="h-14 px-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="p-1.5 -ml-1.5 rounded-full hover:bg-fill-tr text-lab-pr shrink-0"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <span className="font-bold text-lab-pr truncate">Profile</span>
+          </div>
         </div>
         <div className="p-10 text-center space-y-2">
           <h1 className="text-title-2 font-bold text-lab-pr">Profile unavailable</h1>
@@ -643,7 +645,7 @@ export default function UserProfilePage() {
       <div className="md:hidden">
         {/* mobile/ProfileControls.vue top bar */}
         <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr">
-          <div className="px-4 py-3 flex items-center justify-between gap-2 leading-none">
+          <div className="h-14 px-4 flex items-center justify-between gap-2 leading-none">
             <button
               type="button"
               onClick={() => router.back()}
@@ -878,7 +880,7 @@ export default function UserProfilePage() {
       {/* =====================================================================
        * PHP Profile Tabs (Posts · Media · Info) — 3-column ContentTabs grid
        * ===================================================================== */}
-      <div className="sticky top-[calc(3.25rem+env(safe-area-inset-top,0px))] md:top-0 bg-bg-pr z-10 border-b border-bord-pr">
+      <div className="sticky top-[calc(56px+env(safe-area-inset-top,0px))] md:top-0 bg-bg-pr/95 backdrop-blur-md z-10 border-b border-bord-pr">
         <Tabs
           variant="grid"
           value={activeTab}

@@ -40,7 +40,7 @@ export function Tabs({
               type="button"
               onClick={() => onChange(tab.key)}
               className={cn(
-                'relative w-full text-center overflow-hidden truncate leading-4 px-3 py-5 text-par-m font-semibold transition-colors cursor-pointer',
+                'relative w-full text-center overflow-hidden truncate leading-4 px-3 py-3 sm:py-3.5 text-[15px] sm:text-par-m font-semibold transition-colors cursor-pointer',
                 active ? 'text-lab-pr2' : 'text-lab-sc hover:text-lab-pr'
               )}
             >

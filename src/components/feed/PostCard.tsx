@@ -588,12 +588,12 @@ export function PostCard({
                   <Link
                     href={authorHref}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-[16px] sm:text-[17px] font-semibold text-lab-pr hover:underline truncate cursor-pointer leading-snug"
+                    className="text-[17px] sm:text-[18px] font-semibold text-lab-pr hover:underline truncate cursor-pointer leading-snug"
                   >
                     {authorDisplayName}
                   </Link>
                 ) : (
-                  <span className="text-[16px] sm:text-[17px] font-semibold text-lab-pr truncate leading-snug">
+                  <span className="text-[17px] sm:text-[18px] font-semibold text-lab-pr truncate leading-snug">
                     {authorDisplayName}
                   </span>
                 )}
@@ -603,7 +603,7 @@ export function PostCard({
                   </span>
                 )}
                 {authorHandle && (
-                  <span className="text-[14px] text-lab-sc font-normal truncate hidden sm:inline">
+                  <span className="text-[15px] text-lab-sc font-normal truncate hidden sm:inline">
                     @{authorHandle}
                   </span>
                 )}
@@ -615,7 +615,7 @@ export function PostCard({
               </div>
 
               {/* Line 2: Timestamp · Audience / Globe · Location */}
-              <div className="flex items-center gap-1 text-[14px] text-lab-sc font-normal leading-tight mt-0.5 whitespace-nowrap overflow-hidden min-w-0">
+              <div className="flex items-center gap-1 text-[14.5px] sm:text-[15px] text-lab-sc font-normal leading-tight mt-0.5 whitespace-nowrap overflow-hidden min-w-0">
                 <Link
                   href={`/publication/${post.hashId}`}
                   className="hover:underline shrink-0 text-lab-sc"
@@ -695,19 +695,19 @@ export function PostCard({
         {/* Title & Body */}
         {post.title && <h3 className="text-title-3 font-semibold text-lab-pr">{post.title}</h3>}
 
-          {post.content && (
-            <div
-              className={cn(
-                'text-lab-pr whitespace-pre-wrap break-words',
-                isShortStatusPost
-                  ? 'text-[22px] sm:text-[26px] font-normal leading-[1.35] py-1'
-                  : 'text-[16px] sm:text-[17px] leading-relaxed tracking-normal'
-              )}
-            >
-              {renderRichContent(translatedText || post.content)}
-              {translating && <span className="ml-2 text-cap-l text-lab-tr">Translating...</span>}
-            </div>
-          )}
+        {post.content && (
+          <div
+            className={cn(
+              'text-lab-pr whitespace-pre-wrap break-words',
+              isShortStatusPost
+                ? 'text-[24px] sm:text-[28px] font-normal leading-[1.35] py-1'
+                : 'text-[17px] sm:text-[18px] leading-relaxed tracking-normal'
+            )}
+          >
+            {renderRichContent(translatedText || post.content)}
+            {translating && <span className="ml-2 text-cap-l text-lab-tr">Translating...</span>}
+          </div>
+        )}
       </div>
 
       {/* Edge-to-Edge Full-Width Media Section (no horizontal margin) */}
@@ -731,7 +731,7 @@ export function PostCard({
                 <button
                   type="button"
                   onClick={() => setLightboxIndex(0)}
-                  className="block w-full relative overflow-hidden bg-fill-qt cursor-pointer text-left"
+                  className="block w-full relative overflow-hidden bg-fill-qt/50 cursor-pointer text-left flex items-center justify-center max-h-[500px] sm:max-h-[540px]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -746,7 +746,7 @@ export function PostCard({
                       if (e.currentTarget.naturalWidth > 0) return;
                       if (post.gifUrl) e.currentTarget.dataset.mediaRetrySrc = post.gifUrl;
                     }}
-                    className="w-full max-h-[540px] min-h-40 object-cover block"
+                    className="w-full max-h-[500px] sm:max-h-[540px] object-contain block mx-auto"
                   />
                   <GiphyAttribution className="absolute bottom-2.5 left-2.5 z-10" />
                 </button>
@@ -771,7 +771,7 @@ export function PostCard({
                           <button
                             type="button"
                             onClick={() => setLightboxIndex(postGifOffset)}
-                            className="block w-full overflow-hidden bg-fill-qt cursor-pointer"
+                            className="block w-full overflow-hidden bg-fill-qt/50 cursor-pointer flex items-center justify-center max-h-[500px] sm:max-h-[540px]"
                             style={
                               m.lqipBase64
                                 ? { backgroundImage: `url(${m.lqipBase64})`, backgroundSize: 'cover' }
@@ -791,14 +791,14 @@ export function PostCard({
                                 if (e.currentTarget.naturalWidth > 0) return;
                                 if (src) e.currentTarget.dataset.mediaRetrySrc = src;
                               }}
-                              className="w-full max-h-[600px] min-h-40 object-cover block"
+                              className="w-full max-h-[500px] sm:max-h-[540px] object-contain block mx-auto"
                             />
                           </button>
                         );
                       })()}
 
                       {images.length === 2 && (
-                        <div className="grid grid-cols-2 gap-0.5 overflow-hidden bg-bg-pr">
+                        <div className="grid grid-cols-2 gap-0.5 overflow-hidden bg-bg-pr h-[340px] sm:h-[400px]">
                           {images.map((m, idx) => {
                             const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                             return (
@@ -806,7 +806,7 @@ export function PostCard({
                                 key={m.id || idx}
                                 type="button"
                                 onClick={() => setLightboxIndex(postGifOffset + idx)}
-                                className="block w-full h-64 sm:h-72 overflow-hidden bg-fill-qt cursor-pointer"
+                                className="block w-full h-full overflow-hidden bg-fill-qt cursor-pointer"
                                 style={
                                   m.lqipBase64
                                     ? {
@@ -838,7 +838,7 @@ export function PostCard({
                       )}
 
                       {images.length === 3 && (
-                        <div className="grid grid-cols-3 grid-rows-2 gap-0.5 h-72 sm:h-80 overflow-hidden bg-bg-pr">
+                        <div className="grid grid-cols-3 grid-rows-2 gap-0.5 h-[360px] sm:h-[420px] overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
                             const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                             return (
@@ -881,7 +881,7 @@ export function PostCard({
                       )}
 
                       {images.length === 4 && (
-                        <div className="grid grid-cols-3 gap-0.5 overflow-hidden bg-bg-pr">
+                        <div className="grid grid-cols-2 grid-rows-2 gap-0.5 h-[360px] sm:h-[420px] overflow-hidden bg-bg-pr">
                           {images.map((m, idx) => {
                             const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                             return (
@@ -889,10 +889,7 @@ export function PostCard({
                                 key={m.id || idx}
                                 type="button"
                                 onClick={() => setLightboxIndex(postGifOffset + idx)}
-                                className={cn(
-                                  'block w-full overflow-hidden bg-fill-qt cursor-pointer',
-                                  idx === 3 ? 'col-span-3 h-48 sm:h-52' : 'h-36 sm:h-40'
-                                )}
+                                className="block w-full h-full overflow-hidden bg-fill-qt cursor-pointer"
                                 style={
                                   m.lqipBase64
                                     ? {
@@ -924,8 +921,8 @@ export function PostCard({
                       )}
 
                       {images.length >= 5 && (
-                        <div className="overflow-hidden bg-bg-pr space-y-0.5">
-                          <div className="grid grid-cols-3 gap-0.5">
+                        <div className="overflow-hidden bg-bg-pr space-y-0.5 h-[360px] sm:h-[420px] flex flex-col">
+                          <div className="grid grid-cols-3 gap-0.5 flex-1">
                             {images.slice(0, 3).map((m, idx) => {
                               const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                               return (
@@ -933,7 +930,7 @@ export function PostCard({
                                   key={m.id || idx}
                                   type="button"
                                   onClick={() => setLightboxIndex(postGifOffset + idx)}
-                                  className="block w-full h-36 sm:h-40 overflow-hidden bg-fill-qt cursor-pointer"
+                                  className="block w-full h-full overflow-hidden bg-fill-qt cursor-pointer"
                                   style={
                                     m.lqipBase64
                                       ? { backgroundImage: `url(${m.lqipBase64})`, backgroundSize: 'cover' }
@@ -959,7 +956,7 @@ export function PostCard({
                               );
                             })}
                           </div>
-                          <div className="grid grid-cols-2 gap-0.5">
+                          <div className="grid grid-cols-2 gap-0.5 flex-1">
                             {images.slice(3, 5).map((m, idx) => {
                               const src = resolveMediaUrl(m.publicUrl || m.url) || '';
                               const extraCount = idx === 1 ? images.length - 5 : 0;
@@ -968,7 +965,7 @@ export function PostCard({
                                   key={m.id || idx + 3}
                                   type="button"
                                   onClick={() => setLightboxIndex(postGifOffset + idx + 3)}
-                                  className="relative block w-full h-40 sm:h-44 overflow-hidden bg-fill-qt cursor-pointer"
+                                  className="relative block w-full h-full overflow-hidden bg-fill-qt cursor-pointer"
                                   style={
                                     m.lqipBase64
                                       ? { backgroundImage: `url(${m.lqipBase64})`, backgroundSize: 'cover' }
@@ -1008,7 +1005,7 @@ export function PostCard({
                         return (
                           <div
                             key={m.id || `vid-${idx}`}
-                            className="relative w-full overflow-hidden bg-black"
+                            className="relative w-full overflow-hidden bg-black flex items-center justify-center max-h-[500px] sm:max-h-[540px]"
                           >
                             <video
                               src={src}
@@ -1016,7 +1013,7 @@ export function PostCard({
                               controls
                               playsInline
                               preload="metadata"
-                              className="w-full max-h-[580px] object-contain block"
+                              className="w-full max-h-[500px] sm:max-h-[540px] object-contain block mx-auto"
                             />
                             <VideoWatermarkOverlay watermarked={Boolean(m.metadata?.watermarked)} />
                           </div>
@@ -1333,40 +1330,34 @@ export function PostCard({
                   </p>
                 )}
 
+                {quotedImages.length > 0 && (
+                  <div className="overflow-hidden rounded-xl border border-bord-tr bg-fill-qt mt-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolveMediaUrl(quotedImages[0].publicUrl || quotedImages[0].url) || ''}
+                      alt={quotedImages[0].filename || 'Quoted post image'}
+                      loading="lazy"
+                      className="w-full max-h-56 object-cover block"
+                    />
+                  </div>
+                )}
+
+                {quotedVideos.length > 0 && (
+                  <div className="overflow-hidden rounded-xl bg-black mt-2">
+                    <video
+                      src={quotedVideos[0].publicUrl || quotedVideos[0].url || ''}
+                      controls
+                      className="w-full max-h-56 object-contain block mx-auto"
+                    />
+                  </div>
+                )}
+
                 {quoteData.poll && quoteData.poll.choices?.length ? (
                   <div className="inline-flex items-center gap-1.5 text-par-s text-brand-900 font-medium pt-1">
                     <BarChart3 className="size-4" />
                     <span>Poll ({quoteData.poll.choices.length} choices)</span>
                   </div>
                 ) : null}
-              </div>
-
-          {/* Engagement Bar matching Facebook / TimelinePublication style */}
-          <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-bord-tr text-lab-sc">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => toggleReaction('2764-fe0f')}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[15px] font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
-                  liked && 'text-red-900 font-semibold'
-                )}
-              >
-                <Heart className={cn('h-[19px] w-[19px]', liked && 'fill-current')} />
-                <span>{reactionsCount}</span>
-              </button>
-              <div className="hidden sm:flex items-center gap-0.5">
-                {REACTION_EMOJIS.slice(1).map((em) => (
-                  <button
-                    key={em.id}
-                    type="button"
-                    onClick={() => toggleReaction(em.id)}
-                    className="h-7 w-7 rounded-full hover:bg-fill-tr text-sm flex items-center justify-center cursor-pointer"
-                    title="React"
-                  >
-                    {em.label}
-                  </button>
-                ))}
               </div>
             </div>
           );
@@ -1486,91 +1477,7 @@ export function PostCard({
           </div>
         </div>
 
-        {/* Comment Bar matching PHP desktop/components/timeline/feed/TimelinePublication.vue */}
-        {!isDetailView && (
-          <div className="pt-1.5 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                setInlineCommentsOpen((prev) => !prev);
-              }}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[15px] font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
-                inlineCommentsOpen && 'text-brand-900 font-semibold bg-brand-900/10'
-              )}
-            >
-              <MessageCircle className="h-[19px] w-[19px]" />
-              <span>{commentsCount}</span>
-            </button>
-
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setRepostMenuOpen((v) => !v)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[15px] font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
-                  reposted && 'text-green-900 font-semibold'
-                )}
-                title="Repost or Quote"
-              >
-                <Repeat2 className="h-[19px] w-[19px]" />
-                <span>{repostsCount}</span>
-              </button>
-              {repostMenuOpen && (
-                <div className="absolute bottom-full mb-1 left-0 w-44 rounded-2xl border border-bord-pr bg-bg-pr shadow-vertical-tr py-1 z-20">
-                  <button
-                    type="button"
-                    onClick={handleRepost}
-                    className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr cursor-pointer flex items-center gap-2"
-                  >
-                    <Repeat2 className="size-4 text-lab-sc" />
-                    <span>{reposted ? 'Undo repost' : 'Repost'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRepostMenuOpen(false);
-                      if (onQuote) {
-                        onQuote(post);
-                      } else {
-                        setInternalQuoteOpen(true);
-                      }
-                    }}
-                    className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr cursor-pointer flex items-center gap-2"
-                  >
-                    <MessageCircle className="size-4 text-lab-sc" />
-                    <span>Quote post</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={toggleBookmark}
-                className={cn(
-                  'p-2 rounded-full hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
-                  bookmarked && 'text-lab-pr'
-                )}
-                aria-label="Bookmark"
-              >
-                <Bookmark className={cn('h-[19px] w-[19px]', bookmarked && 'fill-current')} />
-              </button>
-              <button
-                type="button"
-                onClick={handleShare}
-                className="p-2 rounded-full hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
-                aria-label="Share"
-              >
-                <Share2 className="h-[19px] w-[19px]" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-          {/* Comment Bar matching Facebook Timeline Post style */}
+        {/* Comment Bar matching Facebook Timeline Post style */}
           {!isDetailView && (
             <div className="pt-1.5 flex items-center justify-between">
               <button
@@ -1607,27 +1514,27 @@ export function PostCard({
 
       <div className="h-2 bg-fill-fv/50 border-t border-bord-tr/60" />
 
-      {/* Mobile Comments ActionSheet matching PHP mobile/components/timeline/feed/parts/comments/PublicationComments.vue */}
-      <Modal
-        open={mobileCommentsOpen}
-        onClose={() => setMobileCommentsOpen(false)}
-        title={`Comments (${commentsCount})`}
-        maxWidthClass="max-w-lg"
-        bodyClassName="p-0"
-      >
-        {mobileCommentsOpen && (
-          <PublicationCommentsSection
-            postId={post.id}
-            postHashId={post.hashId}
-            postOwnerId={String(post.author?._id || post.author?.id || '')}
-            commentsCount={commentsCount}
-            onCommentsCountChange={(nextCount) => setCommentsCount(nextCount)}
-            sheetMode
-          />
-        )}
-      </Modal>
+      {/* Mobile Comments ActionSheet matching PHP mobile/components/timeline/feed/parts/comments/PublicationComments.vue */ }
+          <Modal
+            open={mobileCommentsOpen}
+            onClose={() => setMobileCommentsOpen(false)}
+            title={`Comments (${commentsCount})`}
+            maxWidthClass="max-w-lg"
+            bodyClassName="p-0"
+          >
+            {mobileCommentsOpen && (
+              <PublicationCommentsSection
+                postId={post.id}
+                postHashId={post.hashId}
+                postOwnerId={String(post.author?._id || post.author?.id || '')}
+                commentsCount={commentsCount}
+                onCommentsCountChange={(nextCount) => setCommentsCount(nextCount)}
+                sheetMode
+              />
+            )}
+          </Modal>
 
-      {/* Fallback Quote Post Modal when parent page does not supply onQuote */}
+          {/* Fallback Quote Post Modal when parent page does not supply onQuote */ }
       <Modal
         open={internalQuoteOpen}
         onClose={() => {
