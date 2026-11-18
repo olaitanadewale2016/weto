@@ -221,6 +221,7 @@ export function PostCard({
   const [quoteDraft, setQuoteDraft] = useState('');
   const [submittingQuote, setSubmittingQuote] = useState(false);
   const [mobileCommentsOpen, setMobileCommentsOpen] = useState(false);
+  const [inlineCommentsOpen, setInlineCommentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -247,8 +248,8 @@ export function PostCard({
   const authorDisplayName = isOwner && user
     ? `${user.firstName} ${user.lastName}`.trim() || user.username
     : `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
-      post.author?.username ||
-      'User';
+    post.author?.username ||
+    'User';
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -587,22 +588,22 @@ export function PostCard({
                   <Link
                     href={authorHref}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-[15px] font-semibold text-lab-pr hover:underline truncate cursor-pointer leading-snug"
+                    className="text-[16px] sm:text-[17px] font-semibold text-lab-pr hover:underline truncate cursor-pointer leading-snug"
                   >
                     {authorDisplayName}
                   </Link>
                 ) : (
-                  <span className="text-[15px] font-semibold text-lab-pr truncate leading-snug">
+                  <span className="text-[16px] sm:text-[17px] font-semibold text-lab-pr truncate leading-snug">
                     {authorDisplayName}
                   </span>
                 )}
                 {authorVerified && (
                   <span className="inline-flex text-brand-900 shrink-0" title="Verified">
-                    <CheckCircle2 className="size-3.5 fill-brand-900 text-bg-pr" />
+                    <CheckCircle2 className="size-4 fill-brand-900 text-bg-pr" />
                   </span>
                 )}
                 {authorHandle && (
-                  <span className="text-[13px] text-lab-sc font-normal truncate hidden sm:inline">
+                  <span className="text-[14px] text-lab-sc font-normal truncate hidden sm:inline">
                     @{authorHandle}
                   </span>
                 )}
@@ -614,7 +615,7 @@ export function PostCard({
               </div>
 
               {/* Line 2: Timestamp · Audience / Globe · Location */}
-              <div className="flex items-center gap-1 text-[13px] text-lab-sc font-normal leading-tight mt-0.5 whitespace-nowrap overflow-hidden min-w-0">
+              <div className="flex items-center gap-1 text-[14px] text-lab-sc font-normal leading-tight mt-0.5 whitespace-nowrap overflow-hidden min-w-0">
                 <Link
                   href={`/publication/${post.hashId}`}
                   className="hover:underline shrink-0 text-lab-sc"
@@ -622,11 +623,11 @@ export function PostCard({
                   {formatRelativeTime(post.createdAt, locale)}
                 </Link>
                 <span className="text-lab-tr shrink-0">·</span>
-                <span title="Public" className="inline-flex items-center"><Globe className="size-3 text-lab-sc shrink-0" /></span>
+                <span title="Public" className="inline-flex items-center"><Globe className="size-3.5 text-lab-sc shrink-0" /></span>
                 {post.location && (
                   <span className="inline-flex items-center gap-0.5 min-w-0 truncate">
                     <span className="text-lab-tr shrink-0">·</span>
-                    <MapPin className="size-3 shrink-0" />
+                    <MapPin className="size-3.5 shrink-0" />
                     <span className="truncate">{post.location}</span>
                   </span>
                 )}
@@ -635,72 +636,72 @@ export function PostCard({
           </div>
 
           <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                className="p-1.5 rounded-full text-lab-tr hover:bg-fill-sc hover:text-lab-pr cursor-pointer"
-                aria-label="Post options"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 mt-1 w-44 rounded-2xl border border-bord-pr bg-bg-pr shadow-vertical-tr py-1 z-20">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      handleTranslate();
-                    }}
-                    className="w-full px-3.5 py-2 text-left text-cap-l text-lab-pr hover:bg-fill-pr flex items-center gap-2"
-                  >
-                    <Globe className="h-4 w-4" /> {translatedText ? 'Show original' : 'Translate'}
-                  </button>
-                  {isOwner && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handlePin}
-                        className="w-full px-3.5 py-2 text-left text-cap-l text-lab-pr hover:bg-fill-pr flex items-center gap-2"
-                      >
-                        <Pin className="h-4 w-4" /> {pinned ? 'Unpin' : 'Pin to profile'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          handleDelete();
-                        }}
-                        className="w-full px-3.5 py-2 text-left text-cap-l text-red-900 hover:bg-fill-pr flex items-center gap-2"
-                      >
-                        <Trash2 className="h-4 w-4" /> Delete
-                      </button>
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setReportOpen(true);
-                    }}
-                    className="w-full px-3.5 py-2 text-left text-cap-l text-red-900 hover:bg-fill-pr flex items-center gap-2"
-                  >
-                    <Flag className="h-4 w-4" /> Report post
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="p-1.5 rounded-full text-lab-tr hover:bg-fill-sc hover:text-lab-pr cursor-pointer"
+              aria-label="Post options"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-1 w-44 rounded-2xl border border-bord-pr bg-bg-pr shadow-vertical-tr py-1 z-20">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleTranslate();
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-cap-l text-lab-pr hover:bg-fill-pr flex items-center gap-2"
+                >
+                  <Globe className="h-4 w-4" /> {translatedText ? 'Show original' : 'Translate'}
+                </button>
+                {isOwner && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePin}
+                      className="w-full px-3.5 py-2 text-left text-cap-l text-lab-pr hover:bg-fill-pr flex items-center gap-2"
+                    >
+                      <Pin className="h-4 w-4" /> {pinned ? 'Unpin' : 'Pin to profile'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        handleDelete();
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-cap-l text-red-900 hover:bg-fill-pr flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setReportOpen(true);
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-cap-l text-red-900 hover:bg-fill-pr flex items-center gap-2"
+                >
+                  <Flag className="h-4 w-4" /> Report post
+                </button>
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Title & Body */}
-          {post.title && <h3 className="text-title-3 font-semibold text-lab-pr">{post.title}</h3>}
+        {/* Title & Body */}
+        {post.title && <h3 className="text-title-3 font-semibold text-lab-pr">{post.title}</h3>}
 
           {post.content && (
             <div
               className={cn(
                 'text-lab-pr whitespace-pre-wrap break-words',
                 isShortStatusPost
-                  ? 'text-[20px] sm:text-[24px] font-normal leading-[1.35] py-1'
-                  : 'text-par-m leading-normal tracking-normal'
+                  ? 'text-[22px] sm:text-[26px] font-normal leading-[1.35] py-1'
+                  : 'text-[16px] sm:text-[17px] leading-relaxed tracking-normal'
               )}
             >
               {renderRichContent(translatedText || post.content)}
@@ -1034,62 +1035,62 @@ export function PostCard({
                         ].filter(Boolean);
                         return (
                           <div key={m.id || `aud-${idx}`} className="px-4">
-                          <div
-                            className="flex items-center gap-3.5 rounded-2xl bg-fill-fv/40 px-3.5 py-3"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isThisTrack) {
-                                  togglePlayAudio();
-                                } else {
-                                  playAudio({
-                                    id: trackId,
-                                    title: m.filename || post.title || 'Audio track',
-                                    artist: `@${post.author?.username}`,
-                                    src,
-                                  });
-                                }
-                              }}
-                              className="size-10 rounded-full bg-brand-900 text-white flex items-center justify-center shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
-                              aria-label={isPlayingThis ? 'Pause audio' : 'Play audio'}
+                            <div
+                              className="flex items-center gap-3.5 rounded-2xl bg-fill-fv/40 px-3.5 py-3"
                             >
-                              {isPlayingThis ? (
-                                <Pause className="size-4 fill-current" />
-                              ) : (
-                                <Play className="size-4 fill-current ml-0.5" />
-                              )}
-                            </button>
-
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-par-s font-semibold text-lab-pr truncate">
-                                  {m.filename || 'Audio attachment'}
-                                </p>
-                                {metaParts.length > 0 && (
-                                  <span className="text-cap-s text-lab-tr shrink-0 tabular-nums">
-                                    {metaParts.join(' · ')}
-                                  </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isThisTrack) {
+                                    togglePlayAudio();
+                                  } else {
+                                    playAudio({
+                                      id: trackId,
+                                      title: m.filename || post.title || 'Audio track',
+                                      artist: `@${post.author?.username}`,
+                                      src,
+                                    });
+                                  }
+                                }}
+                                className="size-10 rounded-full bg-brand-900 text-white flex items-center justify-center shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                                aria-label={isPlayingThis ? 'Pause audio' : 'Play audio'}
+                              >
+                                {isPlayingThis ? (
+                                  <Pause className="size-4 fill-current" />
+                                ) : (
+                                  <Play className="size-4 fill-current ml-0.5" />
                                 )}
-                              </div>
-                              <div className="flex items-end gap-0.5 h-6 overflow-hidden">
-                                {AUDIO_WAVEFORM_BARS.map((heightPct, barIdx) => (
-                                  <span
-                                    key={barIdx}
-                                    className={cn(
-                                      'flex-1 rounded-full transition-colors',
-                                      isPlayingThis && barIdx % 2 === 0
-                                        ? 'bg-brand-900 animate-pulse'
-                                        : isThisTrack
-                                          ? 'bg-brand-900/75'
-                                          : 'bg-fill-pr'
-                                    )}
-                                    style={{ height: `${heightPct}%` }}
-                                  />
-                                ))}
+                              </button>
+
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-par-s font-semibold text-lab-pr truncate">
+                                    {m.filename || 'Audio attachment'}
+                                  </p>
+                                  {metaParts.length > 0 && (
+                                    <span className="text-cap-s text-lab-tr shrink-0 tabular-nums">
+                                      {metaParts.join(' · ')}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-end gap-0.5 h-6 overflow-hidden">
+                                  {AUDIO_WAVEFORM_BARS.map((heightPct, barIdx) => (
+                                    <span
+                                      key={barIdx}
+                                      className={cn(
+                                        'flex-1 rounded-full transition-colors',
+                                        isPlayingThis && barIdx % 2 === 0
+                                          ? 'bg-brand-900 animate-pulse'
+                                          : isThisTrack
+                                            ? 'bg-brand-900/75'
+                                            : 'bg-fill-pr'
+                                      )}
+                                      style={{ height: `${heightPct}%` }}
+                                    />
+                                  ))}
+                                </div>
                               </div>
                             </div>
-                          </div>
                           </div>
                         );
                       })}
@@ -1106,33 +1107,33 @@ export function PostCard({
                         const subline = [sizeStr, ext].filter(Boolean).join(' · ');
                         return (
                           <div key={m.id || `doc-${idx}`} className="px-4">
-                          <a
-                            href={src}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={m.filename || true}
-                            className="flex items-center justify-between gap-3 rounded-2xl bg-fill-fv/30 p-3 hover:bg-fill-fv/70 transition-colors"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="size-10 bg-bg-pr flex items-center justify-center shrink-0 overflow-hidden p-1.5">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={getFileFormatIconSrc(m.extension, m.filename)}
-                                  alt={ext}
-                                  className="size-7 object-contain"
-                                />
+                            <a
+                              href={src}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={m.filename || true}
+                              className="flex items-center justify-between gap-3 rounded-2xl bg-fill-fv/30 p-3 hover:bg-fill-fv/70 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="size-10 bg-bg-pr flex items-center justify-center shrink-0 overflow-hidden p-1.5">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={getFileFormatIconSrc(m.extension, m.filename)}
+                                    alt={ext}
+                                    className="size-7 object-contain"
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-par-s font-semibold text-lab-pr2 truncate">
+                                    {m.filename || 'Document attachment'}
+                                  </p>
+                                  <p className="text-cap-s text-lab-sc truncate">{subline}</p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-par-s font-semibold text-lab-pr2 truncate">
-                                  {m.filename || 'Document attachment'}
-                                </p>
-                                <p className="text-cap-s text-lab-sc truncate">{subline}</p>
-                              </div>
-                            </div>
-                            <span className="size-8 rounded-full bg-bg-pr flex items-center justify-center text-lab-sc shrink-0">
-                              <FileDown className="size-4" />
-                            </span>
-                          </a>
+                              <span className="size-8 rounded-full bg-bg-pr flex items-center justify-center text-lab-sc shrink-0">
+                                <FileDown className="size-4" />
+                              </span>
+                            </a>
                           </div>
                         );
                       })}
@@ -1146,244 +1147,199 @@ export function PostCard({
 
       <div className="px-4 pb-3 pt-2.5 space-y-3">
 
-          {/* Poll matching PHP PublicationPoll.vue & PollChoiceItem.vue */}
-          {pollState && pollState.choices && pollState.choices.length > 0 && (() => {
-            const totalVotes =
-              typeof pollState.totalVotes === 'number'
-                ? pollState.totalVotes
-                : pollState.choices.reduce((acc, c) => acc + (c.votesCount || 0), 0);
-            const myVoteId = user ? pollState.votesByUser?.[user.id] : undefined;
-            const isPollExpired = Boolean(
-              pollState.expiresAt && new Date(pollState.expiresAt) < new Date()
-            );
-            return (
-              <div className="block pt-1">
-                <div className="mb-2 flex items-center gap-1 text-lab-sc">
-                  <Globe className="size-3.5 shrink-0" />
-                  <span className="text-par-s">
-                    {pollState.isAnonymous ? 'Anonymous poll' : 'Public poll'}
-                  </span>
-                </div>
+        {/* Poll matching PHP PublicationPoll.vue & PollChoiceItem.vue */}
+        {pollState && pollState.choices && pollState.choices.length > 0 && (() => {
+          const totalVotes =
+            typeof pollState.totalVotes === 'number'
+              ? pollState.totalVotes
+              : pollState.choices.reduce((acc, c) => acc + (c.votesCount || 0), 0);
+          const myVoteId = user ? pollState.votesByUser?.[user.id] : undefined;
+          const isPollExpired = Boolean(
+            pollState.expiresAt && new Date(pollState.expiresAt) < new Date()
+          );
+          return (
+            <div className="block pt-1">
+              <div className="mb-2 flex items-center gap-1 text-lab-sc">
+                <Globe className="size-3.5 shrink-0" />
+                <span className="text-par-s">
+                  {pollState.isAnonymous ? 'Anonymous poll' : 'Public poll'}
+                </span>
+              </div>
 
-                <div className="space-y-2 mb-2">
-                  {pollState.choices.map((ch, idx) => {
-                    const choiceId = ch.id || `c_${idx}`;
-                    const pct =
-                      typeof ch.percentage === 'number'
-                        ? ch.percentage
-                        : totalVotes > 0
-                          ? Math.round(((ch.votesCount || 0) / totalVotes) * 100)
-                          : 0;
-                    const voted = Boolean(
-                      user && (myVoteId === choiceId || ch.voters?.includes(user.id))
-                    );
-                    return (
-                      <button
-                        key={choiceId}
-                        type="button"
-                        disabled={isPollExpired}
-                        onClick={() => votePoll(idx, choiceId)}
-                        className={cn(
-                          'px-4 py-2.5 border overflow-hidden rounded-xl relative block w-full text-left transition-colors cursor-pointer disabled:cursor-default',
-                          voted
-                            ? 'border-brand-900/60 bg-fill-qt/40'
-                            : 'border-bord-pr hover:border-lab-tr'
-                        )}
-                      >
-                        <div className="flex items-center justify-between text-lab-pr2 relative z-10">
-                          <span className="size-4 mr-2.5 shrink-0 inline-flex items-center justify-center">
-                            {voted ? (
-                              <CheckCircle2 className="size-4 text-green-900" />
-                            ) : (
-                              <Circle className="size-4 text-lab-sc" />
-                            )}
-                          </span>
-                          <span
-                            className={cn(
-                              'text-par-m flex-1 truncate mr-4',
-                              voted ? 'font-semibold text-lab-pr' : 'font-medium text-lab-pr2'
-                            )}
-                          >
-                            {ch.text}
-                          </span>
-                          <span className="text-par-s font-semibold shrink-0">{pct}%</span>
-                        </div>
+              <div className="space-y-2 mb-2">
+                {pollState.choices.map((ch, idx) => {
+                  const choiceId = ch.id || `c_${idx}`;
+                  const pct =
+                    typeof ch.percentage === 'number'
+                      ? ch.percentage
+                      : totalVotes > 0
+                        ? Math.round(((ch.votesCount || 0) / totalVotes) * 100)
+                        : 0;
+                  const voted = Boolean(
+                    user && (myVoteId === choiceId || ch.voters?.includes(user.id))
+                  );
+                  return (
+                    <button
+                      key={choiceId}
+                      type="button"
+                      disabled={isPollExpired}
+                      onClick={() => votePoll(idx, choiceId)}
+                      className={cn(
+                        'px-4 py-2.5 border overflow-hidden rounded-xl relative block w-full text-left transition-colors cursor-pointer disabled:cursor-default',
+                        voted
+                          ? 'border-brand-900/60 bg-fill-qt/40'
+                          : 'border-bord-pr hover:border-lab-tr'
+                      )}
+                    >
+                      <div className="flex items-center justify-between text-lab-pr2 relative z-10">
+                        <span className="size-4 mr-2.5 shrink-0 inline-flex items-center justify-center">
+                          {voted ? (
+                            <CheckCircle2 className="size-4 text-green-900" />
+                          ) : (
+                            <Circle className="size-4 text-lab-sc" />
+                          )}
+                        </span>
                         <span
-                          className="absolute inset-y-0 left-0 bg-bord-pr/70 transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="text-center">
-                  <span className="text-cap-l text-lab-sc">
-                    {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'} -{' '}
-                    {isPollExpired ? 'Final results' : 'Active poll'}
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Link Snapshot matching PHP LinkSnapshot.vue */}
-          {post.linkSnapshot && (
-            <a
-              href={post.linkSnapshot.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block rounded-2xl border border-bord-card overflow-hidden hover:bg-fill-fv/40 transition-colors"
-            >
-              {post.linkSnapshot.image && (
-                <div className="overflow-hidden border-b border-bord-card bg-fill-qt">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={post.linkSnapshot.image}
-                    alt={post.linkSnapshot.title || 'Link preview'}
-                    loading="lazy"
-                    className="w-full max-h-72 object-cover block"
-                  />
-                </div>
-              )}
-              <div className="p-3 md:p-4 space-y-1">
-                {post.linkSnapshot.title && (
-                  <p className="text-par-m font-semibold text-lab-pr2 line-clamp-2">
-                    {post.linkSnapshot.title}
-                  </p>
-                )}
-                {post.linkSnapshot.description && (
-                  <p className="text-par-s text-lab-sc line-clamp-2">
-                    {post.linkSnapshot.description}
-                  </p>
-                )}
-                <p className="text-cap-l text-brand-900 hover:underline flex items-center gap-1 pt-0.5 truncate">
-                  <ExternalLink className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{post.linkSnapshot.domain || post.linkSnapshot.url}</span>
-                </p>
-              </div>
-            </a>
-          )}
-
-          {/* Quoted Post matching PHP PublicationQuote.vue */}
-          {quoteData && quoteData.hashId && (() => {
-            const quotedMedia = Array.isArray(quoteData.media) ? quoteData.media : [];
-            const quotedImages = quotedMedia.filter((m) => m.type === 'image');
-            const quotedVideos = quotedMedia.filter((m) => m.type === 'video');
-            const quotedDisplayName =
-              `${quoteAuthor?.firstName || ''} ${quoteAuthor?.lastName || ''}`.trim() ||
-              quoteAuthor?.username ||
-              'User';
-            return (
-              <div
-                role="link"
-                tabIndex={0}
-                onClick={() => router.push(`/publication/${quoteData.hashId}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    router.push(`/publication/${quoteData.hashId}`);
-                  }
-                }}
-                className="block rounded-2xl border border-bord-card bg-fill-fv/40 overflow-hidden hover:bg-fill-fv/70 transition-colors cursor-pointer"
-              >
-                <div className="p-3.5 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 text-cap-l text-lab-sc min-w-0">
-                    {quoteAuthor?.username ? (
-                      <Link
-                        href={`/@${encodeURIComponent(quoteAuthor.username)}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-2 min-w-0 hover:underline"
-                      >
-                        <Avatar
-                          src={quoteAuthor?.avatar}
-                          alt={quoteAuthor?.username}
-                          verified={quoteAuthor?.verified}
-                          size="xs"
-                        />
-                        <span className="font-semibold text-lab-pr truncate">
-                          {quotedDisplayName}
+                          className={cn(
+                            'text-par-m flex-1 truncate mr-4',
+                            voted ? 'font-semibold text-lab-pr' : 'font-medium text-lab-pr2'
+                          )}
+                        >
+                          {ch.text}
                         </span>
-                        <span className="truncate text-lab-sc">@{quoteAuthor?.username}</span>
-                      </Link>
-                    ) : (
-                      <div className="inline-flex items-center gap-2 min-w-0">
-                        <Avatar
-                          src={quoteAuthor?.avatar}
-                          alt={quoteAuthor?.username}
-                          verified={quoteAuthor?.verified}
-                          size="xs"
-                        />
-                        <span className="font-semibold text-lab-pr truncate">
-                          {quotedDisplayName}
-                        </span>
+                        <span className="text-par-s font-semibold shrink-0">{pct}%</span>
                       </div>
-                    )}
-                    {quoteData.createdAt && (
-                      <span className="text-cap-s text-lab-sc shrink-0">
-                        {formatRelativeTime(quoteData.createdAt, locale)}
+                      <span
+                        className="absolute inset-y-0 left-0 bg-bord-pr/70 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="text-center">
+                <span className="text-cap-l text-lab-sc">
+                  {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'} -{' '}
+                  {isPollExpired ? 'Final results' : 'Active poll'}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Link Snapshot matching PHP LinkSnapshot.vue */}
+        {post.linkSnapshot && (
+          <a
+            href={post.linkSnapshot.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-2xl border border-bord-card overflow-hidden hover:bg-fill-fv/40 transition-colors"
+          >
+            {post.linkSnapshot.image && (
+              <div className="overflow-hidden border-b border-bord-card bg-fill-qt">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.linkSnapshot.image}
+                  alt={post.linkSnapshot.title || 'Link preview'}
+                  loading="lazy"
+                  className="w-full max-h-72 object-cover block"
+                />
+              </div>
+            )}
+            <div className="p-3 md:p-4 space-y-1">
+              {post.linkSnapshot.title && (
+                <p className="text-par-m font-semibold text-lab-pr2 line-clamp-2">
+                  {post.linkSnapshot.title}
+                </p>
+              )}
+              {post.linkSnapshot.description && (
+                <p className="text-par-s text-lab-sc line-clamp-2">
+                  {post.linkSnapshot.description}
+                </p>
+              )}
+              <p className="text-cap-l text-brand-900 hover:underline flex items-center gap-1 pt-0.5 truncate">
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                <span className="truncate">{post.linkSnapshot.domain || post.linkSnapshot.url}</span>
+              </p>
+            </div>
+          </a>
+        )}
+
+        {/* Quoted Post matching PHP PublicationQuote.vue */}
+        {quoteData && quoteData.hashId && (() => {
+          const quotedMedia = Array.isArray(quoteData.media) ? quoteData.media : [];
+          const quotedImages = quotedMedia.filter((m) => m.type === 'image');
+          const quotedVideos = quotedMedia.filter((m) => m.type === 'video');
+          const quotedDisplayName =
+            `${quoteAuthor?.firstName || ''} ${quoteAuthor?.lastName || ''}`.trim() ||
+            quoteAuthor?.username ||
+            'User';
+          return (
+            <div
+              role="link"
+              tabIndex={0}
+              onClick={() => router.push(`/publication/${quoteData.hashId}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  router.push(`/publication/${quoteData.hashId}`);
+                }
+              }}
+              className="block rounded-2xl border border-bord-card bg-fill-fv/40 overflow-hidden hover:bg-fill-fv/70 transition-colors cursor-pointer"
+            >
+              <div className="p-3.5 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-cap-l text-lab-sc min-w-0">
+                  {quoteAuthor?.username ? (
+                    <Link
+                      href={`/@${encodeURIComponent(quoteAuthor.username)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-2 min-w-0 hover:underline"
+                    >
+                      <Avatar
+                        src={quoteAuthor?.avatar}
+                        alt={quoteAuthor?.username}
+                        verified={quoteAuthor?.verified}
+                        size="xs"
+                      />
+                      <span className="font-semibold text-lab-pr truncate">
+                        {quotedDisplayName}
                       </span>
-                    )}
-                  </div>
-
-                  {quoteData.content && (
-                    <p className="text-par-n text-lab-pr line-clamp-3 leading-snug whitespace-pre-wrap">
-                      {quoteData.content}
-                    </p>
-                  )}
-
-                  {quoteData.poll && quoteData.poll.choices?.length ? (
-                    <div className="inline-flex items-center gap-1.5 text-par-s text-brand-900 font-medium pt-1">
-                      <BarChart3 className="size-4" />
-                      <span>Poll ({quoteData.poll.choices.length} choices)</span>
+                      <span className="truncate text-lab-sc">@{quoteAuthor?.username}</span>
+                    </Link>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 min-w-0">
+                      <Avatar
+                        src={quoteAuthor?.avatar}
+                        alt={quoteAuthor?.username}
+                        verified={quoteAuthor?.verified}
+                        size="xs"
+                      />
+                      <span className="font-semibold text-lab-pr truncate">
+                        {quotedDisplayName}
+                      </span>
                     </div>
-                  ) : null}
+                  )}
+                  {quoteData.createdAt && (
+                    <span className="text-cap-s text-lab-sc shrink-0">
+                      {formatRelativeTime(quoteData.createdAt, locale)}
+                    </span>
+                  )}
                 </div>
 
-                {/* Quoted Post Media Preview matching QuotedPostImage / QuotedPostVideo */}
-                {quoteData.gifUrl ? (
-                  <div className="border-t border-bord-card bg-black/5 max-h-72 overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={quoteData.gifUrl}
-                      alt="Quoted GIF"
-                      className="w-full max-h-72 object-cover block"
-                    />
-                  </div>
-                ) : quotedImages.length > 0 ? (
-                  <div
-                    className={cn(
-                      'border-t border-bord-card grid gap-0.5 bg-fill-qt max-h-72 overflow-hidden',
-                      quotedImages.length > 1 ? 'grid-cols-2' : 'grid-cols-1'
-                    )}
-                  >
-                    {quotedImages.slice(0, 4).map((img, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={img.id || img._id || i}
-                        src={resolveMediaUrl(img.publicUrl || img.url)}
-                        alt={img.filename || 'Quoted media'}
-                        className="w-full h-44 object-cover block"
-                      />
-                    ))}
-                  </div>
-                ) : quotedVideos.length > 0 ? (
-                  <div
-                    className="relative border-t border-bord-card bg-black max-h-72 overflow-hidden"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <video
-                      src={resolveMediaUrl(quotedVideos[0].publicUrl || quotedVideos[0].url)}
-                      controls
-                      preload="metadata"
-                      className="w-full max-h-72 object-contain block"
-                    />
-                    <VideoWatermarkOverlay watermarked={Boolean(quotedVideos[0].metadata?.watermarked)} />
+                {quoteData.content && (
+                  <p className="text-par-n text-lab-pr line-clamp-3 leading-snug whitespace-pre-wrap">
+                    {quoteData.content}
+                  </p>
+                )}
+
+                {quoteData.poll && quoteData.poll.choices?.length ? (
+                  <div className="inline-flex items-center gap-1.5 text-par-s text-brand-900 font-medium pt-1">
+                    <BarChart3 className="size-4" />
+                    <span>Poll ({quoteData.poll.choices.length} choices)</span>
                   </div>
                 ) : null}
               </div>
-            );
-          })()}
 
           {/* Engagement Bar matching Facebook / TimelinePublication style */}
           <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-bord-tr text-lab-sc">
@@ -1392,11 +1348,11 @@ export function PostCard({
                 type="button"
                 onClick={() => toggleReaction('2764-fe0f')}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[15px] font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
                   liked && 'text-red-900 font-semibold'
                 )}
               >
-                <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-current')} />
+                <Heart className={cn('h-[19px] w-[19px]', liked && 'fill-current')} />
                 <span>{reactionsCount}</span>
               </button>
               <div className="hidden sm:flex items-center gap-0.5">
@@ -1413,24 +1369,137 @@ export function PostCard({
                 ))}
               </div>
             </div>
+          );
+        })()}
 
+        {/* Engagement Bar matching Facebook / TimelinePublication style */}
+        <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-bord-tr text-lab-sc">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => toggleReaction('2764-fe0f')}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+                liked && 'text-red-900 font-semibold'
+              )}
+            >
+              <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-current')} />
+              <span>{reactionsCount}</span>
+            </button>
+            <div className="hidden sm:flex items-center gap-0.5">
+              {REACTION_EMOJIS.slice(1).map((em) => (
+                <button
+                  key={em.id}
+                  type="button"
+                  onClick={() => toggleReaction(em.id)}
+                  className="h-7 w-7 rounded-full hover:bg-fill-tr text-sm flex items-center justify-center cursor-pointer"
+                  title="React"
+                >
+                  {em.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (isDetailView) {
+                const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
+                textarea?.focus();
+                return;
+              }
+              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                setMobileCommentsOpen(true);
+              } else {
+                router.push(`/publication/${post.hashId}`);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
+          >
+            <MessageCircle className="h-[18px] w-[18px]" />
+            <span>{commentsCount}</span>
+          </button>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setRepostMenuOpen((v) => !v)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+                reposted && 'text-green-900 font-semibold'
+              )}
+              title="Repost or Quote"
+            >
+              <Repeat2 className="h-[18px] w-[18px]" />
+              <span>{repostsCount}</span>
+            </button>
+            {repostMenuOpen && (
+              <div className="absolute bottom-full mb-1 left-0 w-44 rounded-2xl border border-bord-pr bg-bg-pr shadow-vertical-tr py-1 z-20">
+                <button
+                  type="button"
+                  onClick={handleRepost}
+                  className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr cursor-pointer flex items-center gap-2"
+                >
+                  <Repeat2 className="size-4 text-lab-sc" />
+                  <span>{reposted ? 'Undo repost' : 'Repost'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRepostMenuOpen(false);
+                    if (onQuote) {
+                      onQuote(post);
+                    } else {
+                      setInternalQuoteOpen(true);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-pr cursor-pointer flex items-center gap-2"
+                >
+                  <MessageCircle className="size-4 text-lab-sc" />
+                  <span>Quote post</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleBookmark}
+              className={cn(
+                'p-2 rounded-full hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+                bookmarked && 'text-lab-pr'
+              )}
+              aria-label="Bookmark"
+            >
+              <Bookmark className={cn('h-[18px] w-[18px]', bookmarked && 'fill-current')} />
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="p-2 rounded-full hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
+              aria-label="Share"
+            >
+              <Share2 className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        </div>
+
+        {/* Comment Bar matching PHP desktop/components/timeline/feed/TimelinePublication.vue */}
+        {!isDetailView && (
+          <div className="pt-1.5 flex items-center justify-between">
             <button
               type="button"
               onClick={() => {
-                if (isDetailView) {
-                  const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
-                  textarea?.focus();
-                  return;
-                }
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  setMobileCommentsOpen(true);
-                } else {
-                  router.push(`/publication/${post.hashId}`);
-                }
+                setInlineCommentsOpen((prev) => !prev);
               }}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[15px] font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+                inlineCommentsOpen && 'text-brand-900 font-semibold bg-brand-900/10'
+              )}
             >
-              <MessageCircle className="h-[18px] w-[18px]" />
+              <MessageCircle className="h-[19px] w-[19px]" />
               <span>{commentsCount}</span>
             </button>
 
@@ -1439,12 +1508,12 @@ export function PostCard({
                 type="button"
                 onClick={() => setRepostMenuOpen((v) => !v)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[15px] font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
                   reposted && 'text-green-900 font-semibold'
                 )}
                 title="Repost or Quote"
               >
-                <Repeat2 className="h-[18px] w-[18px]" />
+                <Repeat2 className="h-[19px] w-[19px]" />
                 <span>{repostsCount}</span>
               </button>
               {repostMenuOpen && (
@@ -1486,7 +1555,7 @@ export function PostCard({
                 )}
                 aria-label="Bookmark"
               >
-                <Bookmark className={cn('h-[18px] w-[18px]', bookmarked && 'fill-current')} />
+                <Bookmark className={cn('h-[19px] w-[19px]', bookmarked && 'fill-current')} />
               </button>
               <button
                 type="button"
@@ -1494,31 +1563,44 @@ export function PostCard({
                 className="p-2 rounded-full hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
                 aria-label="Share"
               >
-                <Share2 className="h-[18px] w-[18px]" />
+                <Share2 className="h-[19px] w-[19px]" />
               </button>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Comment Bar matching PHP desktop/components/timeline/feed/TimelinePublication.vue */}
+          {/* Comment Bar matching Facebook Timeline Post style */}
           {!isDetailView && (
             <div className="pt-1.5 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => {
-                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                    setMobileCommentsOpen(true);
-                  } else {
-                    router.push(`/publication/${post.hashId}`);
-                  }
-                }}
-                className="inline-flex items-center gap-2 text-par-s text-lab-sc hover:text-lab-pr2 font-medium cursor-pointer transition-colors"
+                onClick={() => setInlineCommentsOpen((prev) => !prev)}
+                className="inline-flex items-center gap-2 text-[14px] sm:text-[15px] text-lab-sc hover:text-lab-pr font-medium cursor-pointer transition-colors"
               >
                 <span>
                   {commentsCount > 0
-                    ? `Show all comments (${commentsCount})`
-                    : 'Leave a comment'}
+                    ? inlineCommentsOpen
+                      ? 'Hide comments'
+                      : `View all ${commentsCount} ${commentsCount === 1 ? 'comment' : 'comments'}`
+                    : 'Write a comment...'}
                 </span>
               </button>
+            </div>
+          )}
+
+          {/* Inline Facebook Comments on Post in Feed */}
+          {!isDetailView && inlineCommentsOpen && (
+            <div className="pt-2 border-t border-bord-tr/60">
+              <PublicationCommentsSection
+                postId={post.id}
+                postHashId={post.hashId}
+                postOwnerId={String(post.author?._id || post.author?.id || '')}
+                commentsCount={commentsCount}
+                onCommentsCountChange={(nextCount) => setCommentsCount(nextCount)}
+                inlineMode
+                autoFocusEditor={false}
+              />
             </div>
           )}
         </div>
