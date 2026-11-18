@@ -257,6 +257,44 @@ export function clearBootstrapCache() {
   }
 }
 
+interface NativePopNotificationOptions {
+  body?: string;
+  icon?: string;
+  badge?: string;
+  tag?: string;
+  renotify?: boolean;
+  vibrate?: number[];
+  timestamp?: number;
+  data?: Record<string, unknown>;
+}
+
+function showNativeAppNotification(title: string, options: NativePopNotificationOptions) {
+  if (
+    typeof window === 'undefined' ||
+    !('Notification' in window) ||
+    Notification.permission !== 'granted' ||
+    document.visibilityState === 'visible'
+  ) {
+    return;
+  }
+
+  navigator.serviceWorker?.ready
+    .then((reg) => {
+      return (
+        reg as unknown as {
+          showNotification: (t: string, o: unknown) => Promise<void>;
+        }
+      ).showNotification(title, options);
+    })
+    .catch(() => {
+      try {
+        new Notification(title, options as unknown as NotificationOptions);
+      } catch {
+        // ignore fallback errors
+      }
+    });
+}
+
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({
@@ -524,7 +562,7 @@ export function AppProvider({
     const pwaEnabled = bootstrap.config.pwaEnabled !== false;
     if (pwaEnabled) {
       navigator.serviceWorker
-        .register('/pwa/service-worker.js', { updateViaCache: 'none' })
+        .register('/pwa/service-worker.js', { scope: '/', updateViaCache: 'none' })
         .catch(() => undefined);
     } else {
       navigator.serviceWorker
@@ -649,10 +687,28 @@ export function AppProvider({
         });
       });
 
-      client.on('notification:new', (payload: { title?: string; message?: string }) => {
+      client.on('notification:new', (payload: { title?: string; message?: string; actionUrl?: string }) => {
         setCounters((prev) => ({ ...prev, unreadNotifications: prev.unreadNotifications + 1 }));
-        if (payload?.title || payload?.message) {
-          info(payload.title || 'New notification', payload.message);
+        const title = payload?.title || 'New notification';
+        const body = payload?.message || 'You have a new update';
+        showNativeAppNotification(title, {
+          body,
+          icon: '/pwa/icons/192x192.png',
+          badge: '/assets/logos/favicon.png',
+          tag: `notif-${Date.now()}`,
+          renotify: true,
+          vibrate: [200, 100, 200],
+          timestamp: Date.now(),
+          data: {
+            actionUrl: payload?.actionUrl || '/notifications',
+          },
+        });
+        if (
+          typeof window !== 'undefined' &&
+          document.visibilityState === 'visible' &&
+          (payload?.title || payload?.message)
+        ) {
+          info(title, body);
         }
         try {
           if (typeof window !== 'undefined' && localStorage.getItem('notificationsSound') === '1') {
@@ -680,34 +736,20 @@ export function AppProvider({
             window.location.pathname === `/messenger/c/${payload.chatId}`;
           if (!inActiveChat && payload?.senderId !== userId) {
             setCounters((prev) => ({ ...prev, unreadMessages: prev.unreadMessages + 1 }));
-            if (
-              typeof window !== 'undefined' &&
-              'Notification' in window &&
-              Notification.permission === 'granted' &&
-              document.visibilityState !== 'visible'
-            ) {
-              const title = payload.title || 'New Message';
-              const body = payload.message || 'You received a new message';
-              navigator.serviceWorker?.ready
-                .then((reg) => {
-                  reg.showNotification(title, {
-                    body,
-                    icon: '/pwa/icons/192x192.png',
-                    badge: '/assets/logos/favicon.png',
-                    tag: payload.chatId ? `chat-${payload.chatId}` : 'chat-msg',
-                    data: {
-                      actionUrl: payload.chatId ? `/messenger/c/${payload.chatId}` : '/messenger',
-                    },
-                  });
-                })
-                .catch(() => {
-                  try {
-                    new Notification(title, { body, icon: '/pwa/icons/192x192.png' });
-                  } catch {
-                    // ignore
-                  }
-                });
-            }
+            const title = payload.title || 'New Message';
+            const body = payload.message || 'You received a new message';
+            showNativeAppNotification(title, {
+              body,
+              icon: '/pwa/icons/192x192.png',
+              badge: '/assets/logos/favicon.png',
+              tag: payload.chatId ? `chat-${payload.chatId}-${Date.now()}` : `chat-msg-${Date.now()}`,
+              renotify: true,
+              vibrate: [200, 100, 200],
+              timestamp: Date.now(),
+              data: {
+                actionUrl: payload.chatId ? `/messenger/c/${payload.chatId}` : '/messenger',
+              },
+            });
           }
         }
       );
@@ -775,30 +817,21 @@ export function AppProvider({
         }
         if (!inActiveChat) {
           setCounters((prev) => ({ ...prev, unreadMessages: prev.unreadMessages + 1 }));
+          showNativeAppNotification(title || 'New message', {
+            body: body || 'You received a new message',
+            icon: '/pwa/icons/192x192.png',
+            badge: '/assets/logos/favicon.png',
+            tag: chatId ? `chat-${chatId}-${Date.now()}` : `chat-msg-${Date.now()}`,
+            renotify: true,
+            vibrate: [200, 100, 200],
+            timestamp: Date.now(),
+            data: { actionUrl: chatId ? `/messenger/c/${chatId}` : '/messenger' },
+          });
           if (
             typeof window !== 'undefined' &&
-            'Notification' in window &&
-            Notification.permission === 'granted' &&
-            document.visibilityState !== 'visible'
+            document.visibilityState === 'visible' &&
+            (title || body)
           ) {
-            navigator.serviceWorker?.ready
-              .then((reg) => {
-                reg.showNotification(title || 'New message', {
-                  body: body || 'You received a new message',
-                  icon: '/pwa/icons/192x192.png',
-                  badge: '/assets/logos/favicon.png',
-                  tag: chatId ? `chat-${chatId}` : 'chat-msg',
-                  data: { actionUrl: chatId ? `/messenger/c/${chatId}` : '/messenger' },
-                });
-              })
-              .catch(() => {
-                try {
-                  new Notification(title || 'New message', { body, icon: '/pwa/icons/192x192.png' });
-                } catch {
-                  // ignore
-                }
-              });
-          } else if (title || body) {
             info(title, body);
           }
         }
@@ -816,7 +849,25 @@ export function AppProvider({
           ? parsedUnread
           : prev.unreadNotifications + 1,
       }));
-      if (title || body) info(title, body);
+
+      // When minimized or backgrounded, trigger native pop notification!
+      showNativeAppNotification(title || 'Weto Notification', {
+        body: body || 'You have a new update',
+        icon: '/pwa/icons/192x192.png',
+        badge: '/assets/logos/favicon.png',
+        tag: data.notificationId ? String(data.notificationId) : `notif-${Date.now()}`,
+        renotify: true,
+        vibrate: [200, 100, 200],
+        timestamp: Date.now(),
+        data: { actionUrl: String(data.actionUrl || data.url || '/notifications') },
+      });
+      if (
+        typeof window !== 'undefined' &&
+        document.visibilityState === 'visible' &&
+        (title || body)
+      ) {
+        info(title, body);
+      }
     },
     [info]
   );

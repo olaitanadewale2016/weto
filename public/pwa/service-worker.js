@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weto-pwa-v6';
+const CACHE_NAME = 'weto-pwa-v7';
 const MEDIA_CACHE_NAME = 'weto-media-cache-v1';
 const PRECACHE_ASSETS = [
   '/pwa/manifest.json',
@@ -7,6 +7,45 @@ const PRECACHE_ASSETS = [
   '/assets/logos/light.png',
   '/assets/logos/dark.png',
   '/assets/logos/favicon.png',
+  // Audio assets (game sounds & notification bell)
+  '/assets/games/tictactoe/music/click.mp3',
+  '/assets/games/tictactoe/music/wingame.mp3',
+  '/assets/games/tictactoe/music/music.mp3',
+  '/assets/sounds/notifications/notification-received.mp3',
+  // Tic-Tac-Toe Skin SVGs
+  '/assets/games/tictactoe/svg/skins/box.svg',
+  '/assets/games/tictactoe/svg/skins/crystal.svg',
+  '/assets/games/tictactoe/svg/skins/default_circle.svg',
+  '/assets/games/tictactoe/svg/skins/default_cross.svg',
+  '/assets/games/tictactoe/svg/skins/enhance_circle.svg',
+  '/assets/games/tictactoe/svg/skins/enhance_plus.svg',
+  '/assets/games/tictactoe/svg/skins/hex.svg',
+  '/assets/games/tictactoe/svg/skins/pentagon.svg',
+  '/assets/games/tictactoe/svg/skins/pyramid.svg',
+  '/assets/games/tictactoe/svg/skins/shield.svg',
+  '/assets/games/tictactoe/svg/skins/star.svg',
+  // Tic-Tac-Toe Game Core SVGs & PNGs
+  '/assets/games/tictactoe/svg/dora.svg',
+  '/assets/games/tictactoe/svg/dora_1.svg',
+  '/assets/games/tictactoe/svg/dora_2.svg',
+  '/assets/games/tictactoe/svg/dora_3.svg',
+  '/assets/games/tictactoe/svg/dora_4.svg',
+  '/assets/games/tictactoe/svg/versus.svg',
+  '/assets/games/tictactoe/svg/clock.svg',
+  '/assets/games/tictactoe/svg/rank1.svg',
+  '/assets/games/tictactoe/svg/rank2.svg',
+  '/assets/games/tictactoe/svg/rank3.svg',
+  '/assets/games/tictactoe/svg/increment_coin.svg',
+  '/assets/games/tictactoe/svg/leaderboard_icon.svg',
+  '/assets/games/tictactoe/svg/more_game.svg',
+  '/assets/games/tictactoe/png/guest.png',
+  '/assets/games/tictactoe/png/coin.png',
+  '/assets/games/tictactoe/png/maze_icon.png',
+  '/assets/games/tictactoe/png/coin_stack_small.png',
+  '/assets/games/tictactoe/png/coin_stack_medium.png',
+  '/assets/games/tictactoe/png/coin_stack_large.png',
+  '/assets/games/tictactoe/png/coin_bag_small.png',
+  '/assets/games/tictactoe/png/coin_bag_large.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -72,12 +111,15 @@ self.addEventListener('push', (event) => {
     body,
     icon: '/pwa/icons/192x192.png',
     badge: '/assets/logos/favicon.png',
-    tag: chatId ? `chat-${chatId}` : (data.notificationId || 'weto-push'),
+    tag: chatId ? `chat-${chatId}-${Date.now()}` : (data.notificationId ? `notif-${data.notificationId}` : `weto-push-${Date.now()}`),
+    renotify: true,
+    vibrate: [200, 100, 200],
+    timestamp: Date.now(),
+    requireInteraction: false,
     data: {
       actionUrl,
       chatId,
     },
-    vibrate: [120, 60, 120],
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -91,7 +133,9 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ('focus' in client) {
-          client.navigate(targetUrl);
+          if ('navigate' in client) {
+            client.navigate(targetUrl);
+          }
           return client.focus();
         }
       }

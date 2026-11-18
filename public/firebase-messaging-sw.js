@@ -35,9 +35,13 @@ if (apiKey && projectId && messagingSenderId && appId) {
       body,
       icon: '/pwa/icons/192x192.png',
       badge: '/assets/logos/favicon.png',
-      tag: data.chatId ? `chat-${data.chatId}` : data.notificationId || 'weto-notif',
+      tag: data.chatId ? `chat-${data.chatId}-${Date.now()}` : (data.notificationId ? `notif-${data.notificationId}` : `weto-notif-${Date.now()}`),
+      renotify: true,
+      vibrate: [200, 100, 200],
+      timestamp: Date.now(),
+      requireInteraction: false,
       data: {
-        actionUrl: data.actionUrl || '/notifications',
+        actionUrl: data.actionUrl || (data.chatId ? `/messenger/c/${data.chatId}` : '/notifications'),
       },
     };
     return self.registration.showNotification(title, options);
@@ -52,7 +56,9 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ('focus' in client) {
-          client.navigate(targetUrl);
+          if ('navigate' in client) {
+            client.navigate(targetUrl);
+          }
           return client.focus();
         }
       }

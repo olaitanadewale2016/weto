@@ -502,18 +502,80 @@ export function TicTacToeArena() {
     return localStorage.getItem('ttt_sound') !== '0';
   });
   const bgMusicRef = useRef<HTMLAudioElement | null>(null);
+  const clickAudioRef = useRef<HTMLAudioElement | null>(null);
+  const winAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Preload and cache game assets & audio elements to eliminate tap latency and visual delay
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const click = new Audio('/assets/games/tictactoe/music/click.mp3');
+      click.volume = 0.65;
+      click.preload = 'auto';
+      clickAudioRef.current = click;
+
+      const win = new Audio('/assets/games/tictactoe/music/wingame.mp3');
+      win.volume = 0.85;
+      win.preload = 'auto';
+      winAudioRef.current = win;
+    } catch {
+      // ignore audio init errors
+    }
+
+    // Preload all skin SVGs and core sprites so they render synchronously on the first frame
+    const preloadList = [
+      '/assets/games/tictactoe/svg/skins/default_cross.svg',
+      '/assets/games/tictactoe/svg/skins/default_circle.svg',
+      '/assets/games/tictactoe/svg/skins/enhance_plus.svg',
+      '/assets/games/tictactoe/svg/skins/enhance_circle.svg',
+      '/assets/games/tictactoe/svg/skins/box.svg',
+      '/assets/games/tictactoe/svg/skins/pentagon.svg',
+      '/assets/games/tictactoe/svg/skins/hex.svg',
+      '/assets/games/tictactoe/svg/skins/shield.svg',
+      '/assets/games/tictactoe/svg/skins/pyramid.svg',
+      '/assets/games/tictactoe/svg/skins/crystal.svg',
+      '/assets/games/tictactoe/svg/skins/star.svg',
+      '/assets/games/tictactoe/png/coin.png',
+      '/assets/games/tictactoe/png/guest.png',
+      '/assets/games/tictactoe/png/maze_icon.png',
+      '/assets/games/tictactoe/svg/dora.svg',
+      '/assets/games/tictactoe/svg/dora_1.svg',
+      '/assets/games/tictactoe/svg/dora_2.svg',
+      '/assets/games/tictactoe/svg/dora_3.svg',
+      '/assets/games/tictactoe/svg/dora_4.svg',
+      '/assets/games/tictactoe/svg/versus.svg',
+      '/assets/games/tictactoe/svg/clock.svg',
+      '/assets/games/tictactoe/svg/rank1.svg',
+      '/assets/games/tictactoe/svg/rank2.svg',
+      '/assets/games/tictactoe/svg/rank3.svg',
+      '/assets/games/tictactoe/svg/leaderboard_icon.svg',
+      '/assets/games/tictactoe/svg/increment_coin.svg',
+    ];
+
+    preloadList.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
 
   const playSoundEffect = useCallback(
     (kind: 'click' | 'win') => {
       if (!soundOn || typeof window === 'undefined') return;
       try {
-        const src =
-          kind === 'click'
-            ? '/assets/games/tictactoe/music/click.mp3'
-            : '/assets/games/tictactoe/music/wingame.mp3';
-        const audio = new Audio(src);
-        audio.volume = kind === 'click' ? 0.65 : 0.85;
-        audio.play().catch(() => undefined);
+        const audio = kind === 'click' ? clickAudioRef.current : winAudioRef.current;
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play().catch(() => undefined);
+        } else {
+          const src =
+            kind === 'click'
+              ? '/assets/games/tictactoe/music/click.mp3'
+              : '/assets/games/tictactoe/music/wingame.mp3';
+          const fallback = new Audio(src);
+          fallback.volume = kind === 'click' ? 0.65 : 0.85;
+          fallback.play().catch(() => undefined);
+        }
       } catch {
         // ignore audio restriction
       }

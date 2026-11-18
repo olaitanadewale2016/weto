@@ -37,6 +37,38 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/pwa/service-worker.js",
+        headers: [
+          { key: "Service-Worker-Allowed", value: "/" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+      {
+        source: "/firebase-messaging-sw.js",
+        headers: [
+          { key: "Service-Worker-Allowed", value: "/" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+      {
+        source: "/assets/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        source: "/pwa/icons/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        source: "/pwa/manifest.json",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
