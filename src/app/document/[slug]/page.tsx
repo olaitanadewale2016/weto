@@ -65,8 +65,8 @@ export default async function DocumentPage({
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
-        <Link href="/" className="p-1.5 rounded-full hover:bg-fill-sc">
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
+        <Link href="/" className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to home">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export default async function DocumentPage({
               .
             </p>
             <pre className="rounded-xl bg-bg-pr border border-bord-pr p-3 text-cap-s font-mono overflow-x-auto">
-{`curl -H "X-API-Key: weto_live_YOUR_KEY" \\
+              {`curl -H "X-API-Key: weto_live_YOUR_KEY" \\
   ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/v1/posts?mode=trending`}
             </pre>
           </div>

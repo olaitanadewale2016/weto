@@ -141,11 +141,11 @@ export default function JobDetailPage() {
   if (loading) {
     return (
       <AppShell fullWidth hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
-          <Link href="/jobs" className="p-1.5 rounded-full hover:bg-fill-sc" aria-label="Back to jobs">
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
+          <Link href="/jobs" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to jobs">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-title-3 font-bold text-lab-pr">Job Details</h1>
+          <h1 className="text-title-3 font-bold text-lab-pr truncate">Job Details</h1>
         </div>
         <div className="p-8 text-center text-lab-sc">Loading job details...</div>
       </AppShell>
@@ -155,11 +155,11 @@ export default function JobDetailPage() {
   if (!job) {
     return (
       <AppShell fullWidth hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
-          <Link href="/jobs" className="p-1.5 rounded-full hover:bg-fill-sc" aria-label="Back to jobs">
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
+          <Link href="/jobs" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to jobs">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-title-3 font-bold text-lab-pr">Job Details</h1>
+          <h1 className="text-title-3 font-bold text-lab-pr truncate">Job Details</h1>
         </div>
         <div className="p-8 text-center text-lab-sc">Job listing not found.</div>
       </AppShell>
@@ -170,11 +170,11 @@ export default function JobDetailPage() {
 
   return (
     <AppShell fullWidth hideMobileHeader>
-      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
-        <Link href="/jobs" className="p-1.5 rounded-full hover:bg-fill-sc" aria-label="Back to jobs">
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
+        <Link href="/jobs" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to jobs">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-title-3 font-bold text-lab-pr">Job Details</h1>
+        <h1 className="text-title-3 font-bold text-lab-pr truncate">Job Details</h1>
       </div>
       <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
 

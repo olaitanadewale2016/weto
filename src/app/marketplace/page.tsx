@@ -163,125 +163,128 @@ export default function MarketplacePage() {
 
   return (
     <AppShell hideMobileHeader>
-      {/* PHP CatalogHeader */}
-      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-tr px-4 h-14 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="size-8 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer shrink-0"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <h1 className="text-title-3 font-bold text-lab-pr truncate">Marketplace</h1>
-        </div>
+      {/* Responsive Marketplace Header synchronized with Notifications */}
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0 cursor-pointer"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h1 className="text-title-3 font-bold text-lab-pr truncate">Marketplace</h1>
+          </div>
 
-        <div className="flex items-center gap-2 relative">
-          {user ? (
-            <>
-              <Link
-                href="/saved/products"
-                className="size-9 rounded-full border border-bord-pr hover:bg-fill-qt flex items-center justify-center text-lab-pr2 transition-colors"
-                aria-label="Saved products"
-                title="Saved products"
-              >
-                <Bookmark className="h-4 w-4" />
+          <div className="flex items-center gap-2 shrink-0 relative">
+            {user ? (
+              <>
+                <Link
+                  href="/saved/products"
+                  className="size-9 rounded-full border border-bord-pr hover:bg-fill-qt flex items-center justify-center text-lab-pr transition-colors"
+                  aria-label="Saved products"
+                  title="Saved products"
+                >
+                  <Bookmark className="h-4 w-4" />
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-brand-900 text-white hover:opacity-90 transition-opacity cursor-pointer text-par-s font-semibold"
+                  aria-label="Marketplace menu"
+                  title="Create listing or manage store"
+                >
+                  <Plus className="size-4 stroke-[2.5]" />
+                  <span>Sell</span>
+                </button>
+
+                {menuOpen ? (
+                  <>
+                    <div
+                      className="fixed inset-0 z-20"
+                      onClick={() => setMenuOpen(false)}
+                      aria-hidden="true"
+                    />
+                    <div className="absolute right-0 top-11 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl divide-y divide-bord-pr overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setCreateOpen(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-fill-qt cursor-pointer transition-colors"
+                      >
+                        <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
+                          <ShoppingBag className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-par-n font-semibold text-lab-pr">Create Listing</p>
+                          <p className="text-cap-s text-lab-sc truncate">
+                            Publish a new product with photos
+                          </p>
+                        </div>
+                        <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
+                      </button>
+                      <Link
+                        href="/business/market"
+                        onClick={() => setMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-fill-qt transition-colors"
+                      >
+                        <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
+                          <Store className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-par-n font-semibold text-lab-pr">Business Store</p>
+                          <p className="text-cap-s text-lab-sc truncate">
+                            Manage store inventory & promotions
+                          </p>
+                        </div>
+                        <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
+                      </Link>
+                      <Link
+                        href="/saved/products"
+                        onClick={() => setMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-fill-qt transition-colors"
+                      >
+                        <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
+                          <Bookmark className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-par-n font-semibold text-lab-pr">Saved Products</p>
+                          <p className="text-cap-s text-lab-sc truncate">
+                            View your bookmarked marketplace items
+                          </p>
+                        </div>
+                        <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
+                      </Link>
+                    </div>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <Link href="/auth/login">
+                <Button variant="primary" size="sm" className="rounded-full">
+                  Sign in to Sell
+                </Button>
               </Link>
-
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                className="size-9 rounded-full bg-brand-900 text-white hover:opacity-90 flex items-center justify-center transition-opacity cursor-pointer"
-                aria-label="Marketplace menu"
-                title="Create listing or manage store"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-
-              {menuOpen ? (
-                <>
-                  <div
-                    className="fixed inset-0 z-20"
-                    onClick={() => setMenuOpen(false)}
-                    aria-hidden="true"
-                  />
-                  <div className="absolute right-0 top-11 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl divide-y divide-bord-pr overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setCreateOpen(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-fill-qt cursor-pointer transition-colors"
-                    >
-                      <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
-                        <ShoppingBag className="size-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-par-n font-semibold text-lab-pr">Create Listing</p>
-                        <p className="text-cap-s text-lab-sc truncate">
-                          Publish a new product with photos
-                        </p>
-                      </div>
-                      <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
-                    </button>
-                    <Link
-                      href="/business/market"
-                      onClick={() => setMenuOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-fill-qt transition-colors"
-                    >
-                      <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
-                        <Store className="size-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-par-n font-semibold text-lab-pr">Business Store</p>
-                        <p className="text-cap-s text-lab-sc truncate">
-                          Manage store inventory & promotions
-                        </p>
-                      </div>
-                      <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
-                    </Link>
-                    <Link
-                      href="/saved/products"
-                      onClick={() => setMenuOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-fill-qt transition-colors"
-                    >
-                      <span className="size-9 rounded-full bg-fill-qt flex items-center justify-center shrink-0 text-lab-pr">
-                        <Bookmark className="size-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-par-n font-semibold text-lab-pr">Saved Products</p>
-                        <p className="text-cap-s text-lab-sc truncate">
-                          View your bookmarked marketplace items
-                        </p>
-                      </div>
-                      <ArrowUpRight className="size-4 text-lab-tr shrink-0" />
-                    </Link>
-                  </div>
-                </>
-              ) : null}
-            </>
-          ) : (
-            <Link href="/auth/login">
-              <Button variant="primary" size="sm">
-                Sign in to Sell
-              </Button>
-            </Link>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* PHP Sticky Search + Filter Header (MarketplaceIndex.vue) */}
+      {/* Search + Categories & Filter Bar */}
       <div className="p-4 border-b border-bord-tr space-y-3 bg-bg-pr">
-        <div className="relative rounded-full border border-bord-card/90 bg-bg-pr focus-within:border-bord-pr transition-colors">
+        <div className="relative rounded-full border border-bord-card/90 bg-bg-pr focus-within:border-brand-900/60 transition-colors">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-sc" />
           <input
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search products, categories, or locations..."
-            className="w-full h-11 rounded-full bg-transparent pl-10 pr-10 text-par-n text-lab-pr placeholder:text-lab-tr outline-hidden"
+            className="w-full h-10 rounded-full bg-transparent pl-10 pr-10 text-par-n text-lab-pr placeholder:text-lab-tr outline-hidden"
           />
           {q ? (
             <button
@@ -295,8 +298,55 @@ export default function MarketplacePage() {
           ) : null}
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-par-l font-bold text-lab-pr">For you</h2>
+        {/* Quick Category Chips for Fast Browsing on Mobile & Desktop */}
+        {categories.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 py-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setAppliedFilters((prev) => ({ ...prev, categories: [] }));
+                setDraftFilters((prev) => ({ ...prev, categories: [] }));
+              }}
+              className={cn(
+                'px-3.5 py-1.5 rounded-full text-cap-l font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer',
+                appliedFilters.categories.length === 0
+                  ? 'bg-brand-900 text-white shadow-xs'
+                  : 'bg-fill-qt text-lab-pr hover:bg-fill-sc'
+              )}
+            >
+              All Items
+            </button>
+            {categories.map((cat) => {
+              const isActive = appliedFilters.categories.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    const next = isActive ? [] : [cat.id];
+                    setAppliedFilters((prev) => ({ ...prev, categories: next }));
+                    setDraftFilters((prev) => ({ ...prev, categories: next }));
+                  }}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-full text-cap-l font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer',
+                    isActive
+                      ? 'bg-brand-900 text-white shadow-xs'
+                      : 'bg-fill-qt text-lab-pr hover:bg-fill-sc'
+                  )}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          <h2 className="text-par-l font-bold text-lab-pr">
+            {appliedFilters.categories.length > 0
+              ? categories.find((c) => appliedFilters.categories.includes(c.id))?.name || 'Filtered'
+              : 'For you'}
+          </h2>
 
           <div className="flex items-center gap-2">
             {activeFilterCount > 0 ? (
@@ -322,7 +372,7 @@ export default function MarketplacePage() {
                 'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-cap-l font-semibold transition-colors cursor-pointer',
                 activeFilterCount > 0
                   ? 'border-brand-900 bg-brand-900/10 text-brand-900'
-                  : 'border-bord-pr bg-bg-pr text-lab-pr2 hover:bg-fill-qt'
+                  : 'border-bord-pr bg-bg-pr text-lab-pr hover:bg-fill-qt'
               )}
             >
               <SlidersHorizontal className="size-3.5" />

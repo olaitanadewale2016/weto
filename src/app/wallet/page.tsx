@@ -256,20 +256,22 @@ export default function WalletPage() {
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr px-4 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="h-8 w-8 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr shrink-0"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <h1 className="text-title-3 font-bold text-lab-pr">Wallet</h1>
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Link
+              href="/"
+              className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+              aria-label="Back to home"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="text-title-3 font-bold text-lab-pr truncate">Wallet</h1>
+          </div>
+          <Button size="icon" variant="ghost" onClick={loadWallet} title="Refresh balance" className="size-9 rounded-full">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
-        <Button size="icon" variant="ghost" onClick={loadWallet} title="Refresh balance">
-          <RefreshCw className="h-4 w-4" />
-        </Button>
       </div>
 
       {loading || !data ? (
@@ -618,21 +620,21 @@ export default function WalletPage() {
             hint={
               data?.limits
                 ? (() => {
-                    const cur = data?.wallet.currency || bootstrap?.config?.defaultCurrency || 'NGN';
-                    const minVal =
-                      modalMode === 'deposit'
-                        ? data.limits.depositMin
-                        : modalMode === 'transfer'
-                          ? data.limits.transferMin
-                          : data.limits.withdrawMin;
-                    const maxVal =
-                      modalMode === 'deposit'
-                        ? data.limits.depositMax
-                        : modalMode === 'transfer'
-                          ? data.limits.transferMax
-                          : data.limits.withdrawMax;
-                    return `Min: ${formatCurrency(minVal, cur, bootstrap?.currencies, locale)} · Max: ${formatCurrency(maxVal, cur, bootstrap?.currencies, locale)}`;
-                  })()
+                  const cur = data?.wallet.currency || bootstrap?.config?.defaultCurrency || 'NGN';
+                  const minVal =
+                    modalMode === 'deposit'
+                      ? data.limits.depositMin
+                      : modalMode === 'transfer'
+                        ? data.limits.transferMin
+                        : data.limits.withdrawMin;
+                  const maxVal =
+                    modalMode === 'deposit'
+                      ? data.limits.depositMax
+                      : modalMode === 'transfer'
+                        ? data.limits.transferMax
+                        : data.limits.withdrawMax;
+                  return `Min: ${formatCurrency(minVal, cur, bootstrap?.currencies, locale)} · Max: ${formatCurrency(maxVal, cur, bootstrap?.currencies, locale)}`;
+                })()
                 : undefined
             }
           />

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
+  ArrowLeft,
   Award,
   BadgeCheck,
   Ban,
@@ -306,31 +307,32 @@ export default function SettingsPage() {
         />
       </div>
 
-      {/* Mobile Header / Toolbar matching PHP mobile/views/settings */}
+      {/* Mobile Header / Toolbar matching Notifications standard */}
       <div className="md:hidden border-b border-bord-pr sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md">
-        <div className="p-4 flex items-center leading-none">
-          <div className="shrink-0 w-10">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {mobileInDetail ? (
               <button
                 type="button"
                 onClick={() => setMobileInDetail(false)}
-                className="p-1 -ml-1 rounded-full text-lab-pr hover:bg-fill-tr cursor-pointer"
+                className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0 cursor-pointer"
                 aria-label="Back to settings"
               >
-                <ChevronLeft className="size-6" />
+                <ArrowLeft className="h-5 w-5" />
               </button>
             ) : (
-              <Link href="/" className="p-1 -ml-1 rounded-full text-lab-pr hover:bg-fill-tr inline-flex">
-                <ChevronLeft className="size-6" />
+              <Link
+                href="/"
+                className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+                aria-label="Back to home"
+              >
+                <ArrowLeft className="h-5 w-5" />
               </Link>
             )}
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <h4 className="text-title-3 font-medium text-lab-pr text-center truncate">
+            <h1 className="text-title-3 font-bold text-lab-pr truncate">
               {mobileInDetail ? TAB_TITLES[tab] || 'Account Settings' : 'Account Settings'}
-            </h4>
+            </h1>
           </div>
-          <div className="shrink-0 w-10" />
         </div>
       </div>
 

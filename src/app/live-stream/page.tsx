@@ -9,15 +9,15 @@ import { Button } from '@/components/ui/button';
 export default function LiveStreamPage() {
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr px-4 py-3.5 pt-safe px-safe flex items-center gap-3">
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr px-4 py-3 pt-safe px-safe flex items-center gap-2">
         <Link
           href="/"
-          className="h-8 w-8 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr shrink-0"
+          className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
           aria-label="Back to home"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-title-3 font-bold text-lab-pr">Live Streaming</h1>
+        <h1 className="text-title-3 font-bold text-lab-pr truncate">Live Streaming</h1>
       </div>
 
       <div className="p-4 sm:p-6">

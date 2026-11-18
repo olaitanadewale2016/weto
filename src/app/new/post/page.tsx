@@ -17,16 +17,18 @@ export default function NewPostPage() {
       {/* Top Toolbar matching Source/resources/js/spa/apps/mobile/views/editors/post/PostEditor.vue */}
       <header className="shrink-0 pt-safe px-safe border-b border-bord-tr bg-bg-pr">
         <div className="h-14 px-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="h-9 w-9 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer"
-            aria-label="Close editor"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-par-l font-bold text-lab-pr">New publication</h1>
-          <div className="w-9" />
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0 cursor-pointer"
+              aria-label="Close editor"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h1 className="text-title-3 font-bold text-lab-pr truncate">New publication</h1>
+          </div>
+          <div className="w-8" />
         </div>
       </header>
 

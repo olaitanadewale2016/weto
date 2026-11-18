@@ -101,11 +101,11 @@ export default function NewStoryPage() {
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-3">
-        <Link href="/" className="p-1.5 rounded-full hover:bg-fill-sc">
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
+        <Link href="/" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to home">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-title-3 font-bold text-lab-pr">Create Story</h1>
+        <h1 className="text-title-3 font-bold text-lab-pr truncate">Create Story</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="p-5 space-y-5">

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bookmark, Briefcase, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Bookmark, Briefcase, Plus, Search } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { Button } from '@/components/ui/button';
@@ -124,20 +124,44 @@ export default function JobsPage() {
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-xs border-b border-bord-tr px-4 py-3.5 flex items-center justify-between gap-2">
-        <h1 className="text-title-3 font-bold text-lab-pr">Jobs</h1>
-        {user && (
-          <div className="flex items-center gap-2">
-            <Link href="/saved/jobs">
-              <Button variant="outline" size="sm">
-                <Bookmark className="h-4 w-4" /> Saved
-              </Button>
+      {/* Responsive Single Jobs Header synchronized with Notifications */}
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Link
+              href="/"
+              className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+              aria-label="Back to home"
+            >
+              <ArrowLeft className="h-5 w-5" />
             </Link>
-            <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" /> Post Job
-            </Button>
+            <h1 className="text-title-3 font-bold text-lab-pr truncate">Jobs</h1>
           </div>
-        )}
+
+          <div className="flex items-center gap-2 shrink-0">
+            {user ? (
+              <>
+                <Link
+                  href="/saved/jobs"
+                  className="size-9 rounded-full border border-bord-pr hover:bg-fill-qt flex items-center justify-center text-lab-pr transition-colors"
+                  aria-label="Saved jobs"
+                  title="Saved jobs"
+                >
+                  <Bookmark className="h-4 w-4" />
+                </Link>
+                <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)} className="rounded-full">
+                  <Plus className="h-4 w-4" /> Post Job
+                </Button>
+              </>
+            ) : (
+              <Link href="/auth/login">
+                <Button variant="primary" size="sm" className="rounded-full">
+                  Sign in
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Filter Bar matching PHP JobsIndex */}

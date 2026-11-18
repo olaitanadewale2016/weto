@@ -2419,11 +2419,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             <div className="flex items-center gap-2 min-w-0">
               <Link
                 href="/"
-                className="inline-flex items-center justify-center size-9 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv transition-colors shrink-0"
+                className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
                 title="Back to Home"
                 aria-label="Back to Home"
               >
-                <ArrowLeft className="size-5" />
+                <ArrowLeft className="h-5 w-5" />
               </Link>
               <h1 className="text-title-3 font-bold text-lab-pr truncate">
                 {tab === 'archive' ? 'Archived' : tab === 'invites' ? 'Invites' : 'Messages'}
@@ -2790,7 +2790,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               <div className="h-16 px-4 flex items-center gap-3">
                 <Link
                   href="/messenger"
-                  className="md:hidden p-1.5 rounded-full text-lab-pr hover:bg-fill-sc shrink-0"
+                  className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
                   aria-label="Back to Messenger"
                 >
                   <ArrowLeft className="h-5 w-5" />
@@ -2815,14 +2815,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             <div className="border-b border-bord-pr bg-bg-pr shrink-0 pt-safe px-safe">
               <div
                 className={cn(
-                  'h-16 px-3 sm:px-6 flex items-center justify-between gap-2 transition-all',
+                  'h-16 px-4 sm:px-6 flex items-center justify-between gap-2 transition-all',
                   middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto w-full'
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <Link
                     href="/messenger"
-                    className="md:hidden p-1.5 rounded-full text-lab-pr hover:bg-fill-sc shrink-0"
+                    className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
                     aria-label="Back to Messenger"
                   >
                     <ArrowLeft className="h-5 w-5" />

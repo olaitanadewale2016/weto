@@ -240,15 +240,15 @@ export default function UserProfilePage() {
   if (loading) {
     return (
       <AppShell hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr/60 md:hidden">
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr md:hidden">
           <div className="px-4 py-3 flex items-center gap-2">
             <button
               type="button"
               onClick={() => router.back()}
-              className="p-1.5 rounded-full hover:bg-fill-sc text-lab-pr"
+              className="p-1.5 -ml-1.5 rounded-full hover:bg-fill-tr text-lab-pr shrink-0"
               aria-label="Go back"
             >
-              <ChevronLeft className="size-6" />
+              <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="h-5 w-24 bg-fill-sc rounded" />
           </div>
@@ -274,16 +274,16 @@ export default function UserProfilePage() {
   if (!profile) {
     return (
       <AppShell hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr/60 flex items-center gap-3 px-4 py-3 md:hidden">
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr flex items-center gap-2 px-4 py-3 md:hidden">
           <button
             type="button"
             onClick={() => router.back()}
-            className="p-1.5 rounded-full hover:bg-fill-sc text-lab-pr"
+            className="p-1.5 -ml-1.5 rounded-full hover:bg-fill-tr text-lab-pr shrink-0"
             aria-label="Go back"
           >
-            <ChevronLeft className="size-6" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
-          <span className="font-bold text-lab-pr">Profile</span>
+          <span className="font-bold text-lab-pr truncate">Profile</span>
         </div>
         <div className="p-10 text-center space-y-2">
           <h1 className="text-title-2 font-bold text-lab-pr">Profile unavailable</h1>
@@ -642,15 +642,17 @@ export default function UserProfilePage() {
        * ===================================================================== */}
       <div className="md:hidden">
         {/* mobile/ProfileControls.vue top bar */}
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr/60">
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2 leading-none">
+        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr">
+          <div className="px-4 py-3 flex items-center justify-between gap-2 leading-none">
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex items-center gap-1 -ml-1.5 text-lab-pr2 cursor-pointer min-w-0"
+              className="flex items-center gap-2 -ml-1.5 text-lab-pr cursor-pointer min-w-0"
               aria-label="Go back"
             >
-              <ChevronLeft className="size-6 shrink-0" />
+              <span className="p-1.5 rounded-full hover:bg-fill-tr shrink-0">
+                <ArrowLeft className="h-5 w-5" />
+              </span>
               <div className="min-w-0 text-left">
                 <p className="font-semibold text-par-m truncate leading-tight">{fullName}</p>
                 <p className="text-cap-m text-lab-sc truncate">

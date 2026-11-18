@@ -259,18 +259,19 @@ export default function ProductDetailPage() {
   return (
     <AppShell hideMobileHeader>
       {/* PHP ProductHeader */}
-      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr px-4 h-14 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="size-8 rounded-full hover:bg-fill-tr flex items-center justify-center text-lab-pr cursor-pointer shrink-0"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <span className="text-title-3 font-bold text-lab-pr truncate">Product details</span>
-        </div>
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr flex items-center justify-center cursor-pointer shrink-0"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <span className="text-title-3 font-bold text-lab-pr truncate">Product details</span>
+          </div>
 
         <div className="flex items-center gap-1.5">
           <button
@@ -298,6 +299,7 @@ export default function ProductDetailPage() {
           ) : null}
         </div>
       </div>
+    </div>
 
       {/* PHP ProductOverviewCard.vue: edge-to-edge swipe gallery + p-4 overview + divider + ProductDescriptionCard */}
       <div>

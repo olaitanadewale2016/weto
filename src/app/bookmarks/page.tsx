@@ -14,13 +14,13 @@ export default function BookmarksPage() {
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 pt-safe px-safe border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3.5 flex items-center gap-3">
-        <Link href="/" className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr">
+      <div className="sticky top-0 z-20 pt-safe px-safe border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3 flex items-center gap-2">
+        <Link href="/" className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to home">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
-          <h1 className="text-title-3 font-bold text-lab-pr">Saved Bookmarks</h1>
-          <p className="text-cap-l text-lab-sc">Publications you saved for later reading.</p>
+        <div className="min-w-0">
+          <h1 className="text-title-3 font-bold text-lab-pr truncate">Saved Bookmarks</h1>
+          <p className="text-cap-l text-lab-sc truncate">Publications you saved for later reading.</p>
         </div>
       </div>
 

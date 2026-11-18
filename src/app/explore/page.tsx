@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Search, Users } from 'lucide-react';
+import { ArrowLeft, Search, Users } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { FeedList } from '@/components/feed/FeedList';
 import { FeedAdCard } from '@/components/ads/FeedAdCard';
@@ -87,26 +87,35 @@ function ExploreContent() {
   return (
     <div>
       <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
-        <div className="p-4">
-          <form onSubmit={onSearchSubmit} className="relative rounded-full border border-bord-card/80 bg-bg-pr focus-within:border-bord-pr transition-colors">
+        <div className="px-4 py-3 flex items-center gap-2.5">
+          <Link
+            href="/"
+            className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+            aria-label="Back to home"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <form onSubmit={onSearchSubmit} className="flex-1 relative rounded-full border border-bord-card/80 bg-bg-pr focus-within:border-brand-900/60 transition-colors">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-sc" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search posts, #hashtags, or people..."
-              className="w-full h-11 rounded-full bg-transparent pl-10 pr-4 text-par-n text-lab-pr2 placeholder:text-lab-tr outline-hidden"
+              className="w-full h-10 rounded-full bg-transparent pl-10 pr-4 text-par-n text-lab-pr placeholder:text-lab-tr outline-hidden"
             />
           </form>
-          {initialTag && (
-            <div className="mt-2 flex items-center justify-between rounded-xl bg-fill-qt border border-bord-tr px-3 py-1.5 text-cap-l text-lab-pr2">
+        </div>
+        {initialTag && (
+          <div className="px-4 pb-2.5 flex items-center justify-between text-cap-l text-lab-pr2">
+            <div className="inline-flex items-center gap-2 rounded-xl bg-fill-qt border border-bord-tr px-3 py-1.5 w-full justify-between">
               <span>Filtering by #{initialTag}</span>
               <Link href="/explore" className="font-semibold text-brand-900 hover:underline">
                 Clear filter
               </Link>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         <Tabs
           value={activeTab}
           onChange={(k) => setActiveTab(k as 'posts' | 'trending' | 'people')}
