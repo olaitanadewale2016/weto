@@ -179,13 +179,7 @@ export interface SerializedPost {
   createdAt: string;
 }
 
-const REACTION_EMOJIS = [
-  { id: '2764-fe0f', label: '❤️' },
-  { id: '1f525', label: '🔥' },
-  { id: '1f44f', label: '👏' },
-  { id: '1f602', label: '😂' },
-  { id: '1f62e', label: '😮' },
-];
+const LOVE_REACTION_ID = '2764-fe0f';
 
 export function PostCard({
   post,
@@ -373,7 +367,7 @@ export function PostCard({
     }
   }
 
-  async function toggleReaction(unifiedId = '2764-fe0f') {
+  async function toggleReaction(unifiedId = LOVE_REACTION_ID) {
     if (!user) {
       error('Please sign in to react');
       return;
@@ -1380,38 +1374,18 @@ export function PostCard({
 
         {/* Engagement Bar matching Facebook / TimelinePublication style */}
         <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-bord-tr text-lab-sc">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => toggleReaction('2764-fe0f')}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
-                liked && 'text-red-900 font-semibold'
-              )}
-            >
-              <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-current')} />
-              <span>{reactionsCount}</span>
-            </button>
-            <div className="hidden sm:flex items-center gap-0.5">
-              {REACTION_EMOJIS.slice(1).map((em) => {
-                const isReacted = viewerReactions.includes(em.id);
-                return (
-                  <button
-                    key={em.id}
-                    type="button"
-                    onClick={() => toggleReaction(em.id)}
-                    className={cn(
-                      'h-7 w-7 rounded-full hover:bg-fill-tr text-sm flex items-center justify-center cursor-pointer transition-transform',
-                      isReacted && 'bg-fill-sc scale-110 ring-1 ring-brand-900/40'
-                    )}
-                    title={isReacted ? `Remove ${em.label}` : `React ${em.label}`}
-                  >
-                    {em.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => toggleReaction(LOVE_REACTION_ID)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer',
+              liked && 'text-red-900 font-semibold'
+            )}
+            aria-label={liked ? 'Unlike post' : 'Like post'}
+          >
+            <Heart className={cn('h-[18px] w-[18px]', liked && 'fill-current')} />
+            <span>{reactionsCount}</span>
+          </button>
 
           {isDetailView ? (
             <button
