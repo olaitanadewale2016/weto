@@ -120,6 +120,19 @@ export default function UserProfilePage() {
   const [listLoading, setListLoading] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!headerMenuOpen) return;
+    const onOutside = (e: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setHeaderMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', onOutside);
+    return () => document.removeEventListener('click', onOutside);
+  }, [headerMenuOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -240,7 +253,7 @@ export default function UserProfilePage() {
   if (loading) {
     return (
       <AppShell hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr md:hidden">
+        <div className="sticky top-0 z-30 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr">
           <div className="h-14 px-4 flex items-center gap-2">
             <button
               type="button"
@@ -250,7 +263,7 @@ export default function UserProfilePage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div className="h-5 w-24 bg-fill-sc rounded" />
+            <div className="h-5 w-28 bg-fill-sc rounded" />
           </div>
         </div>
         <div>
@@ -274,7 +287,7 @@ export default function UserProfilePage() {
   if (!profile) {
     return (
       <AppShell hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr md:hidden">
+        <div className="sticky top-0 z-30 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr">
           <div className="h-14 px-4 flex items-center gap-2">
             <button
               type="button"
@@ -314,10 +327,178 @@ export default function UserProfilePage() {
   return (
     <AppShell hideMobileHeader>
       {/* =====================================================================
+       * Sticky Top Profile Header (Mobile + Desktop)
+       * ===================================================================== */}
+      <div className="sticky top-0 z-30 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr">
+        <div className="h-14 px-4 flex items-center justify-between gap-2 leading-none">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-2 -ml-1.5 text-lab-pr hover:text-lab-pr/80 cursor-pointer min-w-0"
+            aria-label="Go back"
+          >
+            <span className="p-1.5 rounded-full hover:bg-fill-tr shrink-0">
+              <ArrowLeft className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 text-left">
+              <h1 className="font-bold text-par-m truncate leading-tight flex items-center gap-1.5">
+                <span className="truncate">{fullName}</span>
+                {profile.verified && <VerifiedBadge />}
+              </h1>
+              <p className="text-cap-m text-lab-sc truncate mt-0.5">
+                {profile.publicationsCount || 0} {profile.publicationsCount === 1 ? 'post' : 'posts'}
+              </p>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-1.5 shrink-0" ref={headerMenuRef}>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setMobileMenuOpen(true);
+                  } else {
+                    setHeaderMenuOpen((v) => !v);
+                  }
+                }}
+                className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer"
+                aria-label="Profile options"
+              >
+                <MoreHorizontal className="size-5" />
+              </button>
+
+              {headerMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-vertical-tr py-1.5 z-40 divide-y divide-bord-tr/60">
+                  <div className="py-1">
+                    {!profile.viewerContext.isSelf && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          void handleStartChat();
+                        }}
+                        disabled={sendingMessage}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <MessageCircle className="size-4 text-lab-sc shrink-0" />
+                        <span>Send message</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenuOpen(false);
+                        handleMentionUser();
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <AtSign className="size-4 text-lab-sc shrink-0" />
+                      <span className="truncate">Mention @{profile.username}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenuOpen(false);
+                        void handleCopyProfileLink();
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Link2 className="size-4 text-lab-sc shrink-0" />
+                      <span>Copy profile link</span>
+                    </button>
+                    {!profile.viewerContext.isSelf && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          router.push(`/games?challenge=${encodeURIComponent(profile.username)}`);
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <Gamepad2 className="size-4 text-brand-900 shrink-0" />
+                        <span className="truncate">Challenge @{profile.username}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenuOpen(false);
+                        setActiveTab('info');
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Info className="size-4 text-lab-sc shrink-0" />
+                      <span>About this profile</span>
+                    </button>
+                    {profile.viewerContext.isSelf && (
+                      <Link
+                        href="/settings"
+                        onClick={() => setHeaderMenuOpen(false)}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5"
+                      >
+                        <Settings className="size-4 text-lab-sc shrink-0" />
+                        <span>Account settings</span>
+                      </Link>
+                    )}
+                  </div>
+
+                  {!profile.viewerContext.isSelf && (
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          void handleRelation('mute');
+                        }}
+                        className={cn(
+                          'w-full px-3.5 py-2 text-left text-par-s hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer',
+                          profile.viewerContext.isMuted ? 'text-lab-pr' : 'text-red-900'
+                        )}
+                      >
+                        <VolumeX className="size-4 shrink-0" />
+                        <span className="truncate">
+                          {profile.viewerContext.isMuted
+                            ? `Unmute @${profile.username}`
+                            : `Mute @${profile.username}`}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          void handleRelation('block');
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-red-900 hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <Ban className="size-4 shrink-0" />
+                        <span className="truncate">Block @{profile.username}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          setReportOpen(true);
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-par-s text-red-900 hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                      >
+                        <Flag className="size-4 shrink-0" />
+                        <span className="truncate">Report @{profile.username}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* =====================================================================
        * PHP Desktop Profile Layout (md+) matching desktop/views/profile/ProfileIndex.vue
        * ===================================================================== */}
       <div className="hidden md:block">
-        {/* ProfileCover.vue: edge-to-edge banner with top-left floating back button */}
+        {/* ProfileCover.vue: edge-to-edge banner */}
         <div className="relative overflow-hidden min-h-[180px] h-52 bg-fill-fv">
           <button
             type="button"
@@ -350,15 +531,6 @@ export default function UserProfilePage() {
               }}
               className="h-full w-full object-cover"
             />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="cursor-pointer absolute top-4 left-4 backdrop-blur-xl bg-black/50 hover:bg-black/35 smoothing size-10 inline-flex items-center justify-center rounded-full text-white/95"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="size-5" />
           </button>
         </div>
 
@@ -643,37 +815,6 @@ export default function UserProfilePage() {
        * PHP Mobile Profile Layout (< md) matching mobile/views/profile/ProfileIndex.vue
        * ===================================================================== */}
       <div className="md:hidden">
-        {/* mobile/ProfileControls.vue top bar */}
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr">
-          <div className="h-14 px-4 flex items-center justify-between gap-2 leading-none">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex items-center gap-2 -ml-1.5 text-lab-pr cursor-pointer min-w-0"
-              aria-label="Go back"
-            >
-              <span className="p-1.5 rounded-full hover:bg-fill-tr shrink-0">
-                <ArrowLeft className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 text-left">
-                <p className="font-semibold text-par-m truncate leading-tight">{fullName}</p>
-                <p className="text-cap-m text-lab-sc truncate">
-                  {profile.publicationsCount || 0} {profile.publicationsCount === 1 ? 'post' : 'posts'}
-                </p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer shrink-0"
-              aria-label="Profile options"
-            >
-              <MoreHorizontal className="size-5" />
-            </button>
-          </div>
-        </div>
-
         {/* mobile/ProfileAvatar.vue: Cover image + side-by-side Avatar & Name/Caption */}
         <button
           type="button"
@@ -880,7 +1021,7 @@ export default function UserProfilePage() {
       {/* =====================================================================
        * PHP Profile Tabs (Posts · Media · Info) — 3-column ContentTabs grid
        * ===================================================================== */}
-      <div className="sticky top-[calc(56px+env(safe-area-inset-top,0px))] md:top-0 bg-bg-pr/95 backdrop-blur-md z-10 border-b border-bord-pr">
+      <div className="sticky top-[calc(56px+env(safe-area-inset-top,0px))] md:top-14 bg-bg-pr/95 backdrop-blur-md z-20 border-b border-bord-pr">
         <Tabs
           variant="grid"
           value={activeTab}
