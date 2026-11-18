@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 export function PostComposer({
   quotePostId,
   onCreated,
-  placeholder = "What's new?",
+  placeholder,
   fullScreen = false,
 }: {
   quotePostId?: string;
@@ -41,6 +41,11 @@ export function PostComposer({
   const { user, bootstrap, dict, locale } = useApp();
   const { error, success } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const defaultPlaceholder = user?.firstName
+    ? `What's on your mind, ${user.firstName}?`
+    : "What's on your mind?";
+  const effectivePlaceholder = placeholder || defaultPlaceholder;
 
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
@@ -68,7 +73,7 @@ export function PostComposer({
   if (!user) return null;
 
   async function handleAiAssist(mode: 'draft' | 'improve' | 'hashtags' | 'summary') {
-    const promptInput = content.trim() || title.trim() || placeholder;
+    const promptInput = content.trim() || title.trim() || effectivePlaceholder;
     if (promptInput.length < 2) {
       error('Enter a topic or draft first for AI assistance.');
       return;
@@ -241,14 +246,14 @@ export function PostComposer({
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={placeholder}
+              placeholder={effectivePlaceholder}
               rows={fullScreen ? 8 : 4}
               maxLength={10000}
               className={cn(
-                'w-full min-w-0 bg-transparent text-lab-pr2 placeholder:text-lab-tr placeholder:font-light resize-none focus:outline-none leading-normal',
+                'w-full min-w-0 bg-transparent text-lab-pr placeholder:text-lab-tr resize-none focus:outline-none leading-normal font-normal',
                 fullScreen
-                  ? 'flex-1 text-[18px] sm:text-title-3 placeholder:text-[18px] sm:placeholder:text-title-3'
-                  : 'text-[16px] md:text-par-l min-h-[84px]'
+                  ? 'flex-1 text-[19px] sm:text-[22px] placeholder:text-[19px] sm:placeholder:text-[22px]'
+                  : 'text-[16px] md:text-[17px] min-h-[84px] placeholder:text-[16px] md:placeholder:text-[17px]'
               )}
             />
           )}

@@ -623,30 +623,60 @@ export function PublicationCommentsSection({
                 </Link>
 
                 <div className="flex-1 min-w-0">
-                  {/* Header: Name + time + menu */}
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <Link
-                        href={`/@${c.author?.username}`}
-                        className="text-par-n font-semibold text-lab-pr2 leading-tight truncate hover:underline inline-flex items-center gap-1"
-                      >
-                        <span className="truncate">{authorName}</span>
-                        {c.author?.verified && <Badge variant="brand">✓</Badge>}
-                      </Link>
-                      <span className="text-par-s text-lab-sc leading-tight shrink-0">
-                        {formatRelativeTime(c.createdAt)}
-                      </span>
+                  {/* Facebook Comment Bubble & Action Menu */}
+                  <div className="flex items-start gap-1.5 group/bubble">
+                    <div className="inline-block max-w-[calc(100%-2rem)] rounded-2xl bg-fill-qt/70 dark:bg-fill-sc/40 px-3.5 py-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Link
+                          href={`/@${c.author?.username}`}
+                          className="text-[13px] font-semibold text-lab-pr leading-snug truncate hover:underline inline-flex items-center gap-1"
+                        >
+                          <span className="truncate">{authorName}</span>
+                          {c.author?.verified && <Badge variant="brand" className="text-[10px] px-1 py-0 h-3.5">✓</Badge>}
+                        </Link>
+                      </div>
+
+                      {/* Inline Parent Quote Row matching PHP PublicationComment.vue & mobile Comment.vue */}
+                      {hasParent && (
+                        <div className="my-1 text-cap-s text-lab-sc border-l-2 border-brand-900/60 pl-2">
+                          {parentComment ? (
+                            <button
+                              type="button"
+                              onClick={() => scrollToComment(parentComment.id)}
+                              className="text-left text-cap-s text-lab-sc hover:underline cursor-pointer truncate max-w-full block"
+                            >
+                              Replying to {getAuthorDisplayName(parentComment.author)}
+                            </button>
+                          ) : (
+                            <span className="italic">Comment was deleted</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Comment Content */}
+                      <p className="text-[14px] sm:text-[15px] font-normal text-lab-pr break-words whitespace-pre-wrap leading-snug mt-0.5">
+                        {renderCommentRichText(c.content)}
+                      </p>
+
+                      {translated && (
+                        <div className="my-1.5 border-l-2 border-brand-900/60 pl-2 py-0.5">
+                          <p className="text-[14px] font-normal text-lab-pr break-words whitespace-pre-wrap leading-snug">
+                            {translated}
+                          </p>
+                          <span className="text-cap-s text-lab-sc">Translated by AI</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Top-right ··· menu matching PublicationComment.vue */}
-                    <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="relative shrink-0 self-center opacity-60 hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         onClick={() => {
                           setOpenReactionBarId(null);
                           setOpenMenuId(isMenuOpen ? null : c.id);
                         }}
-                        className="size-6 rounded-full inline-flex items-center justify-center text-lab-tr hover:text-lab-pr2 hover:bg-fill-qt transition-colors cursor-pointer"
+                        className="size-6 rounded-full inline-flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-qt transition-colors cursor-pointer"
                         aria-label="Comment options"
                       >
                         <MoreHorizontal className="size-4" />
@@ -684,7 +714,7 @@ export function PublicationCommentsSection({
                           <button
                             type="button"
                             onClick={() => handleSelectReply(c)}
-                            className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr2 hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                            className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
                           >
                             <CornerUpLeft className="size-4 text-lab-sc shrink-0" />
                             <span className="truncate">Reply to {authorName}</span>
@@ -693,7 +723,7 @@ export function PublicationCommentsSection({
                           <button
                             type="button"
                             onClick={() => void handleTranslateComment(c)}
-                            className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr2 hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                            className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
                           >
                             <Languages className="size-4 text-lab-sc shrink-0" />
                             <span>{translated ? 'Hide translation' : 'Translate'}</span>
@@ -702,7 +732,7 @@ export function PublicationCommentsSection({
                           <button
                             type="button"
                             onClick={() => void handleCopyText(c)}
-                            className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr2 hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
+                            className="w-full px-3.5 py-2 text-left text-par-s text-lab-pr hover:bg-fill-qt flex items-center gap-2.5 cursor-pointer"
                           >
                             <Copy className="size-4 text-lab-sc shrink-0" />
                             <span>Copy text</span>
@@ -726,50 +756,9 @@ export function PublicationCommentsSection({
                     </div>
                   </div>
 
-                  {/* Inline Parent Quote Row matching PHP PublicationComment.vue & mobile Comment.vue */}
-                  {hasParent && (
-                    <div className="mb-1.5 flex items-center leading-none overflow-hidden">
-                      {parentComment ? (
-                        <button
-                          type="button"
-                          onClick={() => scrollToComment(parentComment.id)}
-                          className="inline-flex items-center gap-1.5 text-left max-w-full hover:opacity-80 cursor-pointer overflow-hidden"
-                        >
-                          <span className="text-brand-900 font-semibold text-par-s inline-flex items-center gap-1 shrink-0">
-                            <CornerUpLeft className="size-3.5" />
-                            <span>{getAuthorDisplayName(parentComment.author)}</span>
-                          </span>
-                          <span className="text-par-n text-lab-pr3 line-clamp-1 break-all">
-                            {parentComment.content}
-                          </span>
-                        </button>
-                      ) : (
-                        <span className="text-par-n text-lab-sc italic">
-                          Comment was deleted
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Comment Content */}
-                  <div className="mb-1.5 pr-2">
-                    <p className="text-par-n text-lab-pr2 break-words whitespace-pre-wrap leading-snug">
-                      {renderCommentRichText(c.content)}
-                    </p>
-
-                    {translated && (
-                      <div className="my-2 border-l-2 border-brand-900/60 pl-2.5 py-0.5">
-                        <p className="text-par-n text-lab-pr2 break-words whitespace-pre-wrap leading-snug mb-0.5">
-                          {translated}
-                        </p>
-                        <span className="text-cap-s text-lab-sc">Translated by AI</span>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Comment Reactions Viewer matching ReactionsViewer.vue */}
                   {Array.isArray(c.reactionSummary) && c.reactionSummary.length > 0 && (
-                    <div className="my-1.5 flex flex-wrap gap-1.5">
+                    <div className="my-1 flex flex-wrap gap-1 px-1">
                       {c.reactionSummary
                         .filter((r) => r.count > 0)
                         .map((r) => {
@@ -782,7 +771,7 @@ export function PublicationCommentsSection({
                                 void handleToggleCommentReaction(c, r.unifiedId, r.nativeSymbol)
                               }
                               className={cn(
-                                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-cap-l border transition-colors cursor-pointer',
+                                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border transition-colors cursor-pointer',
                                 isMine
                                   ? 'bg-brand-900/15 border-brand-900/40 text-brand-900 font-semibold'
                                   : 'bg-fill-qt/70 border-bord-pr text-lab-pr2 hover:bg-fill-qt'
@@ -796,8 +785,10 @@ export function PublicationCommentsSection({
                     </div>
                   )}
 
-                  {/* Bottom Action Bar: Like · Reply · Show translation */}
-                  <div className="flex items-center leading-none mt-2 gap-3.5 relative">
+                  {/* Bottom Action Bar: Time · Like · Reply */}
+                  <div className="flex items-center leading-none mt-1.5 px-1.5 gap-3.5 relative text-[12px] text-lab-sc">
+                    <span className="font-normal">{formatRelativeTime(c.createdAt)}</span>
+
                     <div className="relative" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
@@ -817,10 +808,10 @@ export function PublicationCommentsSection({
                           }
                         }}
                         className={cn(
-                          'text-cap-l cursor-pointer transition-colors',
+                          'cursor-pointer transition-colors font-semibold hover:underline',
                           viewerReactedAny
-                            ? 'text-brand-900 font-semibold'
-                            : 'text-lab-sc font-normal hover:text-brand-900'
+                            ? 'text-brand-900'
+                            : 'text-lab-sc hover:text-lab-pr'
                         )}
                       >
                         Like
@@ -852,7 +843,7 @@ export function PublicationCommentsSection({
                     <button
                       type="button"
                       onClick={() => handleSelectReply(c)}
-                      className="text-cap-l text-lab-sc font-normal hover:text-brand-900 cursor-pointer transition-colors"
+                      className="cursor-pointer font-semibold hover:underline text-lab-sc hover:text-lab-pr"
                     >
                       Reply
                     </button>
