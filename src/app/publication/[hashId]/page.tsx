@@ -1,33 +1,59 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CornerDownRight, Languages, Send, Trash2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PostCard, SerializedPost } from '@/components/feed/PostCard';
-import {
-  PublicationCommentItem,
-  PublicationCommentsSection,
-} from '@/components/feed/PublicationCommentsSection';
+import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { FeedAdCard } from '@/components/ads/FeedAdCard';
 import { FeedSkeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api-client';
+import { formatRelativeTime } from '@/lib/i18n';
 import {
   getFirebaseClientFirestore,
   isFirebaseClientConfigured,
   markFirestoreDisabled,
 } from '@/lib/firebase/client';
 import { useApp } from '@/components/providers/AppContext';
+import { useToast } from '@/components/providers/ToastProvider';
+
+interface CommentNode {
+  id: string;
+  _id?: string;
+  parentId?: string | null;
+  hasParent?: boolean;
+  content: string;
+  createdAt: string;
+  author: {
+    _id?: string;
+    id?: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    avatar: string;
+    verified?: boolean;
+  };
+  replies?: CommentNode[];
+}
 
 export default function PublicationDetailPage() {
   const params = useParams<{ hashId: string }>();
   const router = useRouter();
-  const { socket } = useApp();
+  const { user, locale, socket } = useApp();
+  const { error, success } = useToast();
 
   const [post, setPost] = useState<SerializedPost | null>(null);
-  const [comments, setComments] = useState<PublicationCommentItem[]>([]);
+  const [comments, setComments] = useState<CommentNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [commentText, setCommentText] = useState('');
+  const [replyTo, setReplyTo] = useState<CommentNode | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [commentTranslations, setCommentTranslations] = useState<Record<string, string | null>>({});
+  const [translatingCommentId, setTranslatingCommentId] = useState<string | null>(null);
 
   const loadData = useCallback(
     async (silent = false) => {
@@ -40,7 +66,7 @@ export default function PublicationDetailPage() {
       try {
         const [postRes, commentRes] = await Promise.allSettled([
           apiFetch<SerializedPost>(`/posts/${params.hashId}`),
-          apiFetch<PublicationCommentItem[]>(`/posts/${params.hashId}/comments`),
+          apiFetch<CommentNode[]>(`/posts/${params.hashId}/comments`),
         ]);
         if (postRes.status === 'fulfilled' && postRes.value) {
           const nextPost = postRes.value;
@@ -56,13 +82,13 @@ export default function PublicationDetailPage() {
               quotePostId:
                 nextPost.quotePostId && typeof nextPost.quotePostId === 'object'
                   ? {
-                    ...nextPost.quotePostId,
-                    media:
-                      Array.isArray(nextPost.quotePostId.media) &&
+                      ...nextPost.quotePostId,
+                      media:
+                        Array.isArray(nextPost.quotePostId.media) &&
                         nextPost.quotePostId.media.length > 0
-                        ? nextPost.quotePostId.media
-                        : prev.quotePostId?.media,
-                  }
+                          ? nextPost.quotePostId.media
+                          : prev.quotePostId?.media,
+                    }
                   : prev.quotePostId || nextPost.quotePostId,
             };
           });
@@ -146,6 +172,100 @@ export default function PublicationDetailPage() {
     };
   }, [livePostId, socket, loadData]);
 
+  async function handleCommentSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    setSubmitting(true);
+    try {
+      await apiFetch(`/posts/${params.hashId}/comments`, {
+        method: 'POST',
+        json: {
+          content: commentText.trim(),
+          ...(replyTo ? { parentId: replyTo.id } : {}),
+        },
+      });
+      setCommentText('');
+      setReplyTo(null);
+      success('Comment added');
+      setPost((prev) => (prev ? { ...prev, commentsCount: (prev.commentsCount || 0) + 1 } : prev));
+      void loadData(true);
+    } catch (err) {
+      error('Could not add comment', err instanceof Error ? err.message : undefined);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    try {
+      await apiFetch(`/posts/${params.hashId}/comments?commentId=${commentId}`, {
+        method: 'DELETE',
+      });
+      success('Comment removed');
+      setPost((prev) =>
+        prev ? { ...prev, commentsCount: Math.max(0, (prev.commentsCount || 1) - 1) } : prev
+      );
+      void loadData(true);
+    } catch (err) {
+      error('Delete failed', err instanceof Error ? err.message : undefined);
+    }
+  }
+
+  async function handleTranslateComment(id: string, text: string) {
+    if (commentTranslations[id]) {
+      setCommentTranslations((prev) => ({ ...prev, [id]: null }));
+      return;
+    }
+    setTranslatingCommentId(id);
+    try {
+      const res = await apiFetch<{ translatedText: string }>('/translate', {
+        method: 'POST',
+        json: { text, targetLang: locale || 'en' },
+      });
+      setCommentTranslations((prev) => ({ ...prev, [id]: res.translatedText }));
+    } catch (err) {
+      error('Translation unavailable', err instanceof Error ? err.message : undefined);
+    } finally {
+      setTranslatingCommentId(null);
+    }
+  }
+
+  const rootComments = useMemo(() => {
+    const replyMap = new Map<string, CommentNode[]>();
+
+    for (const c of comments) {
+      const pId = c.parentId ? String(c.parentId) : null;
+      if (pId) {
+        const arr = replyMap.get(pId) || [];
+        arr.push(c);
+        replyMap.set(pId, arr);
+      }
+    }
+
+    const roots: CommentNode[] = [];
+    for (const c of comments) {
+      const pId = c.parentId ? String(c.parentId) : null;
+      if (!pId && !c.hasParent) {
+        const existingReplies = Array.isArray(c.replies) ? c.replies : [];
+        const extraReplies = replyMap.get(c.id) || replyMap.get(String(c._id)) || [];
+        const mergedRepliesMap = new Map<string, CommentNode>();
+        for (const r of [...existingReplies, ...extraReplies]) {
+          mergedRepliesMap.set(r.id || String(r._id), r);
+        }
+        roots.push({
+          ...c,
+          replies: Array.from(mergedRepliesMap.values()),
+        });
+      }
+    }
+    return roots;
+  }, [comments]);
+
+  const isPostOwner = Boolean(
+    user && post && (String(post.author?._id) === user.id || String(post.author?.id) === user.id)
+  );
+  const isAdmin = Boolean(user && (user.role === 'admin' || user.role === 'root'));
+
   return (
     <AppShell hideMobileHeader>
       <div className="sticky top-0 z-20 border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3 pt-safe px-safe flex items-center gap-2">
@@ -168,16 +288,193 @@ export default function PublicationDetailPage() {
         <>
           <PostCard post={post} isDetailView />
 
-          <PublicationCommentsSection
-            postId={post.id}
-            postHashId={post.hashId}
-            postOwnerId={String(post.author?._id || post.author?.id || '')}
-            initialComments={comments}
-            commentsCount={post.commentsCount || comments.length}
-            onCommentsCountChange={(nextCount) => {
-              setPost((prev) => (prev ? { ...prev, commentsCount: nextCount } : prev));
-            }}
-          />
+          {/* Comment Composer */}
+          {user && (
+            <form onSubmit={handleCommentSubmit} className="border-b border-bord-pr p-4 space-y-2">
+              {replyTo && (
+                <div className="flex items-center justify-between rounded-xl bg-fill-pr px-3 py-1.5 text-cap-l text-lab-sc">
+                  <span>Replying to @{replyTo.author?.username}</span>
+                  <button
+                    type="button"
+                    onClick={() => setReplyTo(null)}
+                    className="text-brand-900 font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2.5">
+                <Avatar src={user.avatar} alt={user.username} size="sm" />
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Write a comment..."
+                  className="flex-1 h-10 rounded-full bg-input-pr border border-bord-card px-4 text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none focus:border-bord-pr"
+                />
+                <Button type="submit" variant="primary" size="sm" loading={submitting}>
+                  <Send className="h-3.5 w-3.5" /> Reply
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Comment Tree */}
+          <div className="divide-y divide-bord-pr">
+            {rootComments.length === 0 ? (
+              <p className="p-6 text-center text-par-n text-lab-sc">
+                No comments yet. Start the conversation!
+              </p>
+            ) : (
+              rootComments.map((c) => {
+                const canDeleteC = Boolean(
+                  user &&
+                    (String(c.author?._id) === user.id ||
+                      String(c.author?.id) === user.id ||
+                      isPostOwner ||
+                      isAdmin)
+                );
+                return (
+                  <div key={c.id} className="p-4 space-y-3">
+                    <div className="flex gap-3">
+                      <Avatar
+                        src={c.author?.avatar}
+                        alt={c.author?.username}
+                        size="sm"
+                        verified={c.author?.verified}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-cap-l">
+                            <Link
+                              href={`/@${c.author?.username}`}
+                              className="font-bold text-lab-pr hover:underline"
+                            >
+                              {c.author?.firstName} {c.author?.lastName}
+                            </Link>
+                            <span className="text-lab-tr">
+                              · {formatRelativeTime(c.createdAt, locale)}
+                            </span>
+                          </div>
+                          {canDeleteC && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(c.id)}
+                              className="text-lab-tr hover:text-red-900 p-1 cursor-pointer"
+                              aria-label="Delete comment"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-par-n text-lab-pr mt-1 whitespace-pre-wrap">
+                          {commentTranslations[c.id] || c.content}
+                        </p>
+                        {commentTranslations[c.id] && (
+                          <p className="text-[11px] text-lab-tr mt-0.5">
+                            Translated to {(locale || 'en').toUpperCase()}
+                          </p>
+                        )}
+                        {user && (
+                          <div className="mt-1.5 flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyTo(c);
+                                const input = document.querySelector<HTMLInputElement>(
+                                  'input[placeholder="Write a comment..."]'
+                                );
+                                input?.focus();
+                              }}
+                              className="inline-flex items-center gap-1 text-cap-s text-lab-sc hover:text-brand-900 font-semibold cursor-pointer"
+                            >
+                              <CornerDownRight className="h-3 w-3" /> Reply
+                            </button>
+                            <button
+                              type="button"
+                              disabled={translatingCommentId === c.id}
+                              onClick={() => void handleTranslateComment(c.id, c.content)}
+                              className="inline-flex items-center gap-1 text-cap-s text-lab-sc hover:text-brand-900 font-semibold cursor-pointer"
+                            >
+                              <Languages className="h-3 w-3" />
+                              {translatingCommentId === c.id
+                                ? 'Translating...'
+                                : commentTranslations[c.id]
+                                  ? 'Show original'
+                                  : 'Translate'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Nested replies */}
+                    {c.replies && c.replies.length > 0 && (
+                      <div className="ml-9 pl-4 border-l-2 border-bord-pr space-y-3">
+                        {c.replies.map((r) => {
+                          const canDeleteR = Boolean(
+                            user &&
+                              (String(r.author?._id) === user.id ||
+                                String(r.author?.id) === user.id ||
+                                isPostOwner ||
+                                isAdmin)
+                          );
+                          return (
+                            <div key={r.id} className="flex gap-2.5">
+                              <Avatar src={r.author?.avatar} alt={r.author?.username} size="xs" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <Link
+                                    href={`/@${r.author?.username}`}
+                                    className="text-cap-l font-bold text-lab-pr hover:underline"
+                                  >
+                                    {r.author?.firstName} {r.author?.lastName}
+                                  </Link>
+                                  {canDeleteR && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteComment(r.id)}
+                                      className="text-lab-tr hover:text-red-900 cursor-pointer p-1"
+                                      aria-label="Delete reply"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                                <p className="text-par-n text-lab-pr mt-0.5">
+                                  {commentTranslations[r.id] || r.content}
+                                </p>
+                                {commentTranslations[r.id] && (
+                                  <p className="text-[11px] text-lab-tr mt-0.5">
+                                    Translated to {(locale || 'en').toUpperCase()}
+                                  </p>
+                                )}
+                                {user && (
+                                  <button
+                                    type="button"
+                                    disabled={translatingCommentId === r.id}
+                                    onClick={() => void handleTranslateComment(r.id, r.content)}
+                                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-lab-sc hover:text-brand-900 font-semibold cursor-pointer"
+                                  >
+                                    <Languages className="h-3 w-3" />
+                                    {translatingCommentId === r.id
+                                      ? 'Translating...'
+                                      : commentTranslations[r.id]
+                                        ? 'Show original'
+                                        : 'Translate'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
 
           <FeedAdCard slotIndex={601} />
         </>

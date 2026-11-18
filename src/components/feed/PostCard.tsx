@@ -32,7 +32,6 @@ import { Modal } from '@/components/ui/modal';
 import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { VideoWatermarkOverlay } from '@/components/ui/video-watermark';
 import { ReportModal } from '@/components/modals/ReportModal';
-import { PublicationCommentsSection } from '@/components/feed/PublicationCommentsSection';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 import { apiFetch } from '@/lib/api-client';
@@ -220,7 +219,6 @@ export function PostCard({
   const [internalQuoteOpen, setInternalQuoteOpen] = useState(false);
   const [quoteDraft, setQuoteDraft] = useState('');
   const [submittingQuote, setSubmittingQuote] = useState(false);
-  const [mobileCommentsOpen, setMobileCommentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -1415,25 +1413,30 @@ export function PostCard({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (isDetailView) {
-                const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
-                textarea?.focus();
-                return;
-              }
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                setMobileCommentsOpen(true);
-              } else {
-                router.push(`/publication/${post.hashId}`);
-              }
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-par-s font-semibold hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
-          >
-            <MessageCircle className="h-[18px] w-[18px]" />
-            <span>{commentsCount}</span>
-          </button>
+          {isDetailView ? (
+            <button
+              type="button"
+              onClick={() => {
+                const input = document.querySelector<HTMLInputElement>(
+                  'input[placeholder="Write a comment..."]'
+                );
+                input?.focus();
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-cap-l hover:bg-fill-tr hover:text-lab-pr transition-colors cursor-pointer"
+              aria-label="Comment"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>{commentsCount}</span>
+            </button>
+          ) : (
+            <Link
+              href={`/publication/${post.hashId}`}
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-cap-l hover:bg-fill-tr hover:text-lab-pr transition-colors"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>{commentsCount}</span>
+            </Link>
+          )}
 
           <div className="relative">
             <button
@@ -1499,52 +1502,9 @@ export function PostCard({
             </button>
           </div>
         </div>
-
-        {/* Comment Bar matching PHP desktop/components/timeline/feed/TimelinePublication.vue */}
-        {!isDetailView && (
-          <div className="pt-1.5 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  setMobileCommentsOpen(true);
-                } else {
-                  router.push(`/publication/${post.hashId}`);
-                }
-              }}
-              className="inline-flex items-center gap-2 text-par-s text-lab-sc hover:text-lab-pr font-medium cursor-pointer transition-colors"
-            >
-              <span>
-                {commentsCount > 0
-                  ? `Show all comments (${commentsCount})`
-                  : 'Leave a comment'}
-              </span>
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="h-2 bg-fill-fv/50 border-t border-bord-tr/60" />
-
-      {/* Mobile Comments ActionSheet matching PHP mobile/components/timeline/feed/parts/comments/PublicationComments.vue */}
-      <Modal
-        open={mobileCommentsOpen}
-        onClose={() => setMobileCommentsOpen(false)}
-        title={`Comments (${commentsCount})`}
-        maxWidthClass="max-w-lg"
-        bodyClassName="p-0"
-      >
-        {mobileCommentsOpen && (
-          <PublicationCommentsSection
-            postId={post.id}
-            postHashId={post.hashId}
-            postOwnerId={String(post.author?._id || post.author?.id || '')}
-            commentsCount={commentsCount}
-            onCommentsCountChange={(nextCount) => setCommentsCount(nextCount)}
-            sheetMode
-          />
-        )}
-      </Modal>
 
       {/* Fallback Quote Post Modal when parent page does not supply onQuote */}
       <Modal
