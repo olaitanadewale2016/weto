@@ -688,6 +688,9 @@ export async function PATCH(
     } else if (body.action === 'archive' || body.action === 'unarchive') {
       chat.participants[meIndex].isArchived = body.action === 'archive';
       await chat.save();
+      void emitToUser(uid, 'chat:inbox:update', { chatId: String(chat._id) });
+      publishUserRealtimeEvent(uid, 'chat:inbox:update', { chatId: String(chat._id) });
+      return apiSuccess({ isArchived: chat.participants[meIndex].isArchived });
     } else if (body.action === 'hide') {
       chat.participants[meIndex].isHidden = true;
       await chat.save();

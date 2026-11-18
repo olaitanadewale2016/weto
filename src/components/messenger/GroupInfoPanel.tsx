@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
+  Archive,
+  ArchiveRestore,
   BadgeCheck,
   Check,
   Coins,
@@ -131,6 +133,8 @@ interface GroupInfoPanelProps {
   onInviteQueryChange: (val: string) => void;
   onInviteUser: (userId: string) => void;
   onStartCall: (mode: 'audio' | 'video') => void;
+  isArchived?: boolean;
+  onToggleArchive?: () => void;
   onLeaveGroup: () => void;
   onDeleteGroup: () => void;
   onOpenLightbox: (url: string) => void;
@@ -150,6 +154,8 @@ export function GroupInfoPanel({
   onInviteQueryChange,
   onInviteUser,
   onStartCall,
+  isArchived = false,
+  onToggleArchive,
   onLeaveGroup,
   onDeleteGroup,
   onOpenLightbox,
@@ -811,8 +817,26 @@ export function GroupInfoPanel({
               </div>
             )}
 
-            {/* Leave / Delete Group */}
+            {/* Archive / Leave / Delete Group */}
             <div className="pt-3 border-t border-bord-pr space-y-2">
+              {onToggleArchive && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={onToggleArchive}
+                >
+                  {isArchived ? (
+                    <>
+                      <ArchiveRestore className="h-4 w-4" /> Unarchive Group
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="h-4 w-4" /> Archive Group
+                    </>
+                  )}
+                </Button>
+              )}
               {!isOwner && !g?.unleavable && (
                 <Button type="button" variant="danger" className="w-full" onClick={onLeaveGroup}>
                   <LogOut className="h-4 w-4" /> Leave Group

@@ -175,6 +175,7 @@ export async function GET(req: NextRequest) {
           lastMessagePreview: chat.lastMessagePreview,
           lastActivity: chat.lastActivity,
           unreadCount,
+          isArchived: Boolean(me?.isArchived),
         };
       })
     );

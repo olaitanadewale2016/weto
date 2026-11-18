@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
 import {
   Archive,
+  ArchiveRestore,
   ArrowLeft,
   BadgeCheck,
   BarChart2,
@@ -1810,6 +1811,27 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     }
   }
 
+  async function handleUnarchiveChat(chatId: string, e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    try {
+      await apiFetch(`/chats/${chatId}`, {
+        method: 'PATCH',
+        json: { action: 'unarchive' },
+      });
+      setChats((prev) => prev.filter((c) => c.id !== chatId));
+      if (activeChat?.id === chatId) {
+        setActiveChat((prev) => (prev ? { ...prev, isArchived: false } : prev));
+      }
+      success('Chat unarchived and moved to Inbox');
+      void loadInbox();
+    } catch (err) {
+      error('Could not unarchive chat', err instanceof Error ? err.message : undefined);
+    }
+  }
+
   async function handleChatAction(action: 'archive' | 'unarchive' | 'clear' | 'delete' | 'leave_group') {
     if (!activeChat) return;
     setThreadMenuOpen(false);
@@ -1834,8 +1856,16 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         success('Left group');
         router.push('/messenger');
         void loadInbox();
+      } else if (action === 'unarchive') {
+        setActiveChat((prev) => (prev ? { ...prev, isArchived: false } : prev));
+        if (tab === 'archive') {
+          setChats((prev) => prev.filter((c) => c.id !== activeChat.id));
+        }
+        success('Chat unarchived and moved to Inbox');
+        void loadInbox();
       } else {
-        success(action === 'unarchive' ? 'Moved to Inbox' : 'Conversation archived');
+        setActiveChat((prev) => (prev ? { ...prev, isArchived: true } : prev));
+        success('Conversation archived');
         router.push('/messenger');
         void loadInbox();
       }
@@ -2046,7 +2076,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   );
 
   const myParticipantRole = activeChat?.participants?.find((p) => String(p.user._id) === user.id)?.role;
-  const isArchivedChat = Boolean(activeChat?.isArchived || tab === 'archive');
+  const isArchivedChat =
+    activeChat?.isArchived !== undefined ? Boolean(activeChat.isArchived) : Boolean(tab === 'archive');
   const visibleChats = tab === 'groups' ? chats.filter((c) => c.type === 'group') : chats;
   const typingNames = typingUsers.map((t) => t.firstName || `@${t.username}`).join(', ');
   const isGroupMuted = Boolean(activeChat?.type === 'group' && activeChat.isMuted);
@@ -2816,7 +2847,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               {tab !== 'invites' && !loadingList && visibleChats.length === 0 && (
                 <div className="p-6 text-center space-y-3">
                   <p className="text-lab-sc text-par-n">
-                    {tab === 'groups' ? 'No group chats yet.' : 'No conversations yet.'}
+                    {tab === 'groups'
+                      ? 'No group chats yet.'
+                      : tab === 'archive'
+                        ? 'No archived conversations.'
+                        : 'No conversations yet.'}
                   </p>
                   {tab === 'groups' && (
                     <Button size="sm" variant="outline" onClick={() => setTab('discover')}>
@@ -2841,42 +2876,59 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   );
 
                   return (
-                    <Link
+                    <div
                       key={c.id}
-                      href={`/messenger/c/${c.id}`}
                       className={cn(
-                        'flex items-center gap-3.5 px-4 py-3.5 hover:bg-fill-pr transition-colors',
+                        'flex items-center hover:bg-fill-pr transition-colors group/row',
                         activeChatId === c.id && 'bg-fill-sc'
                       )}
                     >
-                      <Avatar src={avatarSrc} alt={title} online={isOnline} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <p className="text-par-m font-semibold text-lab-pr truncate">{title}</p>
-                            {c.type === 'group' && c.group?.verified && (
-                              <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />
-                            )}
-                            {c.type === 'group' && c.group?.isPinned && (
-                              <Pin className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+                      <Link
+                        href={`/messenger/c/${c.id}`}
+                        className="flex-1 min-w-0 flex items-center gap-3.5 px-4 py-3.5"
+                      >
+                        <Avatar src={avatarSrc} alt={title} online={isOnline} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="text-par-m font-semibold text-lab-pr truncate">{title}</p>
+                              {c.type === 'group' && c.group?.verified && (
+                                <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />
+                              )}
+                              {c.type === 'group' && c.group?.isPinned && (
+                                <Pin className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+                              )}
+                            </div>
+                            <span className="text-cap-l text-lab-tr shrink-0">
+                              {formatRelativeTime(c.lastActivity, locale)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-0.5">
+                            <p className="text-par-s text-lab-sc truncate">
+                              {c.lastMessagePreview || 'No messages yet'}
+                            </p>
+                            {c.unreadCount > 0 && (
+                              <span className="h-5 min-w-[22px] px-1.5 rounded-full bg-brand-900 text-white text-cap-s font-bold flex items-center justify-center">
+                                {c.unreadCount}
+                              </span>
                             )}
                           </div>
-                          <span className="text-cap-l text-lab-tr shrink-0">
-                            {formatRelativeTime(c.lastActivity, locale)}
-                          </span>
                         </div>
-                        <div className="flex items-center justify-between gap-2 mt-0.5">
-                          <p className="text-par-s text-lab-sc truncate">
-                            {c.lastMessagePreview || 'No messages yet'}
-                          </p>
-                          {c.unreadCount > 0 && (
-                            <span className="h-5 min-w-[22px] px-1.5 rounded-full bg-brand-900 text-white text-cap-s font-bold flex items-center justify-center">
-                              {c.unreadCount}
-                            </span>
-                          )}
+                      </Link>
+                      {tab === 'archive' && (
+                        <div className="pr-3 shrink-0 flex items-center">
+                          <button
+                            type="button"
+                            onClick={(e) => void handleUnarchiveChat(c.id, e)}
+                            className="p-2 rounded-full text-lab-sc hover:text-brand-900 hover:bg-fill-sc transition-colors cursor-pointer"
+                            title="Unarchive and move to Inbox"
+                            aria-label="Unarchive and move to Inbox"
+                          >
+                            <ArchiveRestore className="size-4" />
+                          </button>
                         </div>
-                      </div>
-                    </Link>
+                      )}
+                    </div>
                   );
                 })}
             </>
@@ -3195,7 +3247,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               onClick={() => handleChatAction(isArchivedChat ? 'unarchive' : 'archive')}
                               className="w-full px-3.5 py-2 text-left text-par-n text-lab-pr hover:bg-fill-pr flex items-center gap-2.5 cursor-pointer"
                             >
-                              <Archive className="h-4 w-4 text-lab-sc" />
+                              {isArchivedChat ? (
+                                <ArchiveRestore className="h-4 w-4 text-lab-sc" />
+                              ) : (
+                                <Archive className="h-4 w-4 text-lab-sc" />
+                              )}
                               {isArchivedChat ? 'Unarchive chat' : 'Archive chat'}
                             </button>
                             <button
@@ -3339,6 +3395,24 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               </div>
             ) : (
               <>
+                {/* Archived Chat Notice Banner */}
+                {isArchivedChat && (
+                  <div className="bg-fill-qt/80 dark:bg-fill-sc/50 border-b border-bord-pr px-4 py-2.5 flex items-center justify-between gap-3 text-par-s text-lab-sc shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Archive className="size-4 shrink-0 text-lab-tr" />
+                      <span className="truncate">This conversation is archived.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleChatAction('unarchive')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-900 text-white font-semibold text-cap-l hover:bg-brand-900/90 transition-colors cursor-pointer shrink-0"
+                    >
+                      <ArchiveRestore className="size-3.5" />
+                      <span>Unarchive</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Active incoming/ongoing call join strip */}
                 {activeCall && !callMode && (
                   <div className="px-4 py-2 border-b border-bord-pr bg-green-600/10 shrink-0">
@@ -4292,6 +4366,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   onInviteQueryChange={setInviteUserQuery}
                   onInviteUser={(uid) => void handleInviteToGroup(uid)}
                   onStartCall={(mode) => handleStartCall(mode)}
+                  isArchived={isArchivedChat}
+                  onToggleArchive={() => void handleChatAction(isArchivedChat ? 'unarchive' : 'archive')}
                   onLeaveGroup={() => void handleChatAction('leave_group')}
                   onDeleteGroup={() => void handleChatAction('delete')}
                   onOpenLightbox={(url) => setLightboxImageUrl(url)}
@@ -4544,6 +4620,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   setGroupInfoOpen(false);
                   handleStartCall(mode);
                 }}
+                isArchived={isArchivedChat}
+                onToggleArchive={() => void handleChatAction(isArchivedChat ? 'unarchive' : 'archive')}
                 onLeaveGroup={() => void handleChatAction('leave_group')}
                 onDeleteGroup={() => void handleChatAction('delete')}
                 onOpenLightbox={(url) => setLightboxImageUrl(url)}

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
+  ArchiveRestore,
   BadgeCheck,
   Bell,
   BellOff,
@@ -300,7 +301,11 @@ export function DirectProfilePanel({
                     onClick={() => onChatAction(isArchived ? 'unarchive' : 'archive')}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-s text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
                   >
-                    <Archive className="size-4 text-lab-sc" />
+                    {isArchived ? (
+                      <ArchiveRestore className="size-4 text-lab-sc" />
+                    ) : (
+                      <Archive className="size-4 text-lab-sc" />
+                    )}
                     <span>{isArchived ? 'Unarchive chat' : 'Archive chat'}</span>
                   </button>
 
