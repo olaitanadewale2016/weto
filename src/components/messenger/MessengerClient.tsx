@@ -2415,11 +2415,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           '--left-sidebar-w': `${leftSidebarWidth}px`,
         } as React.CSSProperties}
         className={cn(
-          'w-full md:w-[var(--left-sidebar-w,340px)] shrink-0 h-full min-h-0 overflow-hidden flex flex-col bg-bg-pr min-w-0',
+          'w-full md:w-[var(--left-sidebar-w,360px)] shrink-0 h-full min-h-0 overflow-hidden flex flex-col bg-bg-pr min-w-0',
           activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
-        <div className="px-4 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] pb-3 border-b border-bord-pr space-y-3 shrink-0 px-safe">
+        <div className="px-4 sm:px-5 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] pb-3.5 border-b border-bord-pr space-y-3 shrink-0 px-safe">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Link
@@ -2516,7 +2516,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
         <div className="flex-1 overflow-y-auto divide-y divide-bord-pr pb-safe">
           {tab === 'discover' ? (
-            <div className="p-3.5 space-y-3">
+            <div className="p-4 sm:p-5 space-y-3.5">
               <div
                 onWheel={(e) => {
                   if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
@@ -2567,7 +2567,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     return (
                       <div
                         key={item.id}
-                        className="rounded-2xl border border-bord-card bg-fill-qt/40 p-3.5 space-y-2.5"
+                        className="rounded-2xl border border-bord-card bg-fill-qt/40 p-4 space-y-2.5"
                       >
                         <div className="flex items-start gap-3">
                           <Avatar src={g?.avatar} alt={g?.name || 'Group'} size="md" />
@@ -2656,7 +2656,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
               {tab === 'invites' &&
                 invites.map((inv) => (
-                  <div key={inv._id} className="p-4 space-y-2.5">
+                  <div key={inv._id} className="p-4 sm:p-5 space-y-2.5">
                     <p className="text-par-m font-semibold text-lab-pr">
                       {inv.chatId?.group?.name || 'Group Chat'}
                     </p>
@@ -2706,7 +2706,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       key={c.id}
                       href={`/messenger/c/${c.id}`}
                       className={cn(
-                        'flex items-center gap-3.5 px-4 py-3.5 hover:bg-fill-pr transition-colors',
+                        'flex items-center gap-3.5 px-4 sm:px-5 py-3.5 hover:bg-fill-pr transition-colors',
                         activeChatId === c.id && 'bg-fill-sc'
                       )}
                     >
@@ -2820,8 +2820,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             <div className="border-b border-bord-pr bg-bg-pr shrink-0 pt-safe px-safe">
               <div
                 className={cn(
-                  'h-16 px-4 sm:px-6 flex items-center justify-between gap-2 transition-all',
-                  middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto w-full'
+                  'h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between gap-2 transition-all',
+                  middleFullScreen
+                    ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto w-full'
+                    : 'max-w-[840px] mx-auto w-full'
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -3261,11 +3263,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                 {/* Pinned Messages Carousel (Grupo Pro parity) */}
                 {currentPinned && pinnedMessages.length > 0 && (!callMode || showChatInCall) && (
-                  <div className="px-3 sm:px-4 py-2 border-b border-bord-card bg-fill-qt shrink-0">
+                  <div className="px-4 sm:px-6 md:px-8 py-2.5 border-b border-bord-card bg-fill-qt shrink-0">
                     <div
                       className={cn(
                         'w-full flex items-center justify-between gap-2',
-                        middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                        middleFullScreen
+                          ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                          : 'max-w-[840px] mx-auto'
                       )}
                     >
                       <button
@@ -3327,13 +3331,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 {/* Messages Timeline (Previous theme colors + Telegram layout & proper margins) */}
                 <div
                   className={cn(
-                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-3 px-1.5 sm:px-3 px-safe space-y-1 bg-fill-fv/35',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-4 px-4 sm:px-6 md:px-8 px-safe space-y-2 bg-fill-fv/35',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
                   <div
                     className={cn(
-                      'mx-auto w-full space-y-1 transition-all duration-150',
+                      'mx-auto w-full space-y-2 transition-all duration-150',
                       middleFullScreen
                         ? 'max-w-[1040px] lg:max-w-[1140px]'
                         : 'max-w-[840px]'
@@ -3479,9 +3483,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               messageInputRef.current?.focus();
                             }}
                             className={cn(
-                              'flex items-end gap-1.5 group relative w-full min-w-0 px-1 transition-all',
+                              'flex items-end gap-2 group relative w-full min-w-0 transition-all',
                               mine ? 'justify-end' : 'justify-start',
-                              isFirstInCluster ? 'mt-2.5 mb-0.5' : 'mt-0.5 mb-0.5'
+                              isFirstInCluster ? 'mt-3 mb-0.5' : 'mt-0.5 mb-0.5'
                             )}
                           >
                             {/* Telegram Group Avatar (at bottom of cluster, incoming only) */}
@@ -3619,11 +3623,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   <>
                     {/* Reply Preview Banner (Telegram style) */}
                     {replyTo && (
-                      <div className="border-t border-bord-pr bg-bg-pr px-4 py-2 shrink-0 shadow-xs">
+                      <div className="border-t border-bord-pr bg-bg-pr px-4 sm:px-6 md:px-8 py-2 shrink-0 shadow-xs">
                         <div
                           className={cn(
                             'w-full flex items-center justify-between gap-3',
-                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
                           )}
                         >
                           <div className="min-w-0 border-l-[3px] border-brand-900 dark:border-emerald-400 pl-2.5">
@@ -3646,11 +3650,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                     {/* Upload Progress Bar */}
                     {uploadingMedia && (
-                      <div className="border-t border-bord-pr bg-fill-qt px-4 py-1.5 shrink-0">
+                      <div className="border-t border-bord-pr bg-fill-qt px-4 sm:px-6 md:px-8 py-2 shrink-0">
                         <div
                           className={cn(
                             'w-full flex items-center gap-3',
-                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
                           )}
                         >
                           <div className="flex-1 h-1.5 rounded-full bg-fill-sc overflow-hidden">
@@ -3667,11 +3671,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     )}
 
                     {showGifPicker && !recording && (
-                      <div className="md:px-3 md:py-2 md:border-t md:border-bord-pr md:bg-bg-pr shrink-0">
+                      <div className="px-4 sm:px-6 md:px-8 py-2 border-t border-bord-pr bg-bg-pr shrink-0">
                         <div
                           className={cn(
                             'w-full',
-                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
                           )}
                         >
                           <GiphyPicker
@@ -3684,11 +3688,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                     {/* Composer (matches PHP ChatForm + AudioRecorder.vue) */}
                     {isGroupMuted || isReadOnlyRoom ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-fill-qt shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full px-4 sm:px-6 md:px-8 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-fill-qt shrink-0">
                         <div
                           className={cn(
                             'w-full flex items-center justify-center gap-2 text-cap-l text-lab-sc',
-                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
                           )}
                         >
                           <MessageSquareOff className="h-4 w-4 text-lab-sc shrink-0" />
@@ -3700,11 +3704,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         </div>
                       </div>
                     ) : recording ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 py-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full px-4 sm:px-6 md:px-8 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
                         <div
                           className={cn(
                             'w-full flex items-center justify-between gap-3',
-                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
                           )}
                         >
                           <div className="flex items-center gap-2.5">
@@ -3735,11 +3739,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         </div>
                       </div>
                     ) : (
-                      <div className="sticky bottom-0 z-20 w-full relative px-2.5 px-safe sm:px-4 py-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
+                      <div className="sticky bottom-0 z-20 w-full relative px-4 sm:px-6 md:px-8 px-safe py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
                         <div
                           className={cn(
                             'w-full relative',
-                            middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
+                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
                           )}
                         >
                           {mentionCandidates.length > 0 && (

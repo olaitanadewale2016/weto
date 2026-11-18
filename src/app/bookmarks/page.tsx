@@ -14,13 +14,44 @@ export default function BookmarksPage() {
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 pt-safe px-safe border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3 flex items-center gap-2">
-        <Link href="/" className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to home">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="min-w-0">
-          <h1 className="text-title-3 font-bold text-lab-pr truncate">Saved Bookmarks</h1>
-          <p className="text-cap-l text-lab-sc truncate">Publications you saved for later reading.</p>
+      {/* Exact Header matching Notifications, Marketplace & App UI */}
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Link
+              href="/"
+              className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+              aria-label="Back to home"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="text-title-3 font-bold text-lab-pr truncate">Saved &amp; Bookmarks</h1>
+              <p className="text-cap-l text-lab-sc truncate">Publications and products you saved for later.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Switcher: Posts vs Products vs Jobs */}
+        <div className="flex border-t border-bord-tr/60 px-2">
+          <Link
+            href="/bookmarks"
+            className="flex-1 py-2.5 text-center text-par-s font-semibold text-brand-900 border-b-2 border-brand-900"
+          >
+            Posts
+          </Link>
+          <Link
+            href="/saved/products"
+            className="flex-1 py-2.5 text-center text-par-s font-semibold text-lab-sc hover:text-lab-pr border-b-2 border-transparent transition-colors"
+          >
+            Products
+          </Link>
+          <Link
+            href="/saved/jobs"
+            className="flex-1 py-2.5 text-center text-par-s font-semibold text-lab-sc hover:text-lab-pr border-b-2 border-transparent transition-colors"
+          >
+            Jobs
+          </Link>
         </div>
       </div>
 
@@ -31,6 +62,7 @@ export default function BookmarksPage() {
           <EmptyState
             icon={Bookmark}
             title="Sign in to view your bookmarks"
+            description="Sign in to save and access your favorite publications anywhere."
             action={
               <Link href="/auth/login">
                 <Button variant="primary">Sign in</Button>

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { MessageSquareDashed, PencilLine, RefreshCw } from 'lucide-react';
+import { Bookmark, MessageSquareDashed, PencilLine, RefreshCw } from 'lucide-react';
 import { apiFetchWithMeta } from '@/lib/api-client';
 import {
   getFirebaseClientFirestore,
@@ -335,18 +335,22 @@ export function FeedList({
       ) : posts.length === 0 ? (
         <div className={mode === 'user' || mode === 'user_media' ? 'py-24 px-6' : 'p-6'}>
           <EmptyState
-            icon={MessageSquareDashed}
+            icon={mode === 'bookmarks' ? Bookmark : MessageSquareDashed}
             title={
               mode === 'user_media'
                 ? 'No media yet.'
                 : mode === 'user'
                   ? 'No posts yet.'
-                  : 'No publications yet'
+                  : mode === 'bookmarks'
+                    ? 'No bookmarks yet'
+                    : 'No publications yet'
             }
             description={
               mode === 'user_media'
                 ? 'Photos, videos, GIFs, audio, documents, and polls shared here will appear in this tab.'
-                : 'When people share posts matching this feed, they will show up here.'
+                : mode === 'bookmarks'
+                  ? 'Publications you bookmark using the bookmark button will appear here.'
+                  : 'When people share posts matching this feed, they will show up here.'
             }
           />
         </div>

@@ -57,16 +57,21 @@ export default function SavedProductsPage() {
     <AppShell hideMobileHeader>
       {/* PHP BookmarksHeader */}
       <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
-        <div className="px-4 py-3 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr cursor-pointer shrink-0"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-title-3 font-bold text-lab-pr truncate">Saved &amp; Bookmarks</h1>
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr cursor-pointer shrink-0"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-title-3 font-bold text-lab-pr truncate">Saved &amp; Bookmarks</h1>
+              <p className="text-cap-l text-lab-sc truncate">Posts, products, and jobs you saved for later.</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex border-t border-bord-tr/60 px-2">

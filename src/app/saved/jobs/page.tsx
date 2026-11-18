@@ -28,12 +28,45 @@ export default function SavedJobsPage() {
   }, []);
 
   return (
-    <AppShell fullWidth hideMobileHeader>
-      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
-        <Link href="/jobs" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to jobs">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="text-title-3 font-bold text-lab-pr truncate">Saved Jobs</h1>
+    <AppShell hideMobileHeader>
+      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Link
+              href="/"
+              className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+              aria-label="Back to home"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="text-title-3 font-bold text-lab-pr truncate">Saved &amp; Bookmarks</h1>
+              <p className="text-cap-l text-lab-sc truncate">Posts, products, and jobs you saved for later.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Switcher: Posts vs Products vs Jobs */}
+        <div className="flex border-t border-bord-tr/60 px-2">
+          <Link
+            href="/bookmarks"
+            className="flex-1 py-2.5 text-center text-par-s font-semibold text-lab-sc hover:text-lab-pr border-b-2 border-transparent transition-colors"
+          >
+            Posts
+          </Link>
+          <Link
+            href="/saved/products"
+            className="flex-1 py-2.5 text-center text-par-s font-semibold text-lab-sc hover:text-lab-pr border-b-2 border-transparent transition-colors"
+          >
+            Products
+          </Link>
+          <Link
+            href="/saved/jobs"
+            className="flex-1 py-2.5 text-center text-par-s font-semibold text-brand-900 border-b-2 border-brand-900"
+          >
+            Jobs
+          </Link>
+        </div>
       </div>
       <div className="p-4 sm:p-6 space-y-5">
 
