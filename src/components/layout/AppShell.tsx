@@ -54,6 +54,7 @@ export function AppShell({
   hideMobileChrome = false,
   hideDesktopSidebar = false,
   hideMobileHeader = false,
+  viewportLocked: propsViewportLocked,
 }: {
   children: React.ReactNode;
   hideRightRail?: boolean;
@@ -61,6 +62,7 @@ export function AppShell({
   hideMobileChrome?: boolean;
   hideDesktopSidebar?: boolean;
   hideMobileHeader?: boolean;
+  viewportLocked?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -267,7 +269,9 @@ export function AppShell({
                       ? dict.nav.settings
                       : appName;
 
-  const viewportLocked = Boolean(fullWidth);
+  const viewportLocked =
+    propsViewportLocked ??
+    (Boolean(fullWidth) && Boolean(hideDesktopSidebar) && Boolean(hideMobileChrome));
 
   // Strictly lock viewport to prevent document-level scrolling on desktop & mobile in locked mode
   useEffect(() => {
@@ -577,110 +581,110 @@ export function AppShell({
                   </nav>
                 </div>
 
-          {/* Exact ApplicationFooter & Fixed Bottom-Left User Profile Pill */}
-          <div className="shrink-0 mt-auto px-3 xl:px-5 pb-4 pt-2 border-t border-bord-tr/60 bg-bg-pr">
-            {user && (
-              <div className="mb-2.5">
-                <button
-                  type="button"
-                  onClick={() => setSwitcherOpen(true)}
-                  className="w-full flex items-center gap-2.5 p-1.5 -ml-1 rounded-full hover:bg-fill-qt transition-colors cursor-pointer group text-left"
-                  title={`Signed in as @${user.username} · Click to switch account`}
-                  aria-label="Account options"
-                >
-                  <Avatar src={user.avatar} alt={user.username} size="sm" className="shrink-0 ring-1 ring-bord-pr" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-par-s font-semibold text-lab-pr truncate leading-snug">
-                      {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username}
-                    </p>
-                    <p className="text-cap-s text-lab-sc truncate leading-tight">@{user.username}</p>
+                {/* Exact ApplicationFooter & Fixed Bottom-Left User Profile Pill */}
+                <div className="shrink-0 mt-auto px-3 xl:px-5 pb-4 pt-2 border-t border-bord-tr/60 bg-bg-pr">
+                  {user && (
+                    <div className="mb-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSwitcherOpen(true)}
+                        className="w-full flex items-center gap-2.5 p-1.5 -ml-1 rounded-full hover:bg-fill-qt transition-colors cursor-pointer group text-left"
+                        title={`Signed in as @${user.username} · Click to switch account`}
+                        aria-label="Account options"
+                      >
+                        <Avatar src={user.avatar} alt={user.username} size="sm" className="shrink-0 ring-1 ring-bord-pr" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-par-s font-semibold text-lab-pr truncate leading-snug">
+                            {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username}
+                          </p>
+                          <p className="text-cap-s text-lab-sc truncate leading-tight">@{user.username}</p>
+                        </div>
+                        <MoreHorizontal className="size-4 text-lab-tr group-hover:text-lab-pr shrink-0 mr-1" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap mb-2 leading-5">
+                    {features?.businessAccounts !== false && (
+                      <Link href="/business" className="hover:underline text-cap-s text-lab-sc mr-2">
+                        Business account
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      className="hover:underline text-cap-s text-lab-sc mr-2 cursor-pointer"
+                    >
+                      Theme
+                    </button>
+                    {features?.jobs !== false && (
+                      <Link href="/jobs" className="hover:underline text-cap-s text-lab-sc mr-2">
+                        Jobs
+                      </Link>
+                    )}
+                    <Link href="/document/help-center" className="hover:underline text-cap-s text-lab-sc mr-2">
+                      Help center
+                    </Link>
+                    <Link href="/api/v1/docs" target="_blank" className="hover:underline text-cap-s text-lab-sc mr-2">
+                      API
+                    </Link>
+                    <Link href="/document/privacy-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
+                      Privacy policy
+                    </Link>
+                    <Link href="/document/cookies-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
+                      Cookies policy
+                    </Link>
+                    <Link href="/document/terms-of-use" className="hover:underline text-cap-s text-lab-sc mr-2">
+                      Terms
+                    </Link>
+                    {user && (
+                      <Link href="/settings" className="hover:underline text-cap-s text-lab-sc mr-2">
+                        Language
+                      </Link>
+                    )}
                   </div>
-                  <MoreHorizontal className="size-4 text-lab-tr group-hover:text-lab-pr shrink-0 mr-1" />
-                </button>
-              </div>
+                  <div className="leading-5">
+                    <span className="text-cap-s text-lab-sc">
+                      {appName} &copy; {new Date().getFullYear()}
+                    </span>
+                  </div>
+                </div>
+              </aside>
             )}
 
-            <div className="flex flex-wrap mb-2 leading-5">
-              {features?.businessAccounts !== false && (
-                <Link href="/business" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  Business account
-                </Link>
+            {/* Main Content Wrapper */}
+            <div
+              className={cn(
+                'flex-1 min-w-0',
+                viewportLocked
+                  ? 'h-full flex flex-col min-h-0 overflow-hidden'
+                  : (hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6'),
+                hideMobileChrome
+                  ? 'pb-0'
+                  : 'pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0'
               )}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="hover:underline text-cap-s text-lab-sc mr-2 cursor-pointer"
-              >
-                Theme
-              </button>
-              {features?.jobs !== false && (
-                <Link href="/jobs" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  Jobs
-                </Link>
-              )}
-              <Link href="/document/help-center" className="hover:underline text-cap-s text-lab-sc mr-2">
-                Help center
-              </Link>
-              <Link href="/api/v1/docs" target="_blank" className="hover:underline text-cap-s text-lab-sc mr-2">
-                API
-              </Link>
-              <Link href="/document/privacy-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
-                Privacy policy
-              </Link>
-              <Link href="/document/cookies-policy" className="hover:underline text-cap-s text-lab-sc mr-2">
-                Cookies policy
-              </Link>
-              <Link href="/document/terms-of-use" className="hover:underline text-cap-s text-lab-sc mr-2">
-                Terms
-              </Link>
-              {user && (
-                <Link href="/settings" className="hover:underline text-cap-s text-lab-sc mr-2">
-                  Language
-                </Link>
-              )}
-            </div>
-            <div className="leading-5">
-              <span className="text-cap-s text-lab-sc">
-                {appName} &copy; {new Date().getFullYear()}
-              </span>
-            </div>
-          </div>
-        </aside>
-      )}
-
-          {/* Main Content Wrapper */}
-          <div
-            className={cn(
-              'flex-1 min-w-0',
-              viewportLocked
-                ? 'h-full flex flex-col min-h-0 overflow-hidden'
-                : (hideDesktopSidebar ? 'md:pb-0' : 'md:pb-6'),
-              hideMobileChrome
-                ? 'pb-0'
-                : 'pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0'
-            )}
-          >
-            {fullWidth || hideRightRail ? (
-              <main
-                className={cn(
-                  viewportLocked ? 'h-full flex-1 min-h-0 overflow-hidden' : 'min-h-screen',
-                  fullWidth ? 'w-full' : 'max-w-[1280px]'
-                )}
-              >
-                {children}
-              </main>
-            ) : (
-              /* Balanced SidedContentLayout centered with equal left & right margins */
-              <div className="w-full flex gap-4 xl:gap-6 justify-center lg:justify-start">
-                <main className="w-full max-w-[600px] min-w-0 border-x border-bord-tr min-h-screen shrink-0">
+            >
+              {fullWidth || hideRightRail ? (
+                <main
+                  className={cn(
+                    viewportLocked ? 'h-full flex-1 min-h-0 overflow-hidden' : 'min-h-screen',
+                    fullWidth ? 'w-full' : 'max-w-[1280px]'
+                  )}
+                >
                   {children}
                 </main>
-                <RightRail />
-              </div>
-            )}
+              ) : (
+                /* Balanced SidedContentLayout centered with equal left & right margins */
+                <div className="w-full flex gap-4 xl:gap-6 justify-center lg:justify-start">
+                  <main className="w-full max-w-[600px] min-w-0 border-x border-bord-tr min-h-screen shrink-0">
+                    {children}
+                  </main>
+                  <RightRail />
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Mobile Bottom Navigation matching mobile/components/layout/ApplicationNavbar.vue */}

@@ -2298,11 +2298,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         (isDraggingLeft || isDraggingRight) && 'select-none cursor-col-resize'
       )}
     >
-      {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden in Expand mode) */}
+      {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden on mobile & hidden in Expand mode) */}
       <aside
         className={cn(
-          'hidden w-16 shrink-0 h-full max-h-full border-r border-bord-pr bg-bg-pr flex flex-col items-center justify-between py-5 overflow-hidden select-none',
-          !middleFullScreen && 'md:flex'
+          'w-16 shrink-0 h-full max-h-full border-r border-bord-pr bg-bg-pr flex-col items-center justify-between py-5 overflow-hidden select-none',
+          middleFullScreen ? 'hidden' : 'hidden md:flex'
         )}
       >
         <div className="flex flex-col items-center">

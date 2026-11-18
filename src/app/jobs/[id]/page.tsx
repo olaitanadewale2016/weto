@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Bookmark, CheckCircle2, MapPin, Send, Trash2, Wifi } from 'lucide-react';
+import { ArrowLeft, Bookmark, CheckCircle2, MapPin, Send, Share2, Trash2, Wifi } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/currency';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
+import { cn } from '@/lib/utils';
 
 interface JobDetail {
   id: string;
@@ -115,15 +116,20 @@ export default function JobDetailPage() {
   }
 
   async function toggleBookmark() {
-    if (!user || !job) return;
+    if (!job) return;
+    if (!user) {
+      router.push('/auth/login');
+      return;
+    }
     try {
       const res = await apiFetch<{ bookmarked: boolean }>(`/jobs/${job.id}`, {
         method: 'PATCH',
         json: { action: 'bookmark' },
       });
       setJob((j) => (j ? { ...j, isBookmarked: res.bookmarked } : j));
-    } catch {
-      // ignore
+      success(res.bookmarked ? 'Job saved to bookmarks' : 'Job removed from bookmarks');
+    } catch (err) {
+      error('Could not save job', err instanceof Error ? err.message : undefined);
     }
   }
 
@@ -140,12 +146,21 @@ export default function JobDetailPage() {
 
   if (loading) {
     return (
-      <AppShell fullWidth hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
-          <Link href="/jobs" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to jobs">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-title-3 font-bold text-lab-pr truncate">Job Details</h1>
+      <AppShell hideMobileHeader>
+        <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+          <div className="px-4 py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr flex items-center justify-center cursor-pointer shrink-0"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <h1 className="text-title-3 font-bold text-lab-pr truncate">Job details</h1>
+            </div>
+          </div>
         </div>
         <div className="p-8 text-center text-lab-sc">Loading job details...</div>
       </AppShell>
@@ -154,12 +169,21 @@ export default function JobDetailPage() {
 
   if (!job) {
     return (
-      <AppShell fullWidth hideMobileHeader>
-        <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
-          <Link href="/jobs" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to jobs">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-title-3 font-bold text-lab-pr truncate">Job Details</h1>
+      <AppShell hideMobileHeader>
+        <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+          <div className="px-4 py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr flex items-center justify-center cursor-pointer shrink-0"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <h1 className="text-title-3 font-bold text-lab-pr truncate">Job details</h1>
+            </div>
+          </div>
         </div>
         <div className="p-8 text-center text-lab-sc">Job listing not found.</div>
       </AppShell>
@@ -169,16 +193,68 @@ export default function JobDetailPage() {
   const isOwner = user && String(job.employer._id) === user.id;
 
   return (
-    <AppShell fullWidth hideMobileHeader>
-      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
-        <Link href="/jobs" className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to jobs">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="text-title-3 font-bold text-lab-pr truncate">Job Details</h1>
-      </div>
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
+    <AppShell hideMobileHeader>
+      {/* Sticky Header with standard mobile margin and texture */}
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr flex items-center justify-center cursor-pointer shrink-0"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h1 className="text-title-3 font-bold text-lab-pr truncate">Job details</h1>
+          </div>
 
-        <div className="rounded-3xl border border-bord-card bg-bg-pr p-6 space-y-4">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  navigator.clipboard?.writeText(window.location.href);
+                  success('Job link copied to clipboard');
+                }
+              }}
+              className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer transition-colors"
+              aria-label="Share job"
+              title="Copy link"
+            >
+              <Share2 className="h-4.5 w-4.5" />
+            </button>
+            <button
+              type="button"
+              onClick={toggleBookmark}
+              className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer transition-colors"
+              aria-label={job.isBookmarked ? 'Remove bookmark' : 'Bookmark job'}
+              title={job.isBookmarked ? 'Remove bookmark' : 'Save job'}
+            >
+              <Bookmark
+                className={cn(
+                  'h-4.5 w-4.5 transition-colors',
+                  job.isBookmarked ? 'fill-brand-900 text-brand-900' : 'text-lab-pr3'
+                )}
+              />
+            </button>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={deleteJob}
+                className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-red-900 cursor-pointer transition-colors"
+                aria-label="Delete job"
+                title="Delete job"
+              >
+                <Trash2 className="h-4.5 w-4.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-5 space-y-5">
+        <div className="rounded-3xl border border-bord-card bg-bg-pr p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-title-1 font-bold text-lab-pr">{job.title}</h1>
@@ -193,11 +269,17 @@ export default function JobDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={toggleBookmark}>
-                <Bookmark className={`h-4 w-4 ${job.isBookmarked ? 'fill-current text-lab-pr' : 'text-lab-pr3'}`} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleBookmark}
+                className={cn('rounded-full gap-1.5', job.isBookmarked && 'text-brand-900 border-brand-900/30 bg-brand-900/5')}
+              >
+                <Bookmark className={cn('h-4 w-4', job.isBookmarked ? 'fill-brand-900 text-brand-900' : 'text-lab-pr3')} />
+                <span>{job.isBookmarked ? 'Saved' : 'Save'}</span>
               </Button>
               {isOwner && (
-                <Button variant="danger" size="icon" onClick={deleteJob}>
+                <Button variant="danger" size="icon" onClick={deleteJob} className="rounded-full" aria-label="Delete job">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}

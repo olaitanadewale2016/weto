@@ -39,7 +39,10 @@ export async function GET(req: NextRequest) {
     if (remote) filter.isRemote = true;
     if (urgent) filter.isUrgent = true;
 
-    if (savedOnly && authCtx) {
+    if (savedOnly) {
+      if (!authCtx) {
+        return apiSuccess({ jobs: [], categories: [], total: 0 });
+      }
       const bms = await Bookmark.find({ userId: authCtx.user._id, targetType: 'job' }).lean();
       filter._id = { $in: bms.map((b) => b.targetId) };
     }
