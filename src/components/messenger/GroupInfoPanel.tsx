@@ -191,14 +191,14 @@ export function GroupInfoPanel({
     bootstrap?.currencies && bootstrap.currencies.length > 0
       ? bootstrap.currencies
       : [
-          { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
-          { code: 'USD', symbol: '$', name: 'US Dollar' },
-          { code: 'EUR', symbol: '€', name: 'Euro' },
-          { code: 'GBP', symbol: '£', name: 'British Pound' },
-          { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' },
-          { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
-          { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
-        ];
+        { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+        { code: 'USD', symbol: '$', name: 'US Dollar' },
+        { code: 'EUR', symbol: '€', name: 'Euro' },
+        { code: 'GBP', symbol: '£', name: 'British Pound' },
+        { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' },
+        { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
+        { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+      ];
 
   const [editIsPaid, setEditIsPaid] = useState(Boolean(g?.isPaid && (g?.entryPrice || 0) > 0));
   const [editEntryPrice, setEditEntryPrice] = useState(String(g?.entryPrice || 500));
