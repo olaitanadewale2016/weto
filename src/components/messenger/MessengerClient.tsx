@@ -2419,12 +2419,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
-        <div className="px-4 sm:px-5 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] pb-3.5 border-b border-bord-pr space-y-3 shrink-0 px-safe">
-          <div className="flex items-center justify-between gap-2">
+        {/* Sticky Messages Header matching Notifications & App UI */}
+        <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr shrink-0">
+          <div className="px-4 py-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Link
                 href="/"
-                className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+                className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
                 title="Back to Home"
                 aria-label="Back to Home"
               >
@@ -2442,24 +2443,37 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               <Plus className="h-4 w-4" /> New
             </button>
           </div>
+        </div>
 
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-tr" />
+        {/* Search & Chat Filters Bar matching Marketplace & App UI */}
+        <div className="p-4 border-b border-bord-tr space-y-3 bg-bg-pr shrink-0">
+          <div className="relative rounded-full border border-bord-card/90 bg-bg-pr focus-within:border-brand-900/60 transition-colors">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-sc" />
             <input
               type="search"
               value={searchQ}
               onChange={(e) => setSearchQ(e.target.value)}
               placeholder="Search chats & rooms..."
-              className="w-full h-10 rounded-full bg-fill-qt border border-transparent focus:border-bord-pr pl-10 pr-4 text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none"
+              className="w-full h-10 rounded-full bg-transparent pl-10 pr-10 text-par-n text-lab-pr placeholder:text-lab-tr outline-hidden"
             />
+            {searchQ ? (
+              <button
+                type="button"
+                onClick={() => setSearchQ('')}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 size-6 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-sc cursor-pointer"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : null}
           </div>
 
-          {/* Simplified 3-Pill Switcher + Mobile Invites/Archive access */}
+          {/* Section with horizontal scrolling below the search icon */}
           <div
             onWheel={(e) => {
               if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
             }}
-            className="flex items-center gap-1.5 overflow-x-auto hidden-scroll"
+            className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-4 px-4"
           >
             {(
               [
@@ -2475,7 +2489,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   type="button"
                   onClick={() => setTab(item.key)}
                   className={cn(
-                    'flex-1 min-w-fit rounded-full px-3.5 py-2 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
+                    'shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
                     active
                       ? 'bg-brand-900 text-white'
                       : 'bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc'
@@ -2490,7 +2504,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 type="button"
                 onClick={() => setTab('invites')}
                 className={cn(
-                  'md:hidden shrink-0 rounded-full px-3 py-2 text-par-s font-semibold transition-colors cursor-pointer',
+                  'md:hidden shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
                   tab === 'invites'
                     ? 'bg-brand-900 text-white'
                     : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
@@ -2503,7 +2517,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               type="button"
               onClick={() => setTab(tab === 'archive' ? 'chats' : 'archive')}
               className={cn(
-                'md:hidden shrink-0 rounded-full px-3 py-2 text-par-s font-semibold transition-colors cursor-pointer',
+                'md:hidden shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
                 tab === 'archive'
                   ? 'bg-brand-900 text-white'
                   : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
@@ -2516,12 +2530,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
         <div className="flex-1 overflow-y-auto divide-y divide-bord-pr pb-safe">
           {tab === 'discover' ? (
-            <div className="p-4 sm:p-5 space-y-3.5">
+            <div className="p-4 space-y-3.5">
               <div
                 onWheel={(e) => {
                   if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
                 }}
-                className="flex items-center gap-1.5 overflow-x-auto pb-1 hidden-scroll"
+                className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4"
               >
                 {['All', 'General', 'Tech & Creators', 'Marketplace', 'Gaming', 'Music & Culture', 'Support'].map(
                   (cat) => (
@@ -2656,7 +2670,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
               {tab === 'invites' &&
                 invites.map((inv) => (
-                  <div key={inv._id} className="p-4 sm:p-5 space-y-2.5">
+                  <div key={inv._id} className="p-4 space-y-2.5">
                     <p className="text-par-m font-semibold text-lab-pr">
                       {inv.chatId?.group?.name || 'Group Chat'}
                     </p>
@@ -2706,7 +2720,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       key={c.id}
                       href={`/messenger/c/${c.id}`}
                       className={cn(
-                        'flex items-center gap-3.5 px-4 sm:px-5 py-3.5 hover:bg-fill-pr transition-colors',
+                        'flex items-center gap-3.5 px-4 py-3.5 hover:bg-fill-pr transition-colors',
                         activeChatId === c.id && 'bg-fill-sc'
                       )}
                     >
