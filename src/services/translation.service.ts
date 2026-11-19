@@ -79,9 +79,16 @@ export function resolveGeoFromHeaders(
   const cfCountry = headerBag.get('cf-ipcountry')?.trim().toUpperCase() || null;
   const rawCountry =
     vercelCountry || (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1' ? cfCountry : null);
-  const region = safeDecodeHeader(headerBag.get('x-vercel-ip-country-region'));
-  const city = safeDecodeHeader(headerBag.get('x-vercel-ip-city'));
-  const timezone = safeDecodeHeader(headerBag.get('x-vercel-ip-timezone'));
+  const region =
+    safeDecodeHeader(headerBag.get('x-vercel-ip-country-region')) ||
+    safeDecodeHeader(headerBag.get('cf-region')) ||
+    safeDecodeHeader(headerBag.get('cf-region-code'));
+  const city =
+    safeDecodeHeader(headerBag.get('x-vercel-ip-city')) ||
+    safeDecodeHeader(headerBag.get('cf-ipcity'));
+  const timezone =
+    safeDecodeHeader(headerBag.get('x-vercel-ip-timezone')) ||
+    safeDecodeHeader(headerBag.get('cf-timezone'));
   const unknown = !rawCountry && !region && !city;
   return {
     country: rawCountry && rawCountry.length === 2 ? rawCountry : null,

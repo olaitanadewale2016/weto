@@ -3,12 +3,12 @@
   "version": "2.1.0",
   "private": true,
   "scripts": {
+    "build": "next build",
     "dev": "next dev",
     "dev:mongo": "tsx scripts/dev-mongo.ts",
     "dev:realtime": "tsx watch realtime/server.ts",
     "dev:worker": "tsx watch worker/index.ts",
     "dev:all": "concurrently \"npm:dev\" \"npm:dev:realtime\" \"npm:dev:worker\"",
-    "build": "next build",
     "start": "next start",
     "start:realtime": "tsx realtime/server.ts",
     "start:worker": "tsx worker/index.ts",
@@ -21,7 +21,11 @@
     "migrate:data": "tsx scripts/migrate/mysql-to-mongo.ts",
     "migrate:firebase": "tsx scripts/migrate/import-firebase-users.ts",
     "migrate:media": "tsx scripts/migrate/sync-media-to-r2.ts",
-    "migrate:verify": "tsx scripts/migrate/verify-migration.ts"
+    "migrate:verify": "tsx scripts/migrate/verify-migration.ts",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",
@@ -62,6 +66,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.17",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.17",
@@ -76,6 +81,7 @@
     "tailwindcss": "4.3.3",
     "tsx": "^4.19.3",
     "typescript": "^5",
-    "vitest": "^3.0.9"
+    "vitest": "^3.0.9",
+    "wrangler": "^4.165.0"
   }
 }

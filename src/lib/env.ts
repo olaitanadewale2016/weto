@@ -73,6 +73,9 @@ export function getAppBaseUrl(fallbackOrigin?: string): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (configured) return configured.replace(/\/+$/, '');
 
+  const cfPagesUrl = process.env.NEXT_PUBLIC_CF_PAGES_URL?.trim() || process.env.CF_PAGES_URL?.trim();
+  if (cfPagesUrl) return `https://${cfPagesUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
+
   const vercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (vercelProd) return `https://${vercelProd.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
 
@@ -84,6 +87,8 @@ export function getAppBaseUrl(fallbackOrigin?: string): string {
 }
 
 const defaultAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  || (process.env.NEXT_PUBLIC_CF_PAGES_URL ? `https://${process.env.NEXT_PUBLIC_CF_PAGES_URL.replace(/^https?:\/\//, '')}` : '')
+  || (process.env.CF_PAGES_URL ? `https://${process.env.CF_PAGES_URL.replace(/^https?:\/\//, '')}` : '')
   || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '')
   || 'http://localhost:3000';
 

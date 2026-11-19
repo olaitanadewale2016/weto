@@ -28,6 +28,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # Cloudflare Tunnel for secure edge connectivity without opening firewall ports
+  # Run with: docker compose --profile cloudflare up -d
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: colibriplus-cloudflared
+    restart: unless-stopped
+    profiles: ["cloudflare"]
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+
 volumes:
   mongo_data:
   redis_data:
