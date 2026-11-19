@@ -375,8 +375,13 @@ function GrupoOptionsIcon({ className = 'size-[19px]' }: { className?: string })
 
 export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const router = useRouter();
-  const { user, bootstrap, theme, socket, onlineUsers, locale, setCounters } = useApp();
+  const { user, loading, bootstrap, theme, socket, onlineUsers, locale, setCounters } = useApp();
   const { error, success } = useToast();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const initialThread = activeChatId ? messengerThreadCache.get(activeChatId) : undefined;
   const initialSummary =
@@ -2037,6 +2042,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     } catch (err) {
       error('Action failed', err instanceof Error ? err.message : undefined);
     }
+  }
+
+  if (!mounted || loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-bg-pr">
+        <div className="flex flex-col items-center gap-3 text-lab-sc">
+          <div className="size-8 rounded-full border-2 border-brand-900 border-t-transparent animate-spin" />
+          <p className="text-par-s">Loading messenger...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
