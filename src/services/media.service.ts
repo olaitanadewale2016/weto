@@ -1,6 +1,16 @@
 import fs from 'fs/promises';
 import path from 'path';
-import sharp from 'sharp';
+type SharpModule = typeof import('sharp');
+let _sharpPromise: Promise<SharpModule | null> | null = null;
+
+async function getSharp(): Promise<SharpModule | null> {
+  if (!_sharpPromise) {
+    _sharpPromise = import('sharp')
+      .then((m) => (m.default || m) as unknown as SharpModule)
+      .catch(() => null);
+  }
+  return _sharpPromise;
+}
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import { connectDB } from '@/lib/db';
@@ -184,6 +194,8 @@ export async function scaleStoryImageTo1080x1920(
   mimeType = 'image/webp'
 ): Promise<Buffer> {
   try {
+    const sharp = await getSharp();
+    if (!sharp) return inputBuffer;
     const pipeline = sharp(inputBuffer, { failOn: 'none' })
       .rotate()
       .resize(1080, 1920, {
@@ -213,6 +225,10 @@ export async function applyWatermarkOpacity(
   watermarkBuffer: Buffer,
   opacity: number = WATERMARK_CONFIG.opacity
 ): Promise<{ data: Buffer; width: number; height: number }> {
+  const sharp = await getSharp();
+  if (!sharp) {
+    return { data: watermarkBuffer, width: 0, height: 0 };
+  }
   const clamped = Math.max(0, Math.min(1, opacity));
   const { data, info } = await sharp(watermarkBuffer, { failOn: 'none' })
     .ensureAlpha()
@@ -252,6 +268,10 @@ export async function applyImageWatermarkBuffer(
   opacity: number = WATERMARK_CONFIG.opacity
 ): Promise<Buffer> {
   try {
+    const sharp = await getSharp();
+    if (!sharp) {
+      return inputBuffer;
+    }
     const wmBuf = customWatermarkBuffer ?? (await resolveWatermarkBuffer());
     if (!wmBuf || wmBuf.length === 0) {
       return inputBuffer;
@@ -635,9 +655,12 @@ export async function uploadMediaBufferDirectly(params: {
   if (params.mediaType === MediaType.IMAGE && !normalizedMime.includes('svg') && !normalizedMime.includes('icon')) {
     lqipBase64 = await generateLqipBase64(workingBuffer);
     try {
-      const meta = await sharp(workingBuffer).metadata();
-      width = meta.width;
-      height = meta.height;
+      const sharp = await getSharp();
+      if (sharp) {
+        const meta = await sharp(workingBuffer).metadata();
+        width = meta.width;
+        height = meta.height;
+      }
     } catch {
       // Ignore dimension detection failures for exotic image formats
     }
@@ -767,7 +790,8 @@ export async function completeMediaUpload(params: {
             });
             verifiedSize = processedBuf.length;
             updatedLqip = (await generateLqipBase64(processedBuf)) || updatedLqip;
-            const meta = await sharp(processedBuf).metadata().catch(() => null);
+            const sharp = await getSharp();
+            const meta = sharp ? await sharp(processedBuf).metadata().catch(() => null) : null;
             if (meta?.width) updatedWidth = meta.width;
             if (meta?.height) updatedHeight = meta.height;
           }
@@ -831,6 +855,8 @@ export async function completeMediaUpload(params: {
 
 export async function generateLqipBase64(buffer: Buffer): Promise<string> {
   try {
+    const sharp = await getSharp();
+    if (!sharp) return '';
     const small = await sharp(buffer).resize(16).blur(1).webp({ quality: 40 }).toBuffer();
     return `data:image/webp;base64,${small.toString('base64')}`;
   } catch (err) {

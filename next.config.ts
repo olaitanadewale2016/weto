@@ -3,7 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
-  serverExternalPackages: ["sharp"],
+  outputFileTracingExcludes: {
+    "*": ["node_modules/sharp", "node_modules/@img/**"],
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
