@@ -24,5 +24,31 @@
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image
 		"binding": "IMAGES"
+	},
+	"vars": {
+		"NODE_ENV": "production",
+		"MONGODB_DB_NAME": "Weto",
+		"NEXT_PUBLIC_APP_NAME": "Weto",
+		"NEXT_PUBLIC_APP_VERSION": "2.1.0",
+		"NEXT_PUBLIC_DEFAULT_LOCALE": "en",
+		"NEXT_PUBLIC_DEFAULT_CURRENCY": "NGN",
+		"NEXT_PUBLIC_HIDE_AUTHOR_ATTRIBUTION": "false",
+		"AUTO_FOLLOW_LIST": "iamcoachmanuel",
+		"FIREBASE_PROJECT_ID": "weto-5369a",
+		"FIREBASE_CLIENT_EMAIL": "firebase-adminsdk-fbsvc@weto-5369a.iam.gserviceaccount.com",
+		"NEXT_PUBLIC_FIREBASE_API_KEY": "AIzaSyAy8LGbnZU9vbqOmCkEw6u6htDAdV9-j9c",
+		"NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "weto-5369a.firebaseapp.com",
+		"NEXT_PUBLIC_FIREBASE_PROJECT_ID": "weto-5369a",
+		"NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "weto-5369a.firebasestorage.app",
+		"NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "894452415589",
+		"NEXT_PUBLIC_FIREBASE_APP_ID": "1:894452415589:web:de5e32998667fe84551a8c",
+		"NEXT_PUBLIC_FIREBASE_VAPID_KEY": "BE3zCbFldffCqM9W4KrFAvKYet82C554qG5m10JZ-q-ledVB9nfhbyZb2Kz26saAyZNMnylw5JoYDjF-LxMGD_g",
+		"R2_ACCOUNT_ID": "dc576841bd78e9a4a98b5eafd0508e71",
+		"R2_BUCKET_NAME": "weto-media",
+		"R2_ENDPOINT": "https://dc576841bd78e9a4a98b5eafd0508e71.r2.cloudflarestorage.com",
+		"TRANSLATION_SERVICE": "disabled",
+		"IPINFO_TOKEN": "898d6b60c8d6ac",
+		"GIPHY_API_KEY": "AjP4AmVW0zzo4iuJQbeOpfLXE2c4AAbi",
+		"NEXT_PUBLIC_GIPHY_API_KEY": "AjP4AmVW0zzo4iuJQbeOpfLXE2c4AAbi"
 	}
 }
