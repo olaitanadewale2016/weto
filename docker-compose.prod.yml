@@ -1,0 +1,56 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weto-web
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    depends_on:
+      - redis
+    expose:
+      - "3000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weto-worker
+    restart: unless-stopped
+    command: ["npm", "run", "start:worker"]
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - ENABLE_MEDIA_WORKER=true
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: weto-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: weto-cloudflared
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+    depends_on:
+      - web
+
+volumes:
+  redis_data:
