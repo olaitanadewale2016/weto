@@ -1,13 +1,35 @@
 import fs from 'fs/promises';
 import path from 'path';
-type SharpModule = typeof import('sharp');
+declare const __non_webpack_require__: ((id: string) => any) | undefined;
+
+// Dynamically resolve sharp without static import/require statements so that bundlers
+// (Turbopack/esbuild) do not trace it into Cloudflare Worker server bundles.
+// In Node.js/Docker/VPS runtimes where sharp is present, it will load cleanly.
+type SharpModule = any;
 let _sharpPromise: Promise<SharpModule | null> | null = null;
 
 async function getSharp(): Promise<SharpModule | null> {
   if (!_sharpPromise) {
-    _sharpPromise = import('sharp')
-      .then((m) => (m.default || m) as unknown as SharpModule)
-      .catch(() => null);
+    _sharpPromise = (async () => {
+      try {
+        const pkg = ['sh', 'arp'].join('');
+        const req =
+          typeof __non_webpack_require__ !== 'undefined'
+            ? __non_webpack_require__
+            : typeof require !== 'undefined'
+              ? require
+              : null;
+        if (req) {
+          const mod = req(pkg);
+          return mod?.default || mod;
+        }
+        const dynamicImport = new Function('m', 'return import(m)');
+        const mod = await dynamicImport(pkg);
+        return mod?.default || mod;
+      } catch {
+        return null;
+      }
+    })();
   }
   return _sharpPromise;
 }
