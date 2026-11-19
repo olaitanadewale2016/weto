@@ -236,7 +236,7 @@ export function resolveUploadMimeType(file: Pick<File, 'type' | 'name'>): string
   return CLIENT_EXT_TO_MIME[ext] || aliased || 'application/octet-stream';
 }
 
-async function compressImageForUpload(file: File, cleanMime: string): Promise<File | null> {
+export async function compressImageForUpload(file: File, cleanMime: string): Promise<File | null> {
   if (
     typeof document === 'undefined' ||
     cleanMime === 'image/gif' ||
@@ -252,38 +252,41 @@ async function compressImageForUpload(file: File, cleanMime: string): Promise<Fi
       try {
         const origW = img.naturalWidth || 1;
         const origH = img.naturalHeight || 1;
-        const mimeCandidates =
-          cleanMime === 'image/png' ? (['image/webp', 'image/jpeg'] as const) : (['image/jpeg'] as const);
+        const maxDim = 2048;
+        const scale = Math.min(1, maxDim / Math.max(origW, origH));
+
+        // If the image is already within 2048px and reasonably small (< 1.5MB), retain original
+        if (scale >= 1 && file.size <= 1.5 * 1024 * 1024) {
+          resolve(null);
+          return;
+        }
+
+        const targetW = Math.max(1, Math.round(origW * scale));
+        const targetH = Math.max(1, Math.round(origH * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
         const base = (file.name || 'upload').replace(/\.[^.]+$/, '') || 'upload';
+        const tryMimes = ['image/webp', 'image/jpeg'] as const;
 
-        for (const outMime of mimeCandidates) {
+        for (const outMime of tryMimes) {
           const outExt = outMime === 'image/webp' ? 'webp' : 'jpg';
-          for (const maxDim of [2048, 1600, 1280, 960]) {
-            const scale = Math.min(1, maxDim / Math.max(origW, origH));
-            const targetW = Math.max(1, Math.round(origW * scale));
-            const targetH = Math.max(1, Math.round(origH * scale));
-            const canvas = document.createElement('canvas');
-            canvas.width = targetW;
-            canvas.height = targetH;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              resolve(null);
-              return;
-            }
-            ctx.drawImage(img, 0, 0, targetW, targetH);
-
-            for (const quality of [0.88, 0.76, 0.62, 0.48]) {
-              const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, outMime, quality));
-              if (!blob) continue;
-              // Some WebKit/PWA builds ignore image/webp and emit uncompressed image/png
-              if (outMime === 'image/webp' && blob.type && blob.type !== 'image/webp') {
-                break;
-              }
-              if (blob.size <= MAX_SERVER_UPLOAD_BYTES) {
-                resolve(new File([blob], `${base}.${outExt}`, { type: outMime }));
-                return;
-              }
-            }
+          const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, outMime, 0.85));
+          if (!blob) continue;
+          // Safari / older WebKit fallback if webp is unsupported
+          if (outMime === 'image/webp' && blob.type && blob.type !== 'image/webp') {
+            continue;
+          }
+          if (blob.size < file.size || scale < 1) {
+            resolve(new File([blob], `${base}.${outExt}`, { type: outMime }));
+            return;
           }
         }
         resolve(null);
@@ -404,123 +407,65 @@ export async function uploadFileToR2(
 ): Promise<UploadedMediaResult> {
   const rawMime = resolveUploadMimeType(file);
   const mediaType = inferMediaType(rawMime, file.name);
-  const defaultExt = rawMime.split('/')[1]?.replace(/[^a-z0-9]/g, '') || 'bin';
-  const safeFilename = file.name?.trim() || `upload-${Date.now()}.${defaultExt}`;
 
-  // Prepare upload candidate: for large images (> 3.5 MB), compress client-side to keep
-  // same-origin serverless uploads fast and reliable without relying on cross-origin R2 CORS.
-  let sameOriginFile: File | null = file.size <= MAX_SERVER_UPLOAD_BYTES ? file : null;
-  if (!sameOriginFile && mediaType === 'image') {
-    sameOriginFile = await compressImageForUpload(file, rawMime);
-  }
-
-  // Prefer same-origin upload whenever file fits comfortably within serverless body limits:
-  // avoids browser CORS blocks against *.r2.cloudflarestorage.com on any domain.
-  if (sameOriginFile && sameOriginFile.size <= MAX_SERVER_UPLOAD_BYTES) {
-    const uploadMime = resolveUploadMimeType(sameOriginFile);
-    const form = new FormData();
-    form.append('file', sameOriginFile, safeFilename);
-    form.append('namespace', namespace);
-    form.append('targetType', targetType);
-    form.append('mediaType', mediaType);
-    if (extraMeta?.durationSeconds !== undefined) {
-      form.append('durationSeconds', String(extraMeta.durationSeconds));
+  // 1. Client-Side Image Pre-Compression (Twitter-style: downscale > 2048px, WebP/JPEG 0.85)
+  let fileToUpload: File = file;
+  if (mediaType === 'image') {
+    const compressed = await compressImageForUpload(file, rawMime);
+    if (compressed) {
+      fileToUpload = compressed;
     }
-
-    onProgress?.(10);
-    const data = await uploadViaServerXhr(form, onProgress);
-    const meta = mediaType === 'image' ? await generateImageLqip(sameOriginFile) : {};
-    onProgress?.(100);
-    return {
-      mediaId: data.id || '',
-      r2Key: '',
-      publicUrl: data.publicUrl || data.url || '',
-      mimeType: uploadMime,
-      mediaType,
-      filename: sameOriginFile.name || safeFilename,
-      durationSeconds: extraMeta?.durationSeconds,
-      lqipBase64: data.lqipBase64 || meta.lqipBase64,
-      width: meta.width,
-      height: meta.height,
-    };
   }
 
-  const presign = await apiFetch<{
-    mediaId: string;
-    uploadUrl: string;
-    r2Key: string;
-    publicUrl: string;
-  }>('/media/presign', {
-    method: 'POST',
-    json: {
-      namespace,
-      targetType,
-      mediaType,
-      mimeType: rawMime,
-      sizeBytes: file.size,
-      filename: safeFilename,
-    },
-  });
+  const uploadMime = resolveUploadMimeType(fileToUpload);
+  const defaultExt = uploadMime.split('/')[1]?.replace(/[^a-z0-9]/g, '') || 'bin';
+  const safeFilename = fileToUpload.name?.trim() || `upload-${Date.now()}.${defaultExt}`;
 
-  onProgress?.(20);
+  // 2. Generate micro-thumbnail placeholder (LQIP) and dimensions for instant UI render
+  const meta = mediaType === 'image' ? await generateImageLqip(fileToUpload) : {};
 
-  let usedDirectPut = false;
+  // 3. Direct R2 Presigned Upload: Browser transfers bytes directly to Cloudflare R2
   try {
+    const presign = await apiFetch<{
+      mediaId: string;
+      uploadUrl: string;
+      r2Key: string;
+      publicUrl: string;
+    }>('/media/presign', {
+      method: 'POST',
+      json: {
+        namespace,
+        targetType,
+        mediaType,
+        mimeType: uploadMime,
+        sizeBytes: fileToUpload.size,
+        filename: safeFilename,
+      },
+    });
+
+    onProgress?.(15);
+
+    // Direct PUT to Cloudflare R2 endpoint
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', presign.uploadUrl);
-      xhr.setRequestHeader('Content-Type', rawMime);
-      xhr.timeout = 120000;
+      xhr.setRequestHeader('Content-Type', uploadMime);
+      xhr.timeout = 180000;
       xhr.upload.onprogress = (ev) => {
         if (ev.lengthComputable) {
-          onProgress?.(Math.min(90, 20 + Math.round((ev.loaded / ev.total) * 70)));
+          onProgress?.(Math.min(92, 15 + Math.round((ev.loaded / ev.total) * 75)));
         }
       };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error(`Upload failed (${xhr.status})`));
+        else reject(new Error(`Direct R2 upload failed with status ${xhr.status}`));
       };
-      xhr.onerror = () => reject(new Error('Network error uploading media to Cloudflare R2'));
-      xhr.ontimeout = () => reject(new Error('Upload timed out while uploading to Cloudflare R2'));
-      xhr.send(file);
+      xhr.onerror = () => reject(new Error('Network error or CORS block during direct R2 upload'));
+      xhr.ontimeout = () => reject(new Error('Direct upload to Cloudflare R2 timed out'));
+      xhr.send(fileToUpload);
     });
-    usedDirectPut = true;
-  } catch (directErr) {
-    // Fallback to server-assisted R2 upload when CORS blocks direct PUT (e.g. non-localhost origins)
-    const fallbackCandidate = file.size <= 4 * 1024 * 1024 ? file : sameOriginFile;
-    if (fallbackCandidate && fallbackCandidate.size <= 4 * 1024 * 1024) {
-      const form = new FormData();
-      form.append('file', fallbackCandidate, safeFilename);
-      form.append('namespace', namespace);
-      form.append('targetType', targetType);
-      form.append('mediaType', mediaType);
-      form.append('existingMediaId', presign.mediaId);
-      if (extraMeta?.durationSeconds !== undefined) {
-        form.append('durationSeconds', String(extraMeta.durationSeconds));
-      }
 
-      const fallbackData = await uploadViaServerXhr(form, onProgress);
-      const meta = mediaType === 'image' ? await generateImageLqip(fallbackCandidate) : {};
-      onProgress?.(100);
-      return {
-        mediaId: fallbackData.id || presign.mediaId,
-        r2Key: presign.r2Key,
-        publicUrl: fallbackData.publicUrl || fallbackData.url || presign.publicUrl,
-        mimeType: resolveUploadMimeType(fallbackCandidate),
-        mediaType,
-        filename: fallbackCandidate.name || safeFilename,
-        durationSeconds: extraMeta?.durationSeconds,
-        lqipBase64: fallbackData.lqipBase64 || meta.lqipBase64,
-        width: meta.width,
-        height: meta.height,
-      };
-    }
-    throw directErr;
-  }
-
-  const meta = mediaType === 'image' ? await generateImageLqip(file) : {};
-
-  if (usedDirectPut) {
+    // Finalize media record with extracted dimensions & LQIP
     await apiFetch('/media/complete', {
       method: 'POST',
       json: {
@@ -529,18 +474,49 @@ export async function uploadFileToR2(
         ...(extraMeta?.durationSeconds !== undefined ? { durationSeconds: extraMeta.durationSeconds } : {}),
       },
     });
+
+    onProgress?.(100);
+
+    return {
+      mediaId: presign.mediaId,
+      r2Key: presign.r2Key,
+      publicUrl: presign.publicUrl,
+      mimeType: uploadMime,
+      mediaType,
+      filename: safeFilename,
+      durationSeconds: extraMeta?.durationSeconds,
+      ...meta,
+    };
+  } catch (directErr) {
+    // 4. Graceful fallback: If R2 CORS is not yet enabled on bucket, fall back to same-origin server upload
+    if (fileToUpload.size <= MAX_SERVER_UPLOAD_BYTES) {
+      console.warn('Direct R2 upload failed, falling back to same-origin server upload:', directErr);
+      const form = new FormData();
+      form.append('file', fileToUpload, safeFilename);
+      form.append('namespace', namespace);
+      form.append('targetType', targetType);
+      form.append('mediaType', mediaType);
+      if (extraMeta?.durationSeconds !== undefined) {
+        form.append('durationSeconds', String(extraMeta.durationSeconds));
+      }
+
+      onProgress?.(10);
+      const data = await uploadViaServerXhr(form, onProgress);
+      onProgress?.(100);
+
+      return {
+        mediaId: data.id || '',
+        r2Key: '',
+        publicUrl: data.publicUrl || data.url || '',
+        mimeType: uploadMime,
+        mediaType,
+        filename: safeFilename,
+        durationSeconds: extraMeta?.durationSeconds,
+        lqipBase64: data.lqipBase64 || meta.lqipBase64,
+        width: meta.width,
+        height: meta.height,
+      };
+    }
+    throw directErr;
   }
-
-  onProgress?.(100);
-
-  return {
-    mediaId: presign.mediaId,
-    r2Key: presign.r2Key,
-    publicUrl: presign.publicUrl,
-    mimeType: rawMime,
-    mediaType,
-    filename: safeFilename,
-    durationSeconds: extraMeta?.durationSeconds,
-    ...meta,
-  };
 }

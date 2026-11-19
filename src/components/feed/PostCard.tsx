@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { VideoWatermarkOverlay } from '@/components/ui/video-watermark';
+import { SmartVideoPlayer } from '@/components/ui/smart-video-player';
 import { ReportModal } from '@/components/modals/ReportModal';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -791,7 +792,7 @@ export function PostCard({
                             <img
                               src={src}
                               alt={m.filename || 'Post image'}
-                              loading="eager"
+                              loading="lazy"
                               decoding="async"
                               onLoad={(e) => {
                                 e.currentTarget.removeAttribute('data-media-retry-src');
@@ -1016,15 +1017,13 @@ export function PostCard({
                             key={m.id || `vid-${idx}`}
                             className="relative w-full overflow-hidden bg-black flex items-center justify-center max-h-[500px] sm:max-h-[540px]"
                           >
-                            <video
+                            <SmartVideoPlayer
                               src={src}
-                              poster={m.thumbnailUrl || undefined}
-                              controls
-                              playsInline
-                              preload="metadata"
-                              className="w-full max-h-[500px] sm:max-h-[540px] object-contain block mx-auto"
+                              poster={m.thumbnailUrl}
+                              lqipBase64={m.lqipBase64}
+                              watermarked={Boolean(m.metadata?.watermarked)}
+                              durationSeconds={m.durationSeconds}
                             />
-                            <VideoWatermarkOverlay watermarked={Boolean(m.metadata?.watermarked)} />
                           </div>
                         );
                       })}
@@ -1353,10 +1352,13 @@ export function PostCard({
 
                 {quotedVideos.length > 0 && (
                   <div className="overflow-hidden rounded-xl bg-black mt-2">
-                    <video
+                    <SmartVideoPlayer
                       src={quotedVideos[0].publicUrl || quotedVideos[0].url || ''}
-                      controls
-                      className="w-full max-h-56 object-contain block mx-auto"
+                      poster={quotedVideos[0].thumbnailUrl}
+                      lqipBase64={quotedVideos[0].lqipBase64}
+                      watermarked={Boolean(quotedVideos[0].metadata?.watermarked)}
+                      durationSeconds={quotedVideos[0].durationSeconds}
+                      className="w-full max-h-56"
                     />
                   </div>
                 )}

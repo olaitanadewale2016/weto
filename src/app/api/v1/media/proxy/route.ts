@@ -108,8 +108,10 @@ function buildMediaHeaders(params: {
   headers.set('Accept-Ranges', 'bytes');
   headers.set(
     'Cache-Control',
-    params.cacheControl || 'public, max-age=31536000, stale-while-revalidate=604800, immutable'
+    params.cacheControl || 'public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=604800, immutable'
   );
+  headers.set('CDN-Cache-Control', 'public, max-age=31536000, immutable');
+  headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=31536000, immutable');
   headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
   headers.set('Access-Control-Allow-Origin', '*');
   return headers;

@@ -31,12 +31,44 @@ This application is fully prepared for production deployment on **Cloudflare**. 
 1. Go to **Cloudflare Dashboard** → **R2** → **Create bucket**.
 2. Name it `weto-media` (or your preferred bucket name).
 3. Under **Settings**, enable **Public Access** or connect a custom domain (e.g. `media.yourdomain.com`).
-4. Under **Manage R2 API Tokens**, create an API token with **Object Read & Write** permissions. Note down:
+4. Under **Settings** → **CORS Policy**, add the following policy to enable direct browser presigned uploads:
+   ```json
+   [
+     {
+       "AllowedOrigins": [
+         "https://yourdomain.com",
+         "https://*.workers.dev",
+         "http://localhost:3000"
+       ],
+       "AllowedMethods": [
+         "GET",
+         "PUT",
+         "HEAD"
+       ],
+       "AllowedHeaders": [
+         "*"
+       ],
+       "ExposeHeaders": [
+         "ETag"
+       ],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+5. Under **Manage R2 API Tokens**, create an API token with **Object Read & Write** permissions. Note down:
    - Account ID
    - Access Key ID
    - Secret Access Key
 
-### 3. Local Preview
+### 3. Twitter-Like Media Architecture (Built-In)
+The platform is pre-configured with a 5-pillar high-performance media delivery architecture:
+1. **Direct Presigned Uploads**: Users upload media files directly from their browsers to Cloudflare R2 via presigned URLs, bypassing Worker CPU/memory limits and bandwidth costs. If direct PUT fails or CORS is not configured, it gracefully falls back to same-origin server upload.
+2. **Automatic Client-Side Pre-Compression & LQIP**: Huge photos (up to 48MP) are automatically downscaled to 2048px WebP/JPEG in the browser before transfer, generating an instant base64 micro-thumbnail (LQIP) for instant blur-up placeholder rendering.
+3. **Lazy Loading for Images & Videos**: All feed images load with native `loading="lazy"`. Videos use `SmartVideoPlayer` with `IntersectionObserver` so offscreen videos consume zero bandwidth or buffer memory until scrolled into view.
+4. **Video Transcoding & Progressive Streaming**: Videos are encoded with `-movflags +faststart` for instant playback initiation, supporting HTTP byte-range requests and adaptive HLS streaming (`.m3u8`).
+5. **Global CDN Edge Caching**: Proxied assets emit `Cache-Control: public, max-age=31536000, s-maxage=31536000, immutable` and `Cloudflare-CDN-Cache-Control` headers, instructing Cloudflare edge PoPs worldwide to cache media and eliminate repeat origin requests.
+
+### 4. Local Preview
 Test the Cloudflare build locally using Wrangler:
 ```bash
 # Build the OpenNext worker bundle
@@ -44,7 +76,7 @@ npm run preview
 ```
 This builds your Next.js application, prepares static assets in `.open-next/assets`, packages the server worker in `.open-next/worker.js`, and boots a local Wrangler development server simulating the Cloudflare edge runtime.
 
-### 4. Deploy to Cloudflare
+### 5. Deploy to Cloudflare
 Authenticate and deploy directly from your terminal:
 ```bash
 # Login to your Cloudflare account (first time only)
@@ -59,7 +91,7 @@ Alternatively, you can connect your GitHub repository to **Cloudflare Pages** or
 - **Build output directory**: `.open-next/assets`
 - **Node.js compatibility flag**: `nodejs_compat`
 
-### 5. Set Environment Variables
+### 6. Set Environment Variables
 In the **Cloudflare Dashboard** (Workers & Pages → Your Project → **Settings** → **Variables and Secrets**), configure:
 
 ```ini
