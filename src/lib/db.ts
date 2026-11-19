@@ -117,24 +117,25 @@ export async function connectDB(): Promise<typeof mongoose> {
 
   // On Windows, Node's c-ares resolver can default to loopback DNS (127.0.0.1 / ::1),
   // which rejects mongodb+srv:// SRV lookups with querySrv ECONNREFUSED.
-  if (uri.startsWith('mongodb+srv://')) {
-    const servers = dns.getServers();
-    if (servers.length > 0 && servers.every((s) => s === '127.0.0.1' || s === '::1')) {
-      try {
+  // Guard against environments like Cloudflare Workers where dns.getServers is undefined.
+  if (uri.startsWith('mongodb+srv://') && typeof dns?.getServers === 'function') {
+    try {
+      const servers = dns.getServers();
+      if (servers.length > 0 && servers.every((s) => s === '127.0.0.1' || s === '::1')) {
         dns.setServers(PUBLIC_DNS_SERVERS);
-      } catch {
-        // Ignore if global c-ares has in-flight queries; connectMongoose will fall back cleanly.
       }
+    } catch {
+      // Ignore if global c-ares has in-flight queries or runs on Cloudflare Workers
     }
   }
 
   if (!cached.promise) {
     cached.promise = connectMongoose(uri, {
       dbName: env.MONGODB_DB_NAME,
-      maxPoolSize: 20,
-      minPoolSize: 2,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      serverSelectionTimeoutMS: 8000,
+      socketTimeoutMS: 30000,
     })
       .then((m) => {
         logger.info({ db: env.MONGODB_DB_NAME }, 'MongoDB connected');
