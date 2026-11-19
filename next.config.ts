@@ -24,15 +24,17 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  async rewrites() {
+  async redirects() {
     return [
       {
         source: "/@:username",
         destination: "/u/:username",
+        permanent: true,
       },
       {
         source: "/%40:username",
         destination: "/u/:username",
+        permanent: true,
       },
     ];
   },
