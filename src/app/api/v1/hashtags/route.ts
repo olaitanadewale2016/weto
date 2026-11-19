@@ -43,13 +43,16 @@ export async function GET(req: NextRequest) {
       { $limit: limit },
     ]);
 
-    return apiSuccess({
+    const res = apiSuccess({
       hashtags: tags.map((t) => ({
         tag: t._id,
         postsCount: t.count,
         engagement: t.engagement,
       })),
     });
+    // Cache trending hashtags at Cloudflare edge for 5 minutes (eliminates repeated DB aggregation)
+    res.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+    return res;
   } catch (err) {
     return apiError(err);
   }

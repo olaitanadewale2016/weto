@@ -58,7 +58,7 @@ const PUBLIC_CACHE_TTL_MS = 300_000;
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    if (!seedsCompleted) {
+    if (!seedsCompleted && process.env.NODE_ENV !== 'production') {
       await Promise.all([ensureDefaultCurrenciesAndLocales(), ensureDefaultCommunityGroups()]);
       seedsCompleted = true;
     }
@@ -250,7 +250,7 @@ export async function GET(req: NextRequest) {
         : false,
     }));
 
-    return apiSuccess({
+    const res = apiSuccess({
       config,
       currencies: normalizedCurrencies,
       locales: normalizedLocales,
@@ -262,6 +262,15 @@ export async function GET(req: NextRequest) {
         unreadMessages,
       },
     });
+
+    // Cache unauthenticated bootstrap responses at Cloudflare Edge (0ms CPU for guests)
+    if (!authCtx?.user) {
+      res.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+    } else {
+      res.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
+    }
+
+    return res;
   } catch (err) {
     return apiError(err);
   }

@@ -262,7 +262,7 @@ export const DEFAULT_SETTINGS: AppSettingsMap = {
   },
 };
 
-const SETTINGS_CACHE_TTL_MS = 30_000;
+const SETTINGS_CACHE_TTL_MS = 300_000;
 
 declare global {
   var __wetoSettingsCache:

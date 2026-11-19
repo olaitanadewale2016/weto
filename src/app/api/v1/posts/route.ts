@@ -359,7 +359,12 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return apiSuccess(items, { page, limit, total, hasMore });
+    const res = apiSuccess(items, { page, limit, total, hasMore });
+    // Cache guest / explore feed at Cloudflare Edge for 60s
+    if (!authCtx && (mode === 'explore' || mode === 'guest' || !mode)) {
+      res.headers.set('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=180');
+    }
+    return res;
   } catch (err) {
     return apiError(err);
   }
