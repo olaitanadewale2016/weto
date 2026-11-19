@@ -12,7 +12,6 @@ import {
   BarChart2,
   Check,
   CheckCheck,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Coins,
@@ -21,7 +20,6 @@ import {
   CornerUpLeft,
   ExternalLink,
   FileDown,
-  FileText,
   Film,
   Forward,
   Image as ImageIcon,
@@ -315,16 +313,6 @@ function getMessagePreviewLabel(msg: {
   return 'Attachment';
 }
 
-function isOnlyEmojis(text?: string | null): boolean {
-  if (!text) return false;
-  const trimmed = text.trim();
-  if (!trimmed) return false;
-  return Boolean(
-    trimmed.match(/^(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji_Modifier_Base}|\s)+$/u) &&
-    trimmed.length <= 16
-  );
-}
-
 interface MessengerInboxCacheEntry {
   chats: ChatSummary[];
   invites: InviteItem[];
@@ -478,8 +466,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
   const [inviteUserQuery, setInviteUserQuery] = useState('');
   const [inviteUserResults, setInviteUserResults] = useState<UserSearchResult[]>([]);
-  const [archiveCount, setArchiveCount] = useState<number>(0);
-  const [showScrollBottom, setShowScrollBottom] = useState<boolean>(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -488,7 +474,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingPingRef = useRef<number>(0);
-  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const chatMutedRef = useRef(chatMuted);
 
   const attachMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -740,9 +726,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
       if (chatsRes !== null) {
         const nextChats = Array.isArray(chatsRes) ? chatsRes : [];
         setChats(nextChats);
-        if (tab === 'archive') {
-          setArchiveCount(nextChats.length);
-        }
         if (!searchQ.trim() && (tab === 'chats' || tab === 'groups')) {
           messengerInboxCache = {
             chats: nextChats,
@@ -751,11 +734,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             ts: Date.now(),
           };
         }
-      }
-      if (tab !== 'archive') {
-        void apiFetch<ChatSummary[]>('/chats?tab=archive').then((res) => {
-          if (Array.isArray(res)) setArchiveCount(res.length);
-        }).catch(() => undefined);
       }
     } catch {
       // ignore
@@ -2151,68 +2129,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const safePinIdx = pinnedMessages.length > 0 ? Math.min(pinIndex, pinnedMessages.length - 1) : 0;
   const currentPinned = pinnedMessages[safePinIdx] || pinnedMessages[0] || null;
 
-  const renderConversationPreview = (preview?: string) => {
-    if (!preview) return 'No messages yet';
-    const lower = preview.toLowerCase();
-    if (lower.startsWith('photo') || lower.startsWith('image')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-lab-sc truncate">
-          <ImageIcon className="size-3.5 shrink-0" />
-          <span>Photo</span>
-        </span>
-      );
-    }
-    if (lower.startsWith('video')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-lab-sc truncate">
-          <Film className="size-3.5 shrink-0" />
-          <span>Video</span>
-        </span>
-      );
-    }
-    if (lower.startsWith('document') || lower.startsWith('file')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-lab-sc truncate">
-          <FileText className="size-3.5 shrink-0" />
-          <span>Document</span>
-        </span>
-      );
-    }
-    if (lower.startsWith('voice') || lower.startsWith('audio')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-lab-sc truncate">
-          <Mic className="size-3.5 shrink-0" />
-          <span>Voice note</span>
-        </span>
-      );
-    }
-    if (lower.startsWith('location')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-lab-sc truncate">
-          <MapPin className="size-3.5 shrink-0" />
-          <span>Location</span>
-        </span>
-      );
-    }
-    if (lower.startsWith('sticker') || lower.startsWith('gif')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-lab-sc truncate">
-          <Smile className="size-3.5 shrink-0" />
-          <span>Sticker</span>
-        </span>
-      );
-    }
-    if (lower.startsWith('poll')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-lab-sc truncate">
-          <BarChart2 className="size-3.5 shrink-0" />
-          <span>Poll</span>
-        </span>
-      );
-    }
-    return <span className="truncate">{preview}</span>;
-  };
-
   const renderMessageBody = (
     m: ChatMessage,
     variant: 'desktop' | 'mobile-mine' | 'mobile-other'
@@ -2443,12 +2359,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
         {m.content && (
           <div className="space-y-1 min-w-0 max-w-full">
-            <p
-              className={cn(
-                'leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
-                isOnlyEmojis(m.content) ? 'text-4xl sm:text-5xl py-1 select-text' : 'text-par-n'
-              )}
-            >
+            <p className="text-par-n leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
               {msgTranslations[m.id] || m.content}
             </p>
             {msgTranslations[m.id] && (
@@ -2676,14 +2587,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Link>
-              <div className="min-w-0">
-                <h1 className="text-title-3 font-bold text-lab-pr truncate leading-tight">
-                  {tab === 'archive' ? 'Archived' : tab === 'invites' ? 'Invites' : 'Chats'}
-                </h1>
-                {user?.username && (
-                  <p className="text-cap-s text-lab-sc truncate">@{user.username}</p>
-                )}
-              </div>
+              <h1 className="text-title-3 font-bold text-lab-pr truncate">
+                {tab === 'archive' ? 'Archived' : tab === 'invites' ? 'Invites' : 'Messages'}
+              </h1>
             </div>
             <button
               type="button"
@@ -2754,7 +2660,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 type="button"
                 onClick={() => setTab('invites')}
                 className={cn(
-                  'shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
+                  'md:hidden shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
                   tab === 'invites'
                     ? 'bg-brand-900 text-white'
                     : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
@@ -2763,55 +2669,20 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 Invites{inviteCount > 0 ? ` (${inviteCount})` : ''}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setTab(tab === 'archive' ? 'chats' : 'archive')}
+              className={cn(
+                'md:hidden shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
+                tab === 'archive'
+                  ? 'bg-brand-900 text-white'
+                  : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+              )}
+            >
+              Archive
+            </button>
           </div>
         </div>
-
-        {/* Whoxa Dedicated Interactive Archived Banner Row */}
-        {tab !== 'discover' && !searchQ && (
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => setTab(tab === 'archive' ? 'chats' : 'archive')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setTab(tab === 'archive' ? 'chats' : 'archive');
-              }
-            }}
-            className={cn(
-              'flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors border-b border-bord-pr/70 select-none shrink-0',
-              tab === 'archive' ? 'bg-brand-900/10' : 'hover:bg-fill-qt/60'
-            )}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className={cn(
-                  'size-8 rounded-full flex items-center justify-center shrink-0 transition-colors',
-                  tab === 'archive' ? 'bg-brand-900 text-white' : 'bg-fill-qt text-lab-sc'
-                )}
-              >
-                {tab === 'archive' ? <ArrowLeft className="size-4" /> : <Archive className="size-4" />}
-              </div>
-              <div className="min-w-0">
-                <span className="text-par-s font-semibold text-lab-pr block truncate">
-                  {tab === 'archive' ? 'Back to All Chats' : 'Archived'}
-                </span>
-                <p className="text-cap-s text-lab-sc truncate">
-                  {tab === 'archive'
-                    ? 'Return to inbox'
-                    : archiveCount > 0
-                      ? `${archiveCount} archived conversation${archiveCount === 1 ? '' : 's'}`
-                      : 'Archived messages'}
-                </p>
-              </div>
-            </div>
-            {archiveCount > 0 && tab !== 'archive' && (
-              <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-brand-900/15 text-brand-900 dark:text-emerald-400 text-cap-s font-bold flex items-center justify-center shrink-0">
-                {archiveCount}
-              </span>
-            )}
-          </div>
-        )}
 
         <div className="flex-1 overflow-y-auto divide-y divide-bord-pr pb-safe">
           {tab === 'discover' ? (
@@ -3033,18 +2904,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-2 mt-0.5">
-                            <div className="text-par-s text-lab-sc truncate flex-1 min-w-0">
-                              {activeChatId === c.id && typingUsers.length > 0 ? (
-                                <span className="text-brand-900 font-medium inline-flex items-center gap-1">
-                                  <span className="size-1.5 rounded-full bg-brand-900 animate-pulse" />
-                                  typing...
-                                </span>
-                              ) : (
-                                renderConversationPreview(c.lastMessagePreview)
-                              )}
-                            </div>
+                            <p className="text-par-s text-lab-sc truncate">
+                              {c.lastMessagePreview || 'No messages yet'}
+                            </p>
                             {c.unreadCount > 0 && (
-                              <span className="h-5 min-w-[22px] px-1.5 rounded-full bg-brand-900 text-white text-cap-s font-bold flex items-center justify-center shrink-0">
+                              <span className="h-5 min-w-[22px] px-1.5 rounded-full bg-brand-900 text-white text-cap-s font-bold flex items-center justify-center">
                                 {c.unreadCount}
                               </span>
                             )}
@@ -3104,37 +2968,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         )}
       >
         {!activeChatId ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none bg-fill-qt/15">
-            <div className="max-w-md mx-auto space-y-4 flex flex-col items-center">
-              <div className="relative w-64 h-64 sm:w-80 sm:h-80 mx-auto flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/assets/images/chat_empty_screen.png"
-                  alt="Start chat"
-                  className="w-full h-full object-contain pointer-events-none drop-shadow-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <h2 className="text-title-2 font-bold text-lab-pr">
-                  Start a new chat with your favorite one
-                </h2>
-                <p className="text-par-s text-lab-sc max-w-sm mx-auto">
-                  Make every moment count. Send and receive messages securely across web and mobile.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNewChatOpen(true)}
-                className="inline-flex items-center gap-2 h-11 px-6 rounded-full bg-brand-900 text-white font-semibold shadow-md hover:opacity-95 active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus className="size-4" strokeWidth={2.5} />
-                <span>Start New Chat</span>
-              </button>
-              <div className="pt-4 flex items-center gap-1.5 text-cap-s text-lab-tr">
-                <Lock className="size-3.5" />
-                <span>End-to-end encrypted</span>
-              </div>
-            </div>
+          <div className="flex-1 flex items-center justify-center p-6">
+            <EmptyState
+              icon={Users}
+              title="Select a conversation"
+              description="Choose an existing chat or start a new direct or group conversation."
+              action={
+                <Button variant="primary" onClick={() => setNewChatOpen(true)}>
+                  Start Conversation
+                </Button>
+              }
+            />
           </div>
         ) : !activeChat ? (
           <div className="flex-1 flex flex-col bg-bg-pr animate-pulse">
@@ -3237,24 +3081,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                 {!joinPreviewStatus && (
                   <div className="flex items-center gap-1 shrink-0 relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setThreadSearchOpen((prev) => {
-                          if (prev) setThreadSearchQ('');
-                          return !prev;
-                        });
-                      }}
-                      className={cn(
-                        'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                        threadSearchOpen && 'bg-brand-900/15 text-brand-900'
-                      )}
-                      title={threadSearchOpen ? 'Close search' : 'Search in chat'}
-                      aria-label={threadSearchOpen ? 'Close search' : 'Search in chat'}
-                    >
-                      <Search className="size-[19px]" />
-                    </button>
-
                     <button
                       type="button"
                       onClick={() => handleStartCall('audio')}
@@ -3715,19 +3541,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </div>
                 )}
 
-                {/* Messages Timeline (Whoxa WhatsApp Doodle Wallpaper + Parity Layout) */}
+                {/* Messages Timeline (Previous theme colors + Telegram layout & proper margins) */}
                 <div
-                  onScroll={(e) => {
-                    const target = e.currentTarget;
-                    const distFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-                    setShowScrollBottom(distFromBottom > 220);
-                  }}
-                  style={{
-                    backgroundImage: "url('/assets/images/chat_background_image.png')",
-                    backgroundRepeat: 'repeat',
-                  }}
                   className={cn(
-                    'relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-4 px-4 sm:px-6 md:px-8 px-safe space-y-2 bg-bg-pr/92 dark:bg-bg-sc/95 backdrop-blur-[0.5px]',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-4 px-4 sm:px-6 md:px-8 px-safe space-y-2 bg-fill-fv/35',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
@@ -3828,9 +3645,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         `${m.sender?.firstName || ''} ${m.sender?.lastName || ''}`.trim() ||
                         (m.sender?.username ? `@${m.sender.username}` : 'User');
                       const isStickerOnly = m.type === 'sticker' && !m.content && !m.parentId && !m.isDeleted;
-                      const isEmojiOnly = Boolean(
-                        isOnlyEmojis(m.content) && !m.media && !m.poll && !m.location && !m.parentId && !m.isDeleted
-                      );
                       const isGroupChat = activeChat.type === 'group';
 
                       if (m.type === 'system') {
@@ -3908,17 +3722,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setForwardMsg(m);
-                                    setForwardTargets([]);
-                                  }}
-                                  className="p-1 rounded-full text-lab-tr hover:text-brand-900 hover:bg-fill-sc cursor-pointer"
-                                  title="Forward"
-                                >
-                                  <Forward className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => setMobileActionMsg(m)}
                                   className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
                                   title="Options"
@@ -3937,7 +3740,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 mine ? 'items-end' : 'items-start'
                               )}
                             >
-                              {/* Sender Name in group or header */}
+                              {/* Grupo Sender Name & Timestamp Header */}
                               {isFirstInCluster && (
                                 <div
                                   className={cn(
@@ -3945,12 +3748,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                     mine && 'flex-row-reverse'
                                   )}
                                 >
-                                  <span
-                                    className={cn(
-                                      'text-par-s font-semibold truncate',
-                                      mine ? 'text-lab-pr' : isGroupChat ? 'text-brand-900 dark:text-emerald-400' : 'text-lab-pr'
-                                    )}
-                                  >
+                                  <span className="text-par-s font-semibold text-lab-pr truncate">
                                     {mine ? 'You' : senderName}
                                   </span>
                                   {m.isEdited && <span className="text-[10px] italic text-lab-tr">edited</span>}
@@ -3959,13 +3757,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                   </span>
                                   {mine &&
                                     (readByOther ? (
-                                      <span title="Seen">
-                                        <CheckCheck className="size-3.5 text-[#54E0FF] shrink-0" strokeWidth={2.4} />
-                                      </span>
+                                      <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />
                                     ) : (
-                                      <span title="Sent">
-                                        <Check className="size-3.5 text-lab-tr shrink-0" strokeWidth={2} />
-                                      </span>
+                                      <Check className="h-3.5 w-3.5 text-lab-tr shrink-0" />
                                     ))}
                                 </div>
                               )}
@@ -3977,17 +3771,15 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                   messageInputRef.current?.focus();
                                 }}
                                 className={cn(
-                                  'min-w-0 max-w-full overflow-hidden space-y-1.5 transition-shadow',
+                                  'min-w-0 max-w-full overflow-hidden space-y-1.5',
                                   isStickerOnly
                                     ? 'bg-transparent p-0'
-                                    : isEmojiOnly
-                                      ? 'bg-transparent p-1 shadow-none border-0 text-lab-pr'
-                                      : cn(
-                                          'rounded-2xl px-3.5 py-2.5 shadow-xs',
-                                          mine
-                                            ? 'bg-brand-900 text-white rounded-tr-xs'
-                                            : 'bg-bg-pr dark:bg-fill-sc border border-bord-card text-lab-pr rounded-tl-xs'
-                                        )
+                                    : cn(
+                                        'rounded-xl px-3.5 py-2.5 border shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+                                        mine
+                                          ? 'bg-fill-qt border-bord-pr/80 text-lab-pr rounded-tr-xs'
+                                          : 'bg-bg-pr border-bord-card text-lab-pr rounded-tl-xs'
+                                      )
                                 )}
                               >
                                 {m.parentId && !m.isDeleted && (
@@ -3997,31 +3789,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                       const el = document.getElementById(`msg-${m.parentId?.id}`);
                                       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                     }}
-                                    className={cn(
-                                      'max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-4 text-par-s text-left cursor-pointer transition-colors',
-                                      mine
-                                        ? 'border-white/90 bg-black/20 text-white/90 hover:bg-black/30'
-                                        : 'border-brand-900 bg-fill-qt text-lab-sc hover:bg-fill-sc'
-                                    )}
+                                    className="max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-2 border-brand-900 bg-fill-fv/80 text-par-s text-lab-sc text-left cursor-pointer hover:bg-fill-sc transition-colors"
                                   >
-                                    <p
-                                      className={cn(
-                                        'text-cap-l font-bold truncate',
-                                        mine ? 'text-white' : 'text-brand-900 dark:text-emerald-400'
-                                      )}
-                                    >
+                                    <p className="text-cap-l font-semibold text-brand-900 truncate">
                                       {m.parentId.senderId?.firstName ||
                                         m.parentId.senderId?.username ||
                                         'Reply'}
                                     </p>
-                                    <p
-                                      className={cn(
-                                        'truncate text-cap-l',
-                                        mine ? 'text-white/80' : 'text-lab-sc'
-                                      )}
-                                    >
-                                      {getMessagePreviewLabel(m.parentId)}
-                                    </p>
+                                    <p className="truncate text-lab-sc">{getMessagePreviewLabel(m.parentId)}</p>
                                   </div>
                                 )}
 
@@ -4029,33 +3804,15 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                   {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
                                 </div>
 
-                                {!isStickerOnly && !isEmojiOnly && !m.isDeleted && (
-                                  <div
-                                    className={cn(
-                                      'flex items-center justify-end gap-1 text-[11px] select-none tabular-nums mt-0.5',
-                                      mine ? 'text-white/80' : 'text-lab-tr'
-                                    )}
-                                  >
-                                    {m.isEdited && (
-                                      <span
-                                        className={cn(
-                                          'text-[9.5px] italic mr-0.5',
-                                          mine ? 'text-white/70' : 'text-lab-tr'
-                                        )}
-                                      >
-                                        edited
-                                      </span>
-                                    )}
+                                {!isFirstInCluster && !isStickerOnly && !m.isDeleted && (
+                                  <div className="flex items-center justify-end gap-1 text-[10px] select-none tabular-nums mt-0.5 text-lab-tr">
+                                    {m.isEdited && <span className="text-[9.5px] italic mr-0.5">edited</span>}
                                     <span>{formatMessageTime(m.createdAt, locale)}</span>
                                     {mine &&
                                       (readByOther ? (
-                                        <span title="Seen">
-                                          <CheckCheck className="size-3.5 text-[#54E0FF] shrink-0" strokeWidth={2.5} />
-                                        </span>
+                                        <CheckCheck className="h-3 w-3 text-brand-900" />
                                       ) : (
-                                        <span title="Sent">
-                                          <Check className="size-3.5 text-white/70 shrink-0" strokeWidth={2.2} />
-                                        </span>
+                                        <Check className="h-3 w-3 text-lab-tr" />
                                       ))}
                                   </div>
                                 )}
@@ -4134,17 +3891,6 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setForwardMsg(m);
-                                    setForwardTargets([]);
-                                  }}
-                                  className="p-1 rounded-full text-lab-tr hover:text-brand-900 hover:bg-fill-sc cursor-pointer"
-                                  title="Forward"
-                                >
-                                  <Forward className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => setMobileActionMsg(m)}
                                   className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
                                   title="Options"
@@ -4181,36 +3927,22 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       </div>
                     )}
 
-                    {showScrollBottom && (
-                      <div className="sticky bottom-2 flex justify-end pointer-events-none pr-1">
-                        <button
-                          type="button"
-                          onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                          className="pointer-events-auto size-9 rounded-full bg-bg-pr dark:bg-fill-sc border border-bord-card shadow-lg flex items-center justify-center text-lab-sc hover:text-lab-pr hover:scale-105 active:scale-95 transition-all cursor-pointer"
-                          title="Scroll to bottom"
-                          aria-label="Scroll to bottom"
-                        >
-                          <ChevronDown className="size-5" />
-                        </button>
-                      </div>
-                    )}
-
                     <div ref={messagesEndRef} />
                   </div>
                 </div>
 
                 {(!callMode || showChatInCall) && (
                   <>
-                    {/* Whoxa SelectedReplyMessage Banner */}
+                    {/* Reply Preview Banner (Telegram style) */}
                     {replyTo && (
-                      <div className="border-t border-bord-pr bg-bg-pr/95 dark:bg-fill-sc/95 backdrop-blur-md px-4 sm:px-6 md:px-8 py-2 shrink-0 shadow-xs">
+                      <div className="border-t border-bord-pr bg-bg-pr px-4 sm:px-6 md:px-8 py-2 shrink-0 shadow-xs">
                         <div
                           className={cn(
                             'w-full flex items-center justify-between gap-3',
                             middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
                           )}
                         >
-                          <div className="min-w-0 border-l-4 border-brand-900 dark:border-emerald-400 pl-2.5">
+                          <div className="min-w-0 border-l-[3px] border-brand-900 dark:border-emerald-400 pl-2.5">
                             <p className="text-cap-s font-bold text-brand-900 dark:text-emerald-400 truncate">
                               Replying to {replyTo.sender?.firstName || replyTo.sender?.username || 'Message'}
                             </p>
@@ -4219,7 +3951,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                           <button
                             type="button"
                             onClick={() => setReplyTo(null)}
-                            className="p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
+                            className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
                             aria-label="Cancel reply"
                           >
                             <X className="h-4 w-4" />
@@ -4266,7 +3998,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       </div>
                     )}
 
-                    {/* Composer (Whoxa WhatsApp Layout + Full Parity) */}
+                    {/* Composer (matches PHP ChatForm + AudioRecorder.vue) */}
                     {isGroupMuted || isReadOnlyRoom ? (
                       <div className="sticky bottom-0 z-20 w-full px-4 sm:px-6 md:px-8 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-fill-qt shrink-0">
                         <div
@@ -4356,15 +4088,14 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               ))}
                             </div>
                           )}
-
-                          {/* Whoxa Composer Form */}
+                          {/* Telegram-style Composer Form */}
                           <form
                             onSubmit={handleSendText}
-                            className="flex items-end gap-2.5 min-w-0 max-w-full"
+                            className="flex items-center gap-2 min-w-0 max-w-full"
                           >
-                            {/* Whoxa Attachment Button with Circular 3-column Grid Menu */}
+                            {/* Telegram Attachment button (Paperclip on far left) with hover popup and auto-close on mouse leave */}
                             <div
-                              className="relative shrink-0 mb-1"
+                              className="relative shrink-0"
                               onMouseEnter={handleAttachEnter}
                               onMouseLeave={handleAttachLeave}
                             >
@@ -4373,29 +4104,42 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 disabled={uploadingMedia}
                                 onClick={() => setAttachMenuOpen((v) => !v)}
                                 className={cn(
-                                  'size-10 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
+                                  'size-9 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
                                   attachMenuOpen
-                                    ? 'bg-brand-900 text-white rotate-45 shadow-sm'
+                                    ? 'bg-brand-900 text-white rotate-45'
                                     : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
                                 )}
-                                title="Attach media or document"
+                                title="Attach file or media"
                                 aria-label="Attach file or media"
                               >
                                 <Paperclip className="h-5 w-5" strokeWidth={1.8} />
                               </button>
 
-                              {/* Whoxa 3-Column Circular Attachment Popover Menu */}
+                              {/* Attachment Popover Menu */}
                               {attachMenuOpen && (
                                 <div
-                                  className="absolute bottom-full left-0 mb-3 z-30 w-72 rounded-2xl border border-bord-pr bg-bg-pr shadow-2xl p-4 grid grid-cols-3 gap-3"
+                                  className="absolute bottom-full left-0 mb-2 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5"
                                   onMouseEnter={handleAttachEnter}
                                   onMouseLeave={handleAttachLeave}
                                 >
-                                  <label className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-fill-fv cursor-pointer transition-colors text-center group">
-                                    <div className="size-12 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                                      <FileText className="size-6" />
-                                    </div>
-                                    <span className="text-cap-s font-medium text-lab-pr">Document</span>
+                                  <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                    <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
+                                    <span>Photo or Video</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*,video/*"
+                                      disabled={uploadingMedia}
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        setAttachMenuOpen(false);
+                                        void handleFileUpload(e);
+                                      }}
+                                    />
+                                  </label>
+
+                                  <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                    <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Attach File</span>
                                     <input
                                       type="file"
                                       accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
@@ -4408,39 +4152,33 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                     />
                                   </label>
 
-                                  <label className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-fill-fv cursor-pointer transition-colors text-center group">
-                                    <div className="size-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                                      <ImageIcon className="size-6" />
-                                    </div>
-                                    <span className="text-cap-s font-medium text-lab-pr">Photos</span>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      disabled={uploadingMedia}
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        setAttachMenuOpen(false);
-                                        void handleFileUpload(e);
-                                      }}
-                                    />
-                                  </label>
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia}
+                                    onClick={() => {
+                                      setAttachMenuOpen(false);
+                                      setShowStickerPicker(false);
+                                      setShowGifPicker(true);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  >
+                                    <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>GIFs</span>
+                                  </button>
 
-                                  <label className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-fill-fv cursor-pointer transition-colors text-center group">
-                                    <div className="size-12 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                                      <Film className="size-6" />
-                                    </div>
-                                    <span className="text-cap-s font-medium text-lab-pr">Video</span>
-                                    <input
-                                      type="file"
-                                      accept="video/*"
-                                      disabled={uploadingMedia}
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        setAttachMenuOpen(false);
-                                        void handleFileUpload(e);
-                                      }}
-                                    />
-                                  </label>
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia}
+                                    onClick={() => {
+                                      setAttachMenuOpen(false);
+                                      setShowGifPicker(false);
+                                      setShowStickerPicker(true);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                  >
+                                    <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Stickers &amp; Emoji</span>
+                                  </button>
 
                                   <button
                                     type="button"
@@ -4451,12 +4189,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                       setPollOptions(['', '']);
                                       setPollModalOpen(true);
                                     }}
-                                    className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-fill-fv cursor-pointer transition-colors text-center group disabled:opacity-50"
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                                   >
-                                    <div className="size-12 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                                      <BarChart2 className="size-6" />
-                                    </div>
-                                    <span className="text-cap-s font-medium text-lab-pr">Poll</span>
+                                    <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Create Poll</span>
                                   </button>
 
                                   <button
@@ -4466,12 +4202,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                       setAttachMenuOpen(false);
                                       void handleShareLocation();
                                     }}
-                                    className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-fill-fv cursor-pointer transition-colors text-center group disabled:opacity-50"
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                                   >
-                                    <div className="size-12 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                                      <MapPin className="size-6" />
-                                    </div>
-                                    <span className="text-cap-s font-medium text-lab-pr">Location</span>
+                                    <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Share Location</span>
                                   </button>
 
                                   <button
@@ -4479,49 +4213,35 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                     disabled={uploadingMedia}
                                     onClick={() => {
                                       setAttachMenuOpen(false);
-                                      setShowStickerPicker(false);
-                                      setShowGifPicker(true);
+                                      void startVoiceRecording();
                                     }}
-                                    className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-fill-fv cursor-pointer transition-colors text-center group disabled:opacity-50"
+                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
                                   >
-                                    <div className="size-12 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                                      <Smile className="size-6" />
-                                    </div>
-                                    <span className="text-cap-s font-medium text-lab-pr">GIFs</span>
+                                    <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                    <span>Voice Message</span>
                                   </button>
                                 </div>
                               )}
                             </div>
 
-                            {/* Whoxa Rounded Input Pill with Auto-resizing Textarea & Smile Button */}
-                            <div className="flex-1 min-w-0 flex items-end bg-fill-qt dark:bg-fill-sc/60 border border-transparent focus-within:border-brand-900/40 focus-within:bg-bg-pr rounded-2xl px-3.5 py-1.5 transition-all">
-                              <textarea
+                            {/* Telegram Rounded Input Pill with Smile/Sticker Button inside */}
+                            <div className="flex-1 min-w-0 flex items-center bg-fill-qt dark:bg-fill-sc/60 border border-transparent focus-within:border-brand-900/40 focus-within:bg-bg-pr rounded-full px-3.5 py-1 transition-all">
+                              <input
                                 ref={messageInputRef}
-                                rows={1}
+                                type="text"
                                 value={msgText}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   setMsgText(val);
                                   emitTypingChange(val.length > 0);
-                                  e.target.style.height = 'auto';
-                                  e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`;
                                 }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    void handleSendText(e);
-                                    if (messageInputRef.current) {
-                                      messageInputRef.current.style.height = 'auto';
-                                    }
-                                  }
-                                }}
-                                placeholder="Type a message..."
-                                className="flex-1 min-w-[80px] bg-transparent border-0 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none resize-none max-h-36 overflow-y-auto leading-relaxed"
+                                placeholder="Write a message..."
+                                className="flex-1 min-w-[80px] bg-transparent border-0 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
                               />
 
-                              {/* Hover Floating Sticker & Emoji Popover Card */}
+                              {/* Telegram Hover Floating Sticker & Emoji Popover Card */}
                               <div
-                                className="relative shrink-0 flex items-center mb-1"
+                                className="relative shrink-0 flex items-center"
                                 onMouseEnter={handleStickerEnter}
                                 onMouseLeave={handleStickerLeave}
                               >
@@ -4565,15 +4285,15 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               </div>
                             </div>
 
-                            {/* Whoxa Action Button: Send or Voice Note Mic */}
+                            {/* Telegram Circular Action Button: Send Paperplane or Voice Note Mic */}
                             {msgText.trim() ? (
                               <button
                                 type="submit"
                                 disabled={uploadingMedia}
                                 aria-label="Send message"
-                                className="size-11 rounded-2xl bg-brand-900 text-white hover:opacity-95 inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 shadow-md mb-0.5"
+                                className="size-10 rounded-full bg-brand-900 text-white hover:opacity-90 inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 shadow-xs"
                               >
-                                <Send className="size-5 ml-0.5" strokeWidth={2.2} />
+                                <Send className="h-4 w-4 ml-0.5" strokeWidth={2.2} />
                               </button>
                             ) : (
                               <button
@@ -4582,9 +4302,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                                 onClick={startVoiceRecording}
                                 title="Record voice note"
                                 aria-label="Record voice note"
-                                className="size-11 rounded-2xl bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc dark:bg-fill-sc/60 dark:hover:bg-fill-sc inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 mb-0.5"
+                                className="size-10 rounded-full bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc dark:bg-fill-sc/60 dark:hover:bg-fill-sc inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50"
                               >
-                                <Mic className="size-5" strokeWidth={1.8} />
+                                <Mic className="h-5 w-5" strokeWidth={1.8} />
                               </button>
                             )}
                           </form>
