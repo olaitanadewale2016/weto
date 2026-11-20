@@ -26,7 +26,6 @@ import {
   Users,
   Video,
   VolumeX,
-  X,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -139,7 +138,7 @@ interface GroupInfoPanelProps {
   onDeleteGroup: () => void;
   onOpenLightbox: (url: string) => void;
   onRefresh: () => void;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export function GroupInfoPanel({
@@ -160,7 +159,6 @@ export function GroupInfoPanel({
   onDeleteGroup,
   onOpenLightbox,
   onRefresh,
-  onClose,
 }: GroupInfoPanelProps) {
   const { success, error } = useToast();
   const [panelTab, setPanelTab] = useState<'members' | 'media' | 'settings'>('members');
@@ -334,16 +332,8 @@ export function GroupInfoPanel({
   return (
     <aside className="flex flex-col h-full bg-bg-pr border-l border-bord-pr overflow-hidden">
       {/* Grupo Info Header */}
-      <div className="px-4 py-3.5 border-b border-bord-pr flex items-center justify-between gap-2 shrink-0">
+      <div className="px-4 py-3.5 border-b border-bord-pr flex items-center gap-2 shrink-0">
         <p className="text-par-l font-bold text-lab-pr truncate">Room Info</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="size-8 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
-          aria-label="Close room info"
-        >
-          <X className="h-4 w-4" />
-        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">

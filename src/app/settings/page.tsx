@@ -233,7 +233,7 @@ export default function SettingsPage() {
   }
 
   async function handleDeleteAccount() {
-    if (!window.confirm('Are you sure you want to permanently schedule your account for deletion?')) return;
+    if (!window.confirm('Are you sure you want to permanently delete your account and remove all your data from the app? This cannot be undone.')) return;
     try {
       await apiFetch('/auth/accounts', { method: 'POST', json: { action: 'delete_account' } });
       await logout();

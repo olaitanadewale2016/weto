@@ -63,6 +63,7 @@ import {
   hashGroupPassword,
   sanitizeGroupForClient,
 } from '@/services/group-seed.service';
+import { purgeUserAccountCompletely } from '@/services/account-deletion.service';
 
 export async function GET(req: NextRequest) {
   try {
@@ -825,17 +826,14 @@ export async function POST(req: NextRequest) {
       if (String(admin._id) === targetId) {
         throw new ForbiddenError('Administrators cannot delete their own account.');
       }
-      await User.updateOne(
-        { _id: targetId },
-        { $set: { deletedAt: new Date(), status: UserStatus.BLOCKED } }
-      );
+      await purgeUserAccountCompletely(targetId);
       await ModerationAction.create({
         moderatorId: admin._id,
         targetUserId: targetId,
         targetType: 'user',
         targetId,
         action: 'delete_user',
-        reason: String(payload.reason || 'Admin user deletion'),
+        reason: String(payload.reason || 'Admin permanent user deletion'),
       });
     } else if (action === 'user.set_status' && targetId) {
       const status = payload.status as UserStatus;

@@ -289,11 +289,11 @@ export async function recordAdShowAndCharge(adId: Types.ObjectId) {
       $expr: { $lt: ['$spentBudget', '$totalBudget'] },
       ...(minChargeGapMs > 0
         ? {
-            $or: [
-              { lastChargeAt: null },
-              { lastChargeAt: { $lte: chargeCutoff } },
-            ],
-          }
+          $or: [
+            { lastChargeAt: null },
+            { lastChargeAt: { $lte: chargeCutoff } },
+          ],
+        }
         : {}),
     },
     {

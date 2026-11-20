@@ -20,12 +20,11 @@ import { publicEnv } from '@/lib/env';
 import { resolveMediaUrl } from '@/lib/media-url';
 import { User } from '@/models/User';
 import { DeletionFeedback } from '@/models/SocialGraph';
-import { Post } from '@/models/Post';
-import { getFirebaseAuth, isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 import { UserStatus, UserType } from '@/types/enums';
 import { ensureWallet } from '@/services/wallet.service';
 import { getSettingsGroup } from '@/services/settings.service';
 import { dispatchNotification } from '@/services/notification.service';
+import { purgeUserAccountCompletely } from '@/services/account-deletion.service';
 
 const MAX_LINKED_ACCOUNTS = 5;
 
@@ -531,29 +530,25 @@ export async function POST(req: NextRequest) {
 
       if (body.action === 'delete_account') {
         const ip = await getClientIp(req);
-        await DeletionFeedback.create({
-          feedbackMessage: body.feedbackMessage || '',
-          username: user.username,
-          fullName: `${user.firstName} ${user.lastName}`.trim(),
-          email: user.email,
-          phone: user.phone,
-          registeredAt: user.createdAt,
-          publications: user.publicationsCount,
-          followers: user.followersCount,
-          following: user.followingCount,
-          ipAddress: ip,
-          userAgent: req.headers.get('user-agent') || '',
-          deletedAt: new Date(),
-        });
-
-        user.deletedAt = new Date();
-        user.status = UserStatus.SUSPENDED;
-        await user.save();
-        await Post.deleteMany({ userId: user._id });
-
-        if (user.firebaseUid && !user.ownerAccountId && isFirebaseAdminConfigured()) {
-          await getFirebaseAuth().deleteUser(user.firebaseUid).catch(() => { });
+        if (body.feedbackMessage?.trim()) {
+          await DeletionFeedback.create({
+            feedbackMessage: body.feedbackMessage.trim(),
+            username: user.username,
+            fullName: `${user.firstName} ${user.lastName}`.trim(),
+            email: user.email,
+            phone: user.phone,
+            registeredAt: user.createdAt,
+            publications: user.publicationsCount,
+            followers: user.followersCount,
+            following: user.followingCount,
+            ipAddress: ip,
+            userAgent: req.headers.get('user-agent') || '',
+            deletedAt: new Date(),
+          });
         }
+
+        // Permanently purge the account and all associated data from the app
+        await purgeUserAccountCompletely(user._id);
 
         const res = apiSuccess({ deleted: true });
         res.cookies.delete('__session');

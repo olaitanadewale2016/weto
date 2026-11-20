@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Film, Search, X } from 'lucide-react';
+import { ArrowLeft, Check, Film, Search } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { ActionSheet } from '@/components/mobile/ActionSheet';
 
@@ -128,38 +128,18 @@ export function GiphyPicker({
           <div className="flex-1 flex items-center gap-2 rounded-full bg-fill-qt border border-bord-pr px-3.5 h-10">
             <Search className="h-4 w-4 text-lab-sc shrink-0" />
             <input
-              type="search"
+              type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search GIPHY GIFs..."
               className="flex-1 min-w-0 bg-transparent text-[16px] md:text-par-s text-lab-pr placeholder:text-lab-tr focus:outline-none"
             />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                className="text-lab-tr hover:text-lab-pr cursor-pointer shrink-0"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
           </div>
         )}
         {previewGif && (
           <p className="flex-1 min-w-0 truncate text-par-s font-medium text-lab-sc">
             {previewGif.title || 'GIF Preview'}
           </p>
-        )}
-        {onClose && !isMobileViewport && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer shrink-0"
-            aria-label="Close GIF picker"
-          >
-            <X className="h-4 w-4" />
-          </button>
         )}
       </div>
 
