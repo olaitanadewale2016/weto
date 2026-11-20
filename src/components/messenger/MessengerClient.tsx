@@ -2631,17 +2631,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
           activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
-        {/* Sidebar Title (PHP PageTitle.vue + SidebarContainer mt-top-offset parity) */}
-        <div className="pt-6 px-4 mb-4 shrink-0 pt-safe">
-          <div className="flex items-center justify-between gap-2 leading-none">
+        {/* Sidebar Title (PHP PageTitle.vue + SidebarContainer mt-top-offset parity, matching Notifications safe-area spacing) */}
+        <div className="shrink-0 pt-safe px-safe">
+          <div className="px-4 py-3 md:pt-5 md:pb-3 flex items-center justify-between gap-2 leading-none">
             <div className="flex gap-2 items-center leading-none min-w-0">
               <Link
                 href="/"
-                className="shrink-0 cursor-pointer text-lab-pr hover:opacity-80 transition-opacity"
+                className="shrink-0 p-1.5 -ml-1.5 md:p-0 md:ml-0 rounded-full text-lab-pr hover:bg-fill-tr md:hover:bg-transparent md:hover:opacity-80 transition-all cursor-pointer"
                 title="Back to Home"
                 aria-label="Back to Home"
               >
-                <ArrowLeft className="size-[22px]" strokeWidth={1.9} />
+                <ArrowLeft className="h-5 w-5 md:size-[22px]" strokeWidth={1.9} />
               </Link>
               <h1 className="text-title-3 2xl:text-title-2 font-bold text-lab-pr2 leading-tight truncate">
                 {tab === 'archive'

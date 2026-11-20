@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bell, Sparkles, X } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/components/providers/AppContext';
 
@@ -84,9 +84,8 @@ export function PushNotificationPrompt() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-par-n font-bold text-lab-pr flex items-center gap-1.5">
-              <span>Enable Push Notifications</span>
-              <Sparkles className="size-3.5 text-brand-900" />
+            <h4 className="text-par-n font-bold text-lab-pr">
+              Enable Push Notifications
             </h4>
             <button
               type="button"

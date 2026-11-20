@@ -13,7 +13,6 @@ import {
   Music,
   Plus,
   Send,
-  Sparkles,
   Trash2,
   Video,
   X,
@@ -535,7 +534,7 @@ export function PostComposer({
                   )}
                   title="AI writing assistant"
                 >
-                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
                 </button>
                 {aiMenuOpen && (
                   <div className="absolute bottom-full right-0 sm:left-0 sm:right-auto mb-2 w-48 max-w-[calc(100vw-2rem)] rounded-2xl border border-bord-card bg-bg-pr p-1.5 shadow-xl z-40 space-y-0.5">
