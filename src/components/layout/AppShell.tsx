@@ -182,9 +182,10 @@ export function AppShell({
 
   // Exact ApplicationNavbar.vue order & items
   const navItems = [
-    { href: '/', label: dict.nav.home, icon: Home, show: true },
-    { href: '/explore', label: dict.nav.explore, icon: Hash, show: true },
+    { id: 'nav-home', href: '/', label: dict.nav.home, icon: Home, show: true },
+    { id: 'nav-explore', href: '/explore', label: dict.nav.explore, icon: Hash, show: true },
     {
+      id: 'nav-notifications',
       href: '/notifications',
       label: dict.nav.notifications,
       icon: Bell,
@@ -192,6 +193,7 @@ export function AppShell({
       show: Boolean(user),
     },
     {
+      id: 'nav-messenger',
       href: '/messenger',
       label: dict.nav.messenger,
       icon: MessageCircle,
@@ -199,43 +201,50 @@ export function AppShell({
       show: Boolean(user),
     },
     {
+      id: 'nav-bookmarks',
       href: '/bookmarks',
       label: dict.nav.bookmarks,
       icon: Bookmark,
       show: Boolean(user),
     },
     {
+      id: 'nav-wallet',
       href: '/wallet',
       label: dict.nav.wallet,
       icon: Wallet,
       show: features?.wallet !== false && Boolean(user),
     },
     {
+      id: 'nav-marketplace',
       href: '/marketplace',
       label: dict.nav.marketplace,
       icon: ShoppingBag,
       show: features?.marketplace !== false,
     },
     {
+      id: 'nav-jobs',
       href: '/jobs',
       label: dict.nav.jobs,
       icon: Briefcase,
       show: features?.jobs !== false,
     },
     {
+      id: 'nav-games',
       href: '/games',
       label: 'Games',
       icon: Gamepad2,
       show: true,
     },
     {
+      id: 'nav-settings',
       href: '/settings',
       label: dict.nav.settings,
       icon: Settings,
       show: Boolean(user),
     },
     {
-      href: user ? `/@${user.username}` : loading ? '/' : '/auth/login',
+      id: 'nav-profile',
+      href: user ? `/@${user.username}` : '/auth/login',
       label: user ? dict.nav.profile : 'Sign in',
       icon: user || loading ? UserIcon : LogIn,
       matchPrefix: user ? `/u/${user.username}` : loading ? '/__loading__' : '/auth/login',
@@ -315,7 +324,7 @@ export function AppShell({
               aria-label="Open navigation menu"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoSrc} alt={appName} className="h-6 w-auto object-contain shrink-0" />
+              <img src={logoSrc} alt={appName} className="h-6 w-auto object-contain shrink-0" suppressHydrationWarning />
               <h4 className="text-title-3 font-medium text-lab-pr truncate">{mobileTitle}</h4>
               <ChevronDown className="size-4 text-lab-pr3 shrink-0" />
             </button>
@@ -339,6 +348,7 @@ export function AppShell({
                 onClick={toggleTheme}
                 className="size-9 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-pr2 cursor-pointer"
                 aria-label="Toggle color theme"
+                suppressHydrationWarning
               >
                 {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
               </button>
@@ -385,7 +395,7 @@ export function AppShell({
                 <div className="shrink-0 pt-6 px-3 xl:px-4 mb-2">
                   <Link href="/" className="inline-block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logoSrc} alt={appName} className="h-7 w-auto object-contain" />
+                    <img src={logoSrc} alt={appName} className="h-7 w-auto object-contain" suppressHydrationWarning />
                   </Link>
                 </div>
 
@@ -401,7 +411,7 @@ export function AppShell({
                           : pathname.startsWith(item.href);
 
                       return (
-                        <Link key={item.href} href={item.href} className="block group">
+                        <Link key={item.id} href={item.href} className="block group">
                           <div
                             className={cn(
                               'flex items-center gap-3 px-3 py-1.5 xl:py-2 -mx-1 rounded-full transition-colors duration-150',

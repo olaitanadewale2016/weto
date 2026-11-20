@@ -310,47 +310,23 @@ export function AppProvider({
   const cachedBoot = typeof window !== 'undefined' ? readCachedBootstrap() : null;
   const [loading, setLoading] = useState(() => {
     if (initialBootstrap) return false;
-    if (typeof window === 'undefined') return true;
-    const cached = readCachedBootstrap();
-    return !cached;
+    return true;
   });
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(() => {
     if (initialBootstrap) return initialBootstrap;
-    if (typeof window === 'undefined') return null;
-    const cached = readCachedBootstrap();
-    return cached?.data ?? null;
+    return null;
   });
   const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('cp_theme') as 'light' | 'dark' | null;
-        if (saved === 'light' || saved === 'dark') return saved;
-      } catch {
-        // ignore
-      }
-    }
     return (
       initialBootstrap?.user?.theme ||
       initialBootstrap?.config?.defaultTheme ||
-      cachedBoot?.data?.user?.theme ||
-      cachedBoot?.data?.config?.defaultTheme ||
       'light'
     );
   });
   const [locale, setLocaleState] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('cp_locale');
-        if (saved) return saved;
-      } catch {
-        // ignore
-      }
-    }
     return (
       initialBootstrap?.user?.language ||
       initialBootstrap?.config?.defaultLocale ||
-      cachedBoot?.data?.user?.language ||
-      cachedBoot?.data?.config?.defaultLocale ||
       'en'
     );
   });
