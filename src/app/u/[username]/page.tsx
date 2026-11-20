@@ -812,10 +812,10 @@ export default function UserProfilePage() {
       </div>
 
       {/* =====================================================================
-       * PHP Mobile Profile Layout (< md) matching mobile/views/profile/ProfileIndex.vue
+       * Mobile Profile Layout (< md) with overlapping avatar matching desktop
        * ===================================================================== */}
       <div className="md:hidden">
-        {/* mobile/ProfileAvatar.vue: Cover image + side-by-side Avatar & Name/Caption */}
+        {/* Cover image banner */}
         <button
           type="button"
           onClick={() => {
@@ -826,7 +826,7 @@ export default function UserProfilePage() {
               });
             }
           }}
-          className="block w-full relative overflow-hidden cursor-pointer h-32 sm:h-40 bg-fill-fv mb-4"
+          className="block w-full relative overflow-hidden cursor-pointer h-36 sm:h-44 bg-fill-fv"
           aria-label="Preview cover image"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -849,29 +849,32 @@ export default function UserProfilePage() {
           />
         </button>
 
-        <div className="flex items-center gap-3.5 px-4 mb-3">
-          <button
-            type="button"
-            onClick={() => {
-              const avatarUrl = normalizeAvatarSrc(profile.avatar);
-              if (avatarUrl) {
-                setMediaLightbox({
-                  url: avatarUrl,
-                  label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
-                });
-              }
-            }}
-            className="cursor-pointer shrink-0 rounded-full"
-            aria-label="Preview profile avatar"
-          >
-            <Avatar
-              src={profile.avatar}
-              alt={profile.username}
-              size="xl"
-              verified={profile.verified}
-              className="size-20"
-            />
-          </button>
+        <div className="px-4 pb-3">
+          {/* Overlapping Avatar matching desktop (-mt-12 = 50% overlap of size-24 avatar) */}
+          <div className="-mt-12 relative z-10 mb-2 inline-block">
+            <button
+              type="button"
+              onClick={() => {
+                const avatarUrl = normalizeAvatarSrc(profile.avatar);
+                if (avatarUrl) {
+                  setMediaLightbox({
+                    url: avatarUrl,
+                    label: `${fullName}${profile.caption ? ` ${profile.caption}` : ''}`,
+                  });
+                }
+              }}
+              className="cursor-pointer relative z-10 border-4 border-bg-pr rounded-full bg-bg-pr block"
+              aria-label="Preview profile avatar"
+            >
+              <Avatar
+                src={profile.avatar}
+                alt={profile.username}
+                size="xl"
+                verified={profile.verified}
+                className="size-24"
+              />
+            </button>
+          </div>
 
           <div className="min-w-0">
             <h1 className="text-title-2 font-semibold leading-tight text-lab-pr2 flex items-center gap-1.5 flex-wrap">
@@ -881,9 +884,6 @@ export default function UserProfilePage() {
             <p className="text-par-n font-medium text-lab-sc truncate mt-0.5">
               @{profile.username}
             </p>
-            {profile.caption && (
-              <p className="text-par-s text-lab-sc truncate mt-0.5">{profile.caption}</p>
-            )}
           </div>
         </div>
 
