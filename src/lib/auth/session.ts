@@ -22,15 +22,11 @@ export interface AuthContext {
 
 export async function getClientIp(req?: NextRequest): Promise<string> {
   if (req) {
-    const cfIp = req.headers.get('cf-connecting-ip');
-    if (cfIp) return cfIp.trim();
     const forwarded = req.headers.get('x-forwarded-for');
     if (forwarded) return forwarded.split(',')[0].trim();
     return req.headers.get('x-real-ip') || '0.0.0.0';
   }
   const h = await headers();
-  const cfIp = h.get('cf-connecting-ip');
-  if (cfIp) return cfIp.trim();
   const forwarded = h.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
   return h.get('x-real-ip') || '0.0.0.0';

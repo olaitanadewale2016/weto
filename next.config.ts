@@ -3,13 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
-  ...(process.env.CF_PAGES || process.env.OPENNEXT
-    ? {
-        outputFileTracingExcludes: {
-          "*": ["node_modules/sharp", "node_modules/@img/**"],
-        },
-      }
-    : {}),
+  serverExternalPackages: ["sharp"],
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -28,17 +22,15 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  async redirects() {
+  async rewrites() {
     return [
       {
         source: "/@:username",
         destination: "/u/:username",
-        permanent: true,
       },
       {
         source: "/%40:username",
         destination: "/u/:username",
-        permanent: true,
       },
     ];
   },
@@ -90,6 +82,4 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-if (process.env.NODE_ENV === 'development' && !process.env.VERCEL) {
-  import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev()).catch(() => {});
-}
+import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());

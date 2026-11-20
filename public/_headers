@@ -1,26 +1,4 @@
-# Cloudflare Edge Static Asset Headers
-# See https://developers.cloudflare.com/workers/static-assets/headers
+# https://developers.cloudflare.com/workers/static-assets/headers
+# https://opennext.js.org/cloudflare/caching#static-assets-caching
 /_next/static/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/pwa/icons/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/pwa/manifest.json
-  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-
-/pwa/service-worker.js
-  Cache-Control: no-cache, no-store, must-revalidate
-  Service-Worker-Allowed: /
-
-/firebase-messaging-sw.js
-  Cache-Control: no-cache, no-store, must-revalidate
-  Service-Worker-Allowed: /
-
-/*
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: SAMEORIGIN
-  Referrer-Policy: strict-origin-when-cross-origin
+  Cache-Control: public,max-age=31536000,immutable

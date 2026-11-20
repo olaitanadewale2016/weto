@@ -781,8 +781,7 @@ export function AppProvider({
         void refreshBootstrap();
       }
     };
-    // Low-frequency heartbeat when tab is active (Firebase handles real-time push events)
-    const interval = setInterval(syncIfVisible, 90000);
+    const interval = setInterval(syncIfVisible, 30000);
     document.addEventListener('visibilitychange', syncIfVisible);
     return () => {
       clearInterval(interval);

@@ -154,12 +154,11 @@ export default function PublicationDetailPage() {
       }
     }
 
-    // Low-frequency quiet sync (real-time comments & reactions are delivered via Firestore/Socket)
     const timer = setInterval(() => {
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
         refreshQuietly();
       }
-    }, socket ? 60000 : 35000);
+    }, 8000);
 
     return () => {
       clearInterval(timer);

@@ -30,10 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (keep .env.example and public .env.production committed, ignore all local secrets)
+# env files (keep .env.example committed, ignore all local secrets)
 .env*
 !.env.example
-!.env.production
 
 # temp media files
 /tmp/

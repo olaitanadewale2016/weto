@@ -71,9 +71,7 @@ export function getServerEnv(): ServerEnv {
  */
 export function getAppBaseUrl(fallbackOrigin?: string): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured && (!configured.includes('localhost') || process.env.NODE_ENV !== 'production')) {
-    return configured.replace(/\/+$/, '');
-  }
+  if (configured) return configured.replace(/\/+$/, '');
 
   const vercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (vercelProd) return `https://${vercelProd.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
@@ -81,22 +79,12 @@ export function getAppBaseUrl(fallbackOrigin?: string): string {
   const vercelUrl = process.env.VERCEL_URL?.trim();
   if (vercelUrl) return `https://${vercelUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
 
-  const cfPagesUrl = process.env.NEXT_PUBLIC_CF_PAGES_URL?.trim() || process.env.CF_PAGES_URL?.trim();
-  if (cfPagesUrl) return `https://${cfPagesUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
-
-  if (configured) return configured.replace(/\/+$/, '');
   if (fallbackOrigin) return fallbackOrigin.replace(/\/+$/, '');
   return 'http://localhost:3000';
 }
 
-const defaultAppUrl = (process.env.NEXT_PUBLIC_APP_URL && (!process.env.NEXT_PUBLIC_APP_URL.includes('localhost') || process.env.NODE_ENV !== 'production'))
-  ? process.env.NEXT_PUBLIC_APP_URL.trim()
-  : (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
-  || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+const defaultAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
   || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '')
-  || (process.env.NEXT_PUBLIC_CF_PAGES_URL ? `https://${process.env.NEXT_PUBLIC_CF_PAGES_URL.replace(/^https?:\/\//, '')}` : '')
-  || (process.env.CF_PAGES_URL ? `https://${process.env.CF_PAGES_URL.replace(/^https?:\/\//, '')}` : '')
-  || process.env.NEXT_PUBLIC_APP_URL?.trim()
   || 'http://localhost:3000';
 
 const defaultRealtimeUrl = process.env.NEXT_PUBLIC_REALTIME_URL?.trim()
@@ -113,12 +101,12 @@ export const publicEnv = {
   r2PublicUrl: process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '',
   giphyApiKey: process.env.NEXT_PUBLIC_GIPHY_API_KEY || '',
   firebase: {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyAy8LGbnZU9vbqOmCkEw6u6htDAdV9-j9c',
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'weto-5369a.firebaseapp.com',
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'weto-5369a',
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'weto-5369a.firebasestorage.app',
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '894452415589',
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:894452415589:web:de5e32998667fe84551a8c',
-    vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BE3zCbFldffCqM9W4KrFAvKYet82C554qG5m10JZ-q-ledVB9nfhbyZb2Kz26saAyZNMnylw5JoYDjF-LxMGD_g',
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
+    vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || '',
   },
 };

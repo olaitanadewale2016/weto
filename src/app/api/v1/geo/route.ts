@@ -11,13 +11,11 @@ export async function GET(req: NextRequest) {
     const env = getServerEnv();
     const location = await lookupIpLocationWithHeaders(ip, req.headers);
 
-    const res = apiSuccess({
+    return apiSuccess({
       ip,
       configured: Boolean(env.IPINFO_TOKEN) || Boolean(location.country),
       ...location,
     });
-    res.headers.set('Cache-Control', 'private, max-age=86400');
-    return res;
   } catch (err) {
     return apiError(err);
   }
