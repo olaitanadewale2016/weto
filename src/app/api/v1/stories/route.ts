@@ -15,11 +15,18 @@ import { serializeMedia } from '@/services/media.service';
 import { extractMentions } from '@/lib/utils';
 import { dispatchNotification } from '@/services/notification.service';
 import { publishFeedRealtimeEvent } from '@/lib/firebase/realtime';
+import {
+  getStoryExpiresAt,
+  purgeExpiredStories,
+  STORY_TTL_MS,
+} from '@/services/story-expiration.service';
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
     const { user } = await requireAuth(req);
+    void purgeExpiredStories().catch(() => undefined);
+
     const priorityUuid = new URL(req.url).searchParams.get('storyUuid');
     const [blockedIds, mutedIds, followingIds] = await Promise.all([
       getBlockedUserIdsFor(String(user._id)),
@@ -32,10 +39,12 @@ export async function GET(req: NextRequest) {
     const hiddenAuthorIds = [...blockedIds, ...mutedIds];
 
     const now = new Date();
+    const cutoff24h = new Date(now.getTime() - STORY_TTL_MS);
     const frames = await StoryFrame.find({
       status: StoryStatus.ACTIVE,
       ...(hiddenAuthorIds.length > 0 ? { userId: { $nin: hiddenAuthorIds } } : {}),
-      $or: [{ expiresAt: { $gt: now } }, { isHighlight: true }],
+      expiresAt: { $gt: now },
+      createdAt: { $gt: cutoff24h },
     })
       .sort({ createdAt: 1 })
       .populate('userId', 'username firstName lastName avatar verified')
@@ -122,7 +131,9 @@ export async function GET(req: NextRequest) {
       return b.latestAt - a.latestAt;
     });
 
-    return apiSuccess(sorted);
+    const response = apiSuccess(sorted);
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (err) {
     return apiError(err);
   }
@@ -148,10 +159,20 @@ export async function POST(req: NextRequest) {
       throw new ValidationError('Media upload is required for image/video stories.');
     }
 
-    // Reuse active storyUuid for user if one exists
-    const existing = await StoryFrame.findOne({ userId: user._id }).select('storyUuid').lean();
+    const now = new Date();
+    const cutoff24h = new Date(now.getTime() - STORY_TTL_MS);
+
+    // Reuse active, non-expired storyUuid for user if one exists
+    const existing = await StoryFrame.findOne({
+      userId: user._id,
+      status: StoryStatus.ACTIVE,
+      expiresAt: { $gt: now },
+      createdAt: { $gt: cutoff24h },
+    })
+      .select('storyUuid')
+      .lean();
     const storyUuid = existing?.storyUuid || crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = getStoryExpiresAt(now.getTime());
 
     const frame = await StoryFrame.create({
       storyUuid,
@@ -161,7 +182,7 @@ export async function POST(req: NextRequest) {
       status: StoryStatus.ACTIVE,
       privacy: body.privacy,
       allowedUserIds: (body.allowedUserIds || []).map((id) => new Types.ObjectId(id)),
-      isHighlight: body.isHighlight,
+      isHighlight: false,
       durationSeconds: body.durationSeconds,
       mediaId: body.mediaId ? new Types.ObjectId(body.mediaId) : null,
       meta: body.bgColor ? { bgColor: body.bgColor } : {},

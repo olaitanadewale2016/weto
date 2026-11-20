@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
-import { StoryFrame } from '@/models/Story';
 import { ChatInvite } from '@/models/Messaging';
 import { logger } from '@/lib/logger';
+import { purgeExpiredStories } from '@/services/story-expiration.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,14 +29,14 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const now = new Date();
 
-    const [storyRes, inviteRes] = await Promise.all([
-      StoryFrame.deleteMany({ isHighlight: false, expiresAt: { $lt: now } }),
+    const [deletedStories, inviteRes] = await Promise.all([
+      purgeExpiredStories({ force: true }),
       ChatInvite.deleteMany({ expiresAt: { $lt: now } }),
     ]);
 
     logger.info(
       {
-        deletedStories: storyRes.deletedCount ?? 0,
+        deletedStories,
         deletedInvites: inviteRes.deletedCount ?? 0,
       },
       'Vercel cron maintenance completed'
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       status: 'ok',
-      deletedStories: storyRes.deletedCount ?? 0,
+      deletedStories,
       deletedInvites: inviteRes.deletedCount ?? 0,
       ranAt: now.toISOString(),
     });

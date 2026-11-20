@@ -39,11 +39,12 @@ const StoryFrameSchema = new Schema<IStoryFrameDocument>(
     durationSeconds: { type: Number, default: 5 },
     mediaId: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
     meta: { type: Schema.Types.Mixed, default: () => ({}) },
-    expiresAt: { type: Date, required: true, index: true },
+    expiresAt: { type: Date, required: true },
   },
   { timestamps: true }
 );
 
+StoryFrameSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 StoryFrameSchema.index({ userId: 1, status: 1, expiresAt: -1 });
 
 export const StoryFrame: Model<IStoryFrameDocument> =

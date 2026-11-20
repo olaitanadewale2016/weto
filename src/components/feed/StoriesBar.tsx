@@ -26,7 +26,36 @@ export interface StoryGroupItem {
     content?: string;
     isViewed: boolean;
     media?: { publicUrl?: string; url?: string } | null;
+    createdAt?: string;
+    expiresAt?: string;
   }>;
+}
+
+const STORY_TTL_MS = 24 * 60 * 60 * 1000;
+
+function isFrameActive(frame: { expiresAt?: string; createdAt?: string }, nowMs: number): boolean {
+  if (frame.expiresAt) {
+    const expMs = new Date(frame.expiresAt).getTime();
+    if (Number.isFinite(expMs) && expMs <= nowMs) return false;
+  }
+  if (frame.createdAt) {
+    const createdMs = new Date(frame.createdAt).getTime();
+    if (Number.isFinite(createdMs) && createdMs + STORY_TTL_MS <= nowMs) return false;
+  }
+  return true;
+}
+
+function filterActiveStoryGroups(items: StoryGroupItem[], nowMs = Date.now()): StoryGroupItem[] {
+  return items
+    .map((group) => {
+      const frames = (group.frames || []).filter((f) => isFrameActive(f, nowMs));
+      return {
+        ...group,
+        frames,
+        hasUnviewed: frames.some((f) => !f.isViewed) && !group.isOwner,
+      };
+    })
+    .filter((group) => group.frames.length > 0);
 }
 
 const storiesBarCache: {
@@ -42,7 +71,9 @@ const storiesBarCache: {
 export function StoriesBar() {
   const { user, bootstrap } = useApp();
   const [stories, setStories] = useState<StoryGroupItem[]>(() =>
-    user?.id && storiesBarCache.userId === user.id ? storiesBarCache.items : []
+    user?.id && storiesBarCache.userId === user.id
+      ? filterActiveStoryGroups(storiesBarCache.items)
+      : []
   );
 
   const fetchStories = useCallback(
@@ -52,11 +83,14 @@ export function StoriesBar() {
         !force &&
         storiesBarCache.userId === user.id &&
         Date.now() - storiesBarCache.ts < 30_000;
-      if (isFresh) return;
+      if (isFresh) {
+        setStories(filterActiveStoryGroups(storiesBarCache.items));
+        return;
+      }
 
       apiFetch<StoryGroupItem[]>('/stories')
         .then((res) => {
-          const list = Array.isArray(res) ? res : [];
+          const list = filterActiveStoryGroups(Array.isArray(res) ? res : []);
           storiesBarCache.userId = user.id;
           storiesBarCache.items = list;
           storiesBarCache.ts = Date.now();
@@ -69,6 +103,29 @@ export function StoriesBar() {
 
   useEffect(() => {
     fetchStories(false);
+  }, [fetchStories]);
+
+  useEffect(() => {
+    const pruneExpired = () => {
+      setStories((prev) => {
+        const active = filterActiveStoryGroups(prev);
+        storiesBarCache.items = active;
+        return active;
+      });
+    };
+    const onFocusOrVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      pruneExpired();
+      fetchStories(false);
+    };
+    const intervalId = setInterval(pruneExpired, 60_000);
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
   }, [fetchStories]);
 
   useEffect(() => {

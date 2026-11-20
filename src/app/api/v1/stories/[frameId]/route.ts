@@ -10,6 +10,7 @@ import { deleteMediaRecord } from '@/services/media.service';
 import { emitToChat, emitToUser } from '@/lib/realtime-emitter';
 import { publishChatRealtimeEvent, publishUserRealtimeEvent } from '@/lib/firebase/realtime';
 import { dispatchNotification } from '@/services/notification.service';
+import { isStoryExpired } from '@/services/story-expiration.service';
 
 export async function GET(
   req: NextRequest,
@@ -19,7 +20,9 @@ export async function GET(
     const { user } = await requireAuth(req);
     const { frameId } = await context.params;
     const frame = await StoryFrame.findById(frameId);
-    if (!frame) throw new NotFoundError('Story frame not found.');
+    if (!frame || isStoryExpired(frame)) {
+      throw new NotFoundError('Story frame not found or has expired.');
+    }
 
     if (String(frame.userId) !== String(user._id) && user.role !== UserRole.ROOT) {
       throw new ForbiddenError('Only the story owner can inspect viewers.');
@@ -57,7 +60,9 @@ export async function POST(
     const { frameId } = await context.params;
     const body = storyActionSchema.parse(await req.json());
     const frame = await StoryFrame.findById(frameId);
-    if (!frame) throw new NotFoundError('Story frame not found.');
+    if (!frame || isStoryExpired(frame)) {
+      throw new NotFoundError('Story frame not found or has expired.');
+    }
 
     if (body.action === 'view' || body.action === 'react') {
       const existing = await StoryView.findOne({ storyFrameId: frame._id, userId: user._id });

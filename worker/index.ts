@@ -320,9 +320,19 @@ async function bootstrap() {
     async (job) => {
       const now = new Date();
       if (job.name === 'clear-expired-stories') {
-        await mongoose.connection
+        const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const expired = await mongoose.connection
           .collection('storyframes')
-          .deleteMany({ isHighlight: false, expiresAt: { $lt: now } });
+          .find({ $or: [{ expiresAt: { $lte: now } }, { createdAt: { $lte: cutoff24h } }] })
+          .project({ _id: 1 })
+          .toArray();
+        const expiredIds = expired.map((d) => d._id);
+        if (expiredIds.length > 0) {
+          await Promise.all([
+            mongoose.connection.collection('storyviews').deleteMany({ storyFrameId: { $in: expiredIds } }),
+            mongoose.connection.collection('storyframes').deleteMany({ _id: { $in: expiredIds } }),
+          ]);
+        }
       } else if (job.name === 'clear-expired-chat-invites') {
         await mongoose.connection
           .collection('chatinvites')

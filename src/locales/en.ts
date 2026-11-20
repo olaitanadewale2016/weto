@@ -57,7 +57,7 @@ export const enDictionary = {
     addStory: 'Add Story',
     views: 'Views',
     noStories: 'No active stories yet.',
-    expiresIn24h: 'Stories disappear after 24 hours unless saved as a highlight.',
+    expiresIn24h: 'Stories disappear automatically after 24 hours.',
   },
   messenger: {
     title: 'Messages',

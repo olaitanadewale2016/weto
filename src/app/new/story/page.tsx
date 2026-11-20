@@ -8,7 +8,6 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { VideoWatermarkOverlay } from '@/components/ui/video-watermark';
 import { apiFetch, uploadFileToR2 } from '@/lib/api-client';
 import { resolveMediaUrl } from '@/lib/media-url';
@@ -30,7 +29,6 @@ export default function NewStoryPage() {
   const [type, setType] = useState<'text' | 'image' | 'video'>('image');
   const [content, setContent] = useState('');
   const [privacy, setPrivacy] = useState<'all' | 'followers'>('all');
-  const [isHighlight, setIsHighlight] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(5);
   const [bgColor, setBgColor] = useState(BG_PALETTES[0]);
   const [mediaId, setMediaId] = useState<string | null>(null);
@@ -82,7 +80,6 @@ export default function NewStoryPage() {
           content: content.trim() || undefined,
           mediaId: mediaId || undefined,
           privacy,
-          isHighlight,
           durationSeconds,
           bgColor: type === 'text' ? bgColor : undefined,
         },
@@ -213,12 +210,9 @@ export default function NewStoryPage() {
           </Select>
         </div>
 
-        <Switch
-          checked={isHighlight}
-          onCheckedChange={setIsHighlight}
-          label="Pin as permanent highlight"
-          description="Keep this story visible past the 24-hour expiration window."
-        />
+        <p className="text-cap-l text-lab-sc">
+          Stories expire automatically after 24 hours.
+        </p>
 
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={submitting || uploading}>
           <CirclePlus className="h-4 w-4" /> Share to Story

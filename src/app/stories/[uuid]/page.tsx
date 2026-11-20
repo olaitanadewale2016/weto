@@ -28,6 +28,21 @@ interface StoryFrame {
   } | null;
   meta?: { bgColor?: string };
   createdAt: string;
+  expiresAt?: string;
+}
+
+const STORY_TTL_MS = 24 * 60 * 60 * 1000;
+
+function isStoryFrameActive(frame: { expiresAt?: string; createdAt?: string }, nowMs: number): boolean {
+  if (frame.expiresAt) {
+    const expMs = new Date(frame.expiresAt).getTime();
+    if (Number.isFinite(expMs) && expMs <= nowMs) return false;
+  }
+  if (frame.createdAt) {
+    const createdMs = new Date(frame.createdAt).getTime();
+    if (Number.isFinite(createdMs) && createdMs + STORY_TTL_MS <= nowMs) return false;
+  }
+  return true;
 }
 
 interface StoryGroup {
@@ -117,14 +132,21 @@ export default function StoryViewerPage() {
     apiFetch<StoryGroup[]>('/stories')
       .then((res) => {
         if (!active) return;
-        const list = Array.isArray(res) ? res.filter((g) => g.frames?.length > 0) : [];
-        setGroups(list);
+        const nowMs = Date.now();
+        const list = (Array.isArray(res) ? res : [])
+          .map((g) => ({
+            ...g,
+            frames: (g.frames || []).filter((f) => isStoryFrameActive(f, nowMs)),
+          }))
+          .filter((g) => g.frames.length > 0);
         const targetIdx = list.findIndex((g) => g.storyUuid === params.uuid);
         if (targetIdx >= 0) {
+          setGroups(list);
           setGroupIdx(targetIdx);
           const firstUnviewed = list[targetIdx].frames.findIndex((f) => !f.isViewed);
           setFrameIdx(firstUnviewed >= 0 ? firstUnviewed : 0);
         } else {
+          setGroups([]);
           setGroupIdx(0);
           setFrameIdx(0);
         }
@@ -389,7 +411,7 @@ export default function StoryViewerPage() {
   if (!activeGroup || !activeFrame) {
     return (
       <div className="fixed inset-0 z-[60] h-[100dvh] bg-[#101214] text-white flex flex-col items-center justify-center gap-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] text-center">
-        <p className="text-par-l">Story is no longer available.</p>
+        <p className="text-par-l">This story has expired or is no longer available.</p>
         <Link href="/">
           <Button variant="primary">Back to Feed</Button>
         </Link>
