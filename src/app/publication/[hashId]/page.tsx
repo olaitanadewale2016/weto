@@ -268,16 +268,18 @@ export default function PublicationDetailPage() {
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 border-b border-bord-pr bg-bg-pr/95 backdrop-blur-md px-4 py-3 pt-safe px-safe flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr cursor-pointer shrink-0"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="text-title-3 font-bold text-lab-pr truncate">Publication</h1>
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr cursor-pointer shrink-0"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-title-3 font-bold text-lab-pr truncate">Publication</h1>
+        </div>
       </div>
 
       {loading ? (

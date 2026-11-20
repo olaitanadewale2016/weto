@@ -65,17 +65,19 @@ export default async function DocumentPage({
 
   return (
     <AppShell hideMobileHeader>
-      <div className="sticky top-0 z-20 bg-bg-pr/95 backdrop-blur-md pt-safe px-safe border-b border-bord-pr px-4 py-3 flex items-center gap-2">
-        <Link href="/" className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to home">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex items-center gap-2">
-          {canonicalSlug === 'developers-api' ? (
-            <Code2 className="h-5 w-5 text-lab-pr2" />
-          ) : (
-            <FileText className="h-5 w-5 text-lab-pr2" />
-          )}
-          <h1 className="text-title-3 font-bold text-lab-pr">{pageData.title}</h1>
+      <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <Link href="/" className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0" aria-label="Back to home">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="flex items-center gap-2">
+            {canonicalSlug === 'developers-api' ? (
+              <Code2 className="h-5 w-5 text-lab-pr2" />
+            ) : (
+              <FileText className="h-5 w-5 text-lab-pr2" />
+            )}
+            <h1 className="text-title-3 font-bold text-lab-pr">{pageData.title}</h1>
+          </div>
         </div>
       </div>
 
