@@ -37,7 +37,11 @@ import { formatCurrency } from '@/lib/currency';
 import { useApp } from '@/components/providers/AppContext';
 import { useToast } from '@/components/providers/ToastProvider';
 
-export type AdminActionFn = (action: string, targetId?: string, payload?: Record<string, unknown>) => Promise<void>;
+export type AdminActionFn = (
+  action: string,
+  targetId?: string,
+  payload?: Record<string, unknown>
+) => Promise<boolean | void>;
 
 export function AdminOverviewSection({
   overview,
@@ -1440,8 +1444,32 @@ export function AdminConfigSection({
   const renderSettingsGroupCard = (group: string, values: Record<string, unknown>) => {
     const merged = { ...values, ...(draftGroups[group] || {}) };
     const hasEdits = Boolean(draftGroups[group] && Object.keys(draftGroups[group]).length > 0);
+    const buildNormalizedValues = (overrides?: Record<string, unknown>): Record<string, unknown> | null => {
+      const candidate = { ...merged, ...(overrides || {}) };
+      const normalized: Record<string, unknown> = { ...candidate };
+      for (const [key, origVal] of Object.entries(values)) {
+        if (typeof origVal === 'number') {
+          const raw = normalized[key];
+          const trimmed = typeof raw === 'string' ? raw.trim() : raw;
+          if (trimmed === '' || trimmed === null || trimmed === undefined) {
+            error('Invalid setting value', `${formatSettingLabel(key)} must be a valid number.`);
+            return null;
+          }
+          const parsed = Number(trimmed);
+          if (!Number.isFinite(parsed)) {
+            error('Invalid setting value', `${formatSettingLabel(key)} must be a valid number.`);
+            return null;
+          }
+          normalized[key] = parsed;
+        }
+      }
+      return normalized;
+    };
     const saveGroup = async () => {
-      await onAction('settings.update', undefined, { group, values: merged });
+      const normalized = buildNormalizedValues();
+      if (!normalized) return;
+      const result = await onAction('settings.update', undefined, { group, values: normalized });
+      if (result === false) return;
       setDraftGroups((prev) => {
         const next = { ...prev };
         delete next[group];
@@ -1809,9 +1837,18 @@ export function AdminConfigSection({
                   key={k}
                   label={formatSettingLabel(k)}
                   checked={v}
-                  onCheckedChange={(next) =>
-                    onAction('settings.update', undefined, { group, values: { ...merged, [k]: next } })
-                  }
+                  onCheckedChange={async (next) => {
+                    const normalized = buildNormalizedValues({ [k]: next });
+                    if (!normalized) return;
+                    const res = await onAction('settings.update', undefined, { group, values: normalized });
+                    if (res !== false) {
+                      setDraftGroups((prev) => {
+                        const nextDrafts = { ...prev };
+                        delete nextDrafts[group];
+                        return nextDrafts;
+                      });
+                    }
+                  }}
                 />
               );
             }
@@ -1911,14 +1948,16 @@ export function AdminConfigSection({
               );
             }
             if (typeof v === 'string' || typeof v === 'number') {
+              const isNumField = typeof values[k] === 'number';
               return (
                 <Input
                   key={k}
                   label={formatSettingLabel(k)}
-                  type={typeof v === 'number' ? 'number' : 'text'}
+                  type={isNumField ? 'number' : 'text'}
+                  step={isNumField ? 'any' : undefined}
                   value={String(v)}
                   onChange={(e) => {
-                    const nextVal = typeof v === 'number' ? Number(e.target.value) : e.target.value;
+                    const nextVal = e.target.value;
                     setDraftGroups((prev) => ({
                       ...prev,
                       [group]: { ...(prev[group] || {}), [k]: nextVal },

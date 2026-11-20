@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithPopup, signOut } from 'firebase/auth';
@@ -310,6 +310,39 @@ type EditState =
   | { kind: 'ad'; id: string; title: string; pricePerView: string; totalBudget: string; spentBudget: number; resetDailyCap: boolean }
   | null;
 
+type AdBillingDraft = {
+  billingModel: 'viewable_cpm' | 'every_impression' | 'cpc' | 'hybrid';
+  pricePerView: string;
+  pricePerClick: string;
+  chargeIntervalMinutes: string;
+  maxDailySpendPerAd: string;
+  minBudget: string;
+  defaultBudget: string;
+  refreshIntervalMinutes: string;
+  defaultApproval: boolean;
+  refundUnspentOnDelete: boolean;
+};
+
+function toAdBillingDraft(cfg?: Record<string, unknown> | null): AdBillingDraft {
+  const modelRaw = String(cfg?.billingModel || 'viewable_cpm');
+  const billingModel =
+    modelRaw === 'every_impression' || modelRaw === 'cpc' || modelRaw === 'hybrid'
+      ? modelRaw
+      : 'viewable_cpm';
+  return {
+    billingModel,
+    pricePerView: String(cfg?.pricePerView ?? 25),
+    pricePerClick: String(cfg?.pricePerClick ?? 75),
+    chargeIntervalMinutes: String(cfg?.chargeIntervalMinutes ?? 10),
+    maxDailySpendPerAd: String(cfg?.maxDailySpendPerAd ?? 0),
+    minBudget: String(cfg?.minBudget ?? 5000),
+    defaultBudget: String(cfg?.defaultBudget ?? 25000),
+    refreshIntervalMinutes: String(cfg?.refreshIntervalMinutes ?? 5),
+    defaultApproval: Boolean(cfg?.defaultApproval ?? false),
+    refundUnspentOnDelete: cfg?.refundUnspentOnDelete !== false,
+  };
+}
+
 export default function AdminDashboardPage() {
   return (
     <Suspense
@@ -370,7 +403,7 @@ function AdminDashboardContent() {
     description: string;
     confirmLabel: string;
     variant?: 'danger' | 'primary';
-    onConfirm: () => Promise<void> | void;
+    onConfirm: () => Promise<unknown> | void;
   } | null>(null);
   const [reviewModal, setReviewModal] = useState<{
     title: string;
@@ -413,7 +446,10 @@ function AdminDashboardContent() {
   const [resourceData, setResourceData] = useState<unknown>(null);
   const [resourceMeta, setResourceMeta] = useState<Record<string, unknown> | null>(null);
   const [adBillingControlsOpen, setAdBillingControlsOpen] = useState(false);
-  const [adBillingDraft, setAdBillingDraft] = useState<Record<string, unknown>>({});
+  const [adBillingDraft, setAdBillingDraft] = useState<AdBillingDraft>(() => toAdBillingDraft());
+  const [adBillingDirty, setAdBillingDirty] = useState(false);
+  const adBillingDirtyRef = useRef(false);
+  const [savingAdBilling, setSavingAdBilling] = useState(false);
   const [resourceLoadedAt, setResourceLoadedAt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [adminLogin, setAdminLogin] = useState('');
@@ -504,6 +540,8 @@ function AdminDashboardContent() {
   const switchTab = useCallback(
     (tabKey: string) => {
       if (!VALID_ADMIN_TAB_KEYS.has(tabKey)) return;
+      adBillingDirtyRef.current = false;
+      setAdBillingDirty(false);
       setLoading(true);
       setResourceData(null);
       setTabFilter('all');
@@ -514,7 +552,16 @@ function AdminDashboardContent() {
     [router]
   );
 
-  const loadTab = useCallback(async (options?: { silent?: boolean }) => {
+  const updateAdBillingField = useCallback(
+    <K extends keyof AdBillingDraft>(key: K, value: AdBillingDraft[K]) => {
+      adBillingDirtyRef.current = true;
+      setAdBillingDirty(true);
+      setAdBillingDraft((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+  const loadTab = useCallback(async (options?: { silent?: boolean; forceDraftSync?: boolean }) => {
     const silent = Boolean(options?.silent);
     if (!isAdmin) {
       if (!silent) setLoading(false);
@@ -543,8 +590,14 @@ function AdminDashboardContent() {
         setResourceLoadedAt(Date.now());
         setResourceData(res.data);
         setResourceMeta(res.meta || null);
-        if (activeTab === 'ads' && res.meta?.adBillingConfig) {
-          setAdBillingDraft(res.meta.adBillingConfig as Record<string, unknown>);
+        if (
+          activeTab === 'ads' &&
+          res.meta?.adBillingConfig &&
+          (options?.forceDraftSync || !adBillingDirtyRef.current)
+        ) {
+          adBillingDirtyRef.current = false;
+          setAdBillingDirty(false);
+          setAdBillingDraft(toAdBillingDraft(res.meta.adBillingConfig as Record<string, unknown>));
         }
       }
     } catch (err) {
@@ -617,7 +670,12 @@ function AdminDashboardContent() {
     socket?.on('notification:new', onSocketAdminUpdate);
 
     // Avoid polling while typing inside platform settings / forms to prevent unsaved flicker
-    const intervalMs = activeTab === 'settings' || activeTab === 'acquiring' ? 30000 : 10000;
+    const intervalMs =
+      activeTab === 'settings' ||
+      activeTab === 'acquiring' ||
+      (activeTab === 'ads' && adBillingControlsOpen)
+        ? 30000
+        : 10000;
     const intervalId = setInterval(refreshCurrent, intervalMs);
 
     const onVisibility = () => {
@@ -635,9 +693,9 @@ function AdminDashboardContent() {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', refreshCurrent);
     };
-  }, [isAdmin, liveSync, activeTab, socket, loadTab, chatInspectState?.chatId, chatInspectState?.chat, chatInspectState?.limit, openChatInspect]);
+  }, [isAdmin, liveSync, activeTab, adBillingControlsOpen, socket, loadTab, chatInspectState?.chatId, chatInspectState?.chat, chatInspectState?.limit, openChatInspect]);
 
-  async function handleAction(action: string, targetId?: string, payload: Record<string, unknown> = {}) {
+  async function handleAction(action: string, targetId?: string, payload: Record<string, unknown> = {}): Promise<boolean> {
     try {
       await apiFetch('/admin/manage', {
         method: 'POST',
@@ -658,9 +716,14 @@ function AdminDashboardContent() {
       } else if (action === 'chat.delete_message' && chatInspectState?.chatId) {
         await openChatInspect(chatInspectState.chatId, chatInspectState.chat || undefined, chatInspectState.limit);
       }
-      await loadTab({ silent: true });
+      await loadTab({
+        silent: true,
+        forceDraftSync: action === 'settings.update' && payload.group === 'ads',
+      });
+      return true;
     } catch (err) {
       error('Admin action failed', err instanceof Error ? err.message : undefined);
+      return false;
     }
   }
 
@@ -1221,8 +1284,8 @@ function AdminDashboardContent() {
                 </div>
               </div>
             )}
-            {activeTab === 'ads' && Boolean(resourceMeta?.adSummary) && (() => {
-              const summary = resourceMeta?.adSummary as {
+            {activeTab === 'ads' && Boolean(resourceMeta?.adSummary || resourceMeta?.adBillingConfig) && (() => {
+              const summary = (resourceMeta?.adSummary || {}) as {
                 total?: number;
                 published?: number;
                 pending?: number;
@@ -1236,7 +1299,7 @@ function AdminDashboardContent() {
               const totalViews = Number(summary.totalViews || 0);
               const totalClicks = Number(summary.totalClicks || 0);
               const avgCtr = totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(2) : '0.00';
-              const cfg = adBillingDraft;
+              const savedCfg = (resourceMeta?.adBillingConfig || {}) as Record<string, unknown>;
               return (
                 <div className="mb-4 space-y-3">
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1267,15 +1330,16 @@ function AdminDashboardContent() {
                       <div>
                         <p className="text-cap-s text-lab-sc">Deduction Rule</p>
                         <p className="text-par-s font-bold text-lab-pr">
-                          {String(cfg.billingModel || 'viewable_cpm').toUpperCase()}
+                          {String(savedCfg.billingModel || 'viewable_cpm').toUpperCase()}
                         </p>
                         <p className="text-cap-l text-lab-sc space-y-0.5">
-                          <span className="block">{formatCurrency(Number(cfg.pricePerView || 25), defaultCurrency, bootstrap?.currencies, locale)}/view · {formatCurrency(Number(cfg.pricePerClick || 75), defaultCurrency, bootstrap?.currencies, locale)}/click</span>
-                          <span className="block">Cooldown: {Number(cfg.chargeIntervalMinutes ?? 10)}min · Daily cap: {Number(cfg.maxDailySpendPerAd || 0) > 0 ? formatCurrency(Number(cfg.maxDailySpendPerAd), defaultCurrency, bootstrap?.currencies, locale) : 'unlimited'}</span>
-                          <span className="block">Refund on delete: {cfg.refundUnspentOnDelete !== false ? 'Yes' : 'No'} · Auto-approve: {cfg.defaultApproval ? 'Yes' : 'No'}</span>
+                          <span className="block">{formatCurrency(Number(savedCfg.pricePerView ?? 25), defaultCurrency, bootstrap?.currencies, locale)}/view · {formatCurrency(Number(savedCfg.pricePerClick ?? 75), defaultCurrency, bootstrap?.currencies, locale)}/click</span>
+                          <span className="block">Cooldown: {Number(savedCfg.chargeIntervalMinutes ?? 10)}min · Daily cap: {Number(savedCfg.maxDailySpendPerAd ?? 0) > 0 ? formatCurrency(Number(savedCfg.maxDailySpendPerAd), defaultCurrency, bootstrap?.currencies, locale) : 'unlimited'}</span>
+                          <span className="block">Refund on delete: {savedCfg.refundUnspentOnDelete !== false ? 'Yes' : 'No'} · Auto-approve: {savedCfg.defaultApproval ? 'Yes' : 'No'}</span>
                         </p>
                       </div>
                       <Button
+                        type="button"
                         size="sm"
                         variant="outline"
                         onClick={() => setAdBillingControlsOpen((v) => !v)}
@@ -1289,31 +1353,109 @@ function AdminDashboardContent() {
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
-                        await handleAction('settings.update', undefined, {
-                          group: 'ads',
-                          values: adBillingDraft,
-                        });
-                        await refreshBootstrap();
+                        const parseField = (raw: string, label: string, min: number): number | null => {
+                          const trimmed = raw.trim();
+                          if (!trimmed) {
+                            error('Invalid ad billing setting', `${label} is required.`);
+                            return null;
+                          }
+                          const num = Number(trimmed);
+                          if (!Number.isFinite(num) || num < min) {
+                            error('Invalid ad billing setting', `${label} must be at least ${min}.`);
+                            return null;
+                          }
+                          return Number(num.toFixed(2));
+                        };
+
+                        const pricePerView = parseField(adBillingDraft.pricePerView, 'Charge per view', 0.01);
+                        if (pricePerView === null) return;
+                        const pricePerClick = parseField(adBillingDraft.pricePerClick, 'Charge per click', 0);
+                        if (pricePerClick === null) return;
+                        const chargeIntervalMinutes = parseField(adBillingDraft.chargeIntervalMinutes, 'Charge cooldown (minutes)', 0);
+                        if (chargeIntervalMinutes === null) return;
+                        const maxDailySpendPerAd = parseField(adBillingDraft.maxDailySpendPerAd, 'Daily spend cap / ad', 0);
+                        if (maxDailySpendPerAd === null) return;
+                        const minBudget = parseField(adBillingDraft.minBudget, 'Minimum budget', 1);
+                        if (minBudget === null) return;
+                        const defaultBudget = parseField(adBillingDraft.defaultBudget, 'Default budget pre-fill', 1);
+                        if (defaultBudget === null) return;
+                        const refreshIntervalMinutes = parseField(adBillingDraft.refreshIntervalMinutes, 'Ad refresh interval (minutes)', 1);
+                        if (refreshIntervalMinutes === null) return;
+
+                        if (defaultBudget < minBudget) {
+                          error('Invalid ad billing setting', 'Default budget pre-fill cannot be lower than minimum budget.');
+                          return;
+                        }
+
+                        setSavingAdBilling(true);
+                        try {
+                          const ok = await handleAction('settings.update', undefined, {
+                            group: 'ads',
+                            values: {
+                              billingModel: adBillingDraft.billingModel,
+                              pricePerView,
+                              pricePerClick,
+                              chargeIntervalMinutes,
+                              maxDailySpendPerAd,
+                              minBudget,
+                              defaultBudget,
+                              refreshIntervalMinutes,
+                              defaultApproval: adBillingDraft.defaultApproval,
+                              refundUnspentOnDelete: adBillingDraft.refundUnspentOnDelete,
+                            },
+                          });
+                          if (ok) {
+                            adBillingDirtyRef.current = false;
+                            setAdBillingDirty(false);
+                          }
+                        } finally {
+                          setSavingAdBilling(false);
+                        }
                       }}
                       className="rounded-2xl border border-bord-pr bg-bg-pr p-4 space-y-3"
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <h3 className="text-par-n font-bold text-lab-pr">Ad Credit Deduction & Delivery Controls</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-par-n font-bold text-lab-pr">Ad Credit Deduction & Delivery Controls</h3>
+                            {adBillingDirty && (
+                              <Badge variant="brand">Unsaved changes</Badge>
+                            )}
+                          </div>
                           <p className="text-cap-l text-lab-sc">
                             Control how advertiser wallet credits are charged across impressions, clicks, and daily spend caps.
                           </p>
                         </div>
-                        <Button type="submit" size="sm" variant="primary">
-                          Save Deduction Rules
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {adBillingDirty && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={savingAdBilling}
+                              onClick={() => {
+                                adBillingDirtyRef.current = false;
+                                setAdBillingDirty(false);
+                                setAdBillingDraft(toAdBillingDraft(savedCfg));
+                              }}
+                            >
+                              Reset
+                            </Button>
+                          )}
+                          <Button type="submit" size="sm" variant="primary" disabled={savingAdBilling}>
+                            {savingAdBilling ? 'Saving...' : 'Save Deduction Rules'}
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <Select
                           label="Credit Deduction Model"
-                          value={String(adBillingDraft.billingModel || 'viewable_cpm')}
+                          value={adBillingDraft.billingModel}
                           onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, billingModel: e.target.value }))
+                            updateAdBillingField(
+                              'billingModel',
+                              e.target.value as AdBillingDraft['billingModel']
+                            )
                           }
                         >
                           <option value="viewable_cpm">Viewable CPM (charge per view + cooldown)</option>
@@ -1324,81 +1466,77 @@ function AdminDashboardContent() {
                         <Input
                           label={`Charge Per View (${defaultCurrency})`}
                           type="number"
-                          min="1"
-                          value={String(adBillingDraft.pricePerView ?? 25)}
-                          onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, pricePerView: Number(e.target.value) }))
-                          }
+                          min="0.01"
+                          step="any"
+                          required
+                          value={adBillingDraft.pricePerView}
+                          onChange={(e) => updateAdBillingField('pricePerView', e.target.value)}
                         />
                         <Input
                           label={`Charge Per Click (${defaultCurrency})`}
                           type="number"
                           min="0"
-                          value={String(adBillingDraft.pricePerClick ?? 75)}
-                          onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, pricePerClick: Number(e.target.value) }))
-                          }
+                          step="any"
+                          required
+                          value={adBillingDraft.pricePerClick}
+                          onChange={(e) => updateAdBillingField('pricePerClick', e.target.value)}
                         />
                         <Input
                           label="Charge Cooldown (minutes)"
                           type="number"
                           min="0"
-                          value={String(adBillingDraft.chargeIntervalMinutes ?? 10)}
-                          onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, chargeIntervalMinutes: Number(e.target.value) }))
-                          }
+                          step="any"
+                          required
+                          value={adBillingDraft.chargeIntervalMinutes}
+                          onChange={(e) => updateAdBillingField('chargeIntervalMinutes', e.target.value)}
                         />
                         <Input
                           label={`Daily Spend Cap / Ad (${defaultCurrency}, 0 = unlimited)`}
                           type="number"
                           min="0"
-                          value={String(adBillingDraft.maxDailySpendPerAd ?? 0)}
-                          onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, maxDailySpendPerAd: Number(e.target.value) }))
-                          }
+                          step="any"
+                          required
+                          value={adBillingDraft.maxDailySpendPerAd}
+                          onChange={(e) => updateAdBillingField('maxDailySpendPerAd', e.target.value)}
                         />
                         <Input
                           label={`Minimum Budget (${defaultCurrency})`}
                           type="number"
-                          min="100"
-                          value={String(adBillingDraft.minBudget ?? 5000)}
-                          onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, minBudget: Number(e.target.value) }))
-                          }
+                          min="1"
+                          step="any"
+                          required
+                          value={adBillingDraft.minBudget}
+                          onChange={(e) => updateAdBillingField('minBudget', e.target.value)}
                         />
                         <Input
                           label={`Default Budget Pre-fill (${defaultCurrency})`}
                           type="number"
-                          min="100"
-                          value={String(adBillingDraft.defaultBudget ?? 25000)}
-                          onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, defaultBudget: Number(e.target.value) }))
-                          }
+                          min="1"
+                          step="any"
+                          required
+                          value={adBillingDraft.defaultBudget}
+                          onChange={(e) => updateAdBillingField('defaultBudget', e.target.value)}
                         />
                         <Input
                           label="Ad Refresh Interval (minutes)"
                           type="number"
                           min="1"
-                          value={String(adBillingDraft.refreshIntervalMinutes ?? 5)}
-                          onChange={(e) =>
-                            setAdBillingDraft((prev) => ({ ...prev, refreshIntervalMinutes: Number(e.target.value) }))
-                          }
+                          step="any"
+                          required
+                          value={adBillingDraft.refreshIntervalMinutes}
+                          onChange={(e) => updateAdBillingField('refreshIntervalMinutes', e.target.value)}
                         />
                       </div>
                       <div className="flex flex-wrap gap-5 pt-1">
                         <Switch
                           label="Auto-approve new ad campaigns"
-                          checked={Boolean(adBillingDraft.defaultApproval)}
-                          onCheckedChange={(v) =>
-                            setAdBillingDraft((prev) => ({ ...prev, defaultApproval: v }))
-                          }
+                          checked={adBillingDraft.defaultApproval}
+                          onCheckedChange={(v) => updateAdBillingField('defaultApproval', v)}
                         />
                         <Switch
                           label="Refund unspent wallet credits when deleted"
-                          checked={adBillingDraft.refundUnspentOnDelete !== false}
-                          onCheckedChange={(v) =>
-                            setAdBillingDraft((prev) => ({ ...prev, refundUnspentOnDelete: v }))
-                          }
+                          checked={adBillingDraft.refundUnspentOnDelete}
+                          onCheckedChange={(v) => updateAdBillingField('refundUnspentOnDelete', v)}
                         />
                       </div>
                     </form>
@@ -2178,8 +2316,8 @@ function AdminDashboardContent() {
               <Input
                 label={`Rate / View (${defaultCurrency})`}
                 type="number"
-                min="1"
-                step="1"
+                min="0.01"
+                step="any"
                 value={editModal.pricePerView}
                 onChange={(e) => setEditModal({ ...editModal, pricePerView: e.target.value })}
                 required
@@ -2188,7 +2326,7 @@ function AdminDashboardContent() {
                 label={`Total Budget (${defaultCurrency})`}
                 type="number"
                 min={editModal.spentBudget}
-                step="100"
+                step="any"
                 value={editModal.totalBudget}
                 onChange={(e) => setEditModal({ ...editModal, totalBudget: e.target.value })}
                 required

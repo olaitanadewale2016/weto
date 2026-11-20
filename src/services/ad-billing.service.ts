@@ -235,7 +235,7 @@ export async function recordAdShowAndCharge(adId: Types.ObjectId) {
   const minChargeGapMs =
     billingModel === 'every_impression'
       ? 0
-      : Math.max(0, Number(adsCfg.chargeIntervalMinutes || 10)) * 60_000;
+      : Math.max(0, Number(adsCfg.chargeIntervalMinutes ?? 10)) * 60_000;
   const chargeCutoff = new Date(now.getTime() - minChargeGapMs);
 
   const current = await Ad.findById(adId).lean();
@@ -349,7 +349,11 @@ export async function recordAdClickAndCharge(adId: Types.ObjectId) {
     return;
   }
 
-  const clickCost = Math.max(0.01, Number(adsCfg.pricePerClick || 75));
+  const rawClickCost = Number(adsCfg.pricePerClick ?? 75);
+  if (!Number.isFinite(rawClickCost) || rawClickCost <= 0) {
+    return;
+  }
+  const clickCost = Number(rawClickCost.toFixed(2));
   const dailyHeadroom = maxDaily > 0 ? Math.max(0, maxDaily - spentToday) : clickCost;
   const charge = Number(Math.min(clickCost, remaining, dailyHeadroom).toFixed(2));
   if (charge <= 0) return;

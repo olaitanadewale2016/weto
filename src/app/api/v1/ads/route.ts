@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const nowMs = now.getTime();
     const todayUtc = now.toISOString().slice(0, 10);
-    const refreshIntervalMs = (adsCfg.refreshIntervalMinutes || 5) * 60_000;
+    const refreshIntervalMs = Math.max(1, Number(adsCfg.refreshIntervalMinutes ?? 5)) * 60_000;
     const maxDaily = Number(adsCfg.maxDailySpendPerAd || 0);
     const excludeAdvParam = searchParams.get('excludeAdvertisers') || '';
     const recentAdvSet = new Set(
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
       getSettingsGroup('app'),
     ]);
 
-    const minBudget = Math.max(1, Number(adsCfg.minBudget || 5000));
+    const minBudget = Math.max(1, Number(adsCfg.minBudget ?? 5000));
     const defaultCurrency = appCfg.defaultCurrency || 'NGN';
     if (body.totalBudget < minBudget) {
       throw new ValidationError(
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
       ctaText: body.ctaText.trim(),
       targetUrl: body.targetUrl,
       totalBudget: body.totalBudget,
-      pricePerView: Number(adsCfg.pricePerView || 25),
+      pricePerView: Math.max(0.01, Number(adsCfg.pricePerView ?? 25)),
       mediaId: body.mediaId && Types.ObjectId.isValid(body.mediaId) ? new Types.ObjectId(body.mediaId) : null,
       status: body.publishNow ? AdStatus.PUBLISHED : AdStatus.DRAFT,
       approval: adsCfg.defaultApproval ? AdApproval.APPROVED : AdApproval.PENDING,
@@ -300,7 +300,7 @@ export async function PATCH(req: NextRequest) {
           getSettingsGroup('ads'),
           getSettingsGroup('app'),
         ]);
-        const minBudget = Math.max(1, Number(adsCfg.minBudget || 5000));
+        const minBudget = Math.max(1, Number(adsCfg.minBudget ?? 5000));
         const defaultCurrency = appCfg.defaultCurrency || 'NGN';
         if (body.totalBudget < minBudget) {
           throw new ValidationError(

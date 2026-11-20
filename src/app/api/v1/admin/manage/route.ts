@@ -1737,7 +1737,7 @@ export async function POST(req: NextRequest) {
       revalidatePath('/document/[slug]', 'page');
     } else if (action === 'settings.update') {
       const group = payload.group as keyof AppSettingsMap;
-      const values = (payload.values as Record<string, unknown>) || {};
+      const values: Record<string, unknown> = { ...((payload.values as Record<string, unknown>) || {}) };
       if (group === 'wallet') {
         const dMin = Number(values.depositMinAmount);
         const dMax = Number(values.depositMaxAmount);
@@ -1753,6 +1753,56 @@ export async function POST(req: NextRequest) {
         }
         if (Number.isFinite(wMin) && Number.isFinite(wMax) && wMin > wMax) {
           throw new ValidationError('Minimum withdrawal cannot exceed maximum withdrawal.');
+        }
+      }
+      if (group === 'ads') {
+        const currentAds = await getSettingsGroup('ads');
+        const allowedModels = ['viewable_cpm', 'every_impression', 'cpc', 'hybrid'] as const;
+        if (values.billingModel !== undefined) {
+          const model = String(values.billingModel);
+          if (!allowedModels.includes(model as (typeof allowedModels)[number])) {
+            throw new ValidationError('Invalid ad credit deduction model.');
+          }
+          values.billingModel = model;
+        }
+        const parseNumericField = (
+          key: string,
+          label: string,
+          min: number,
+          decimals = 2
+        ): number | undefined => {
+          if (values[key] === undefined) return undefined;
+          const raw = typeof values[key] === 'string' ? values[key].trim() : values[key];
+          if (raw === '' || raw === null) {
+            throw new ValidationError(`${label} is required.`);
+          }
+          const num = Number(raw);
+          if (!Number.isFinite(num) || num < min) {
+            throw new ValidationError(`${label} must be at least ${min}.`);
+          }
+          const normalized = decimals > 0 ? Number(num.toFixed(decimals)) : Math.round(num);
+          values[key] = normalized;
+          return normalized;
+        };
+
+        parseNumericField('pricePerView', 'Charge per view', 0.01, 2);
+        parseNumericField('pricePerClick', 'Charge per click', 0, 2);
+        parseNumericField('chargeIntervalMinutes', 'Charge cooldown (minutes)', 0, 2);
+        parseNumericField('maxDailySpendPerAd', 'Daily spend cap per ad', 0, 2);
+        const nextMinBudget = parseNumericField('minBudget', 'Minimum budget', 1, 2);
+        const nextDefaultBudget = parseNumericField('defaultBudget', 'Default budget', 1, 2);
+        parseNumericField('refreshIntervalMinutes', 'Ad refresh interval (minutes)', 1, 2);
+
+        const effectiveMinBudget = nextMinBudget ?? currentAds.minBudget;
+        const effectiveDefaultBudget = nextDefaultBudget ?? currentAds.defaultBudget;
+        if (effectiveDefaultBudget < effectiveMinBudget) {
+          throw new ValidationError('Default budget pre-fill cannot be lower than minimum budget.');
+        }
+        if (values.defaultApproval !== undefined) {
+          values.defaultApproval = Boolean(values.defaultApproval);
+        }
+        if (values.refundUnspentOnDelete !== undefined) {
+          values.refundUnspentOnDelete = Boolean(values.refundUnspentOnDelete);
         }
       }
       await updateSettingsGroup(group, values);
@@ -1773,6 +1823,7 @@ export async function POST(req: NextRequest) {
         }
       }
       revalidatePath('/', 'layout');
+      revalidatePath('/admin', 'page');
     } else if (action === 'cache.reset') {
       clearSettingsCache();
       clearWatermarkCache();
