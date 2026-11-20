@@ -22,6 +22,7 @@ import {
   FileDown,
   Film,
   Forward,
+  Heart,
   Image as ImageIcon,
   Info,
   Languages,
@@ -32,6 +33,7 @@ import {
   MessageSquareOff,
   Mic,
   MoreHorizontal,
+  PanelRight,
   Paperclip,
   Phone,
   Pin,
@@ -249,6 +251,25 @@ const CHAT_REACTIONS = [
   { unifiedId: '1f525', nativeSymbol: '🔥' },
   { unifiedId: '1f64f', nativeSymbol: '🙏' },
 ];
+
+/** Exact ColibriPlus PHP config/chat.php participant color palette */
+const COLIBRI_CHAT_COLORS = [
+  '#C7508B',
+  '#D67722',
+  '#CC5049',
+  '#309eba',
+  '#40a920',
+  '#955cdb',
+];
+
+function getParticipantColor(seed?: string | null): string {
+  if (!seed) return COLIBRI_CHAT_COLORS[3];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return COLIBRI_CHAT_COLORS[Math.abs(hash) % COLIBRI_CHAT_COLORS.length];
+}
 
 function isRecentlyActive(lastActive: string | undefined, nowMs: number, hasSocket: boolean): boolean {
   if (hasSocket || nowMs <= 0 || !lastActive) return false;
@@ -479,7 +500,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingPingRef = useRef<number>(0);
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const quickImageInputRef = useRef<HTMLInputElement>(null);
   const chatMutedRef = useRef(chatMuted);
 
   const attachMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -487,12 +509,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
   const stickerMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tipDirectUserModalOpen, setTipDirectUserModalOpen] = useState(false);
 
-  // Draggable Split Pane Widths & Responsive Bounds
-  const [leftSidebarWidth, setLeftSidebarWidth] = useState<number>(340);
+  // Draggable Split Pane Widths & Responsive Bounds (PHP default: 64px action bar + 350px sidebar = 414px)
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState<number>(350);
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
   const leftDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
-  const [rightPanelWidth, setRightPanelWidth] = useState<number>(320);
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(350);
   const [isDraggingRight, setIsDraggingRight] = useState(false);
   const rightDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
@@ -1216,6 +1238,9 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
     // 1. Instant optimistic UI update: clear input, reply banner, and typing status immediately (0ms)
     setMsgText('');
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = '48px';
+    }
     setReplyTo(null);
     emitTypingChange(false);
 
@@ -2149,8 +2174,13 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     m: ChatMessage,
     variant: 'desktop' | 'mobile-mine' | 'mobile-other'
   ) => {
+    void variant;
     if (m.isDeleted) {
-      return <p className="text-cap-l italic text-lab-sc">Message deleted</p>;
+      return (
+        <div className="flex mt-1">
+          <p className="text-lab-sc text-par-m leading-snug">This message was deleted.</p>
+        </div>
+      );
     }
 
     if (m.type === 'system') {
@@ -2161,11 +2191,11 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             ? 'Started an audio call'
             : m.content || 'Call update';
       return (
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-black/30 dark:bg-black/55 backdrop-blur-xs px-3.5 py-1 text-[12px] font-medium text-white shadow-xs">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-fill-qt border border-bord-card px-3.5 py-1 text-cap-l font-medium text-lab-sc">
           {m.content === 'user_initiated_video_call' ? (
-            <Video className="size-3.5 text-emerald-300 shrink-0" />
+            <Video className="size-3.5 text-brand-900 shrink-0" />
           ) : (
-            <Phone className="size-3.5 text-emerald-300 shrink-0" />
+            <Phone className="size-3.5 text-green-900 shrink-0" />
           )}
           <span>{label}</span>
         </div>
@@ -2173,8 +2203,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
     }
 
     const mediaUrl = m.media?.publicUrl || m.media?.url;
-    const boxClass =
-      'bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.08] text-lab-pr dark:text-white';
+    const boxClass = 'bg-fill-fv border border-bord-card text-lab-pr';
 
     const totalPollVotes = m.poll
       ? m.poll.options.reduce((sum, opt) => sum + (opt.voterIds?.length || 0), 0)
@@ -2375,18 +2404,18 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
         {m.content && (
           <div className="space-y-1 min-w-0 max-w-full">
-            <p className="text-par-n leading-relaxed text-inherit whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-              {msgTranslations[m.id] || m.content}
-            </p>
             {msgTranslations[m.id] && (
               <button
                 type="button"
                 onClick={() => setMsgTranslations((prev) => ({ ...prev, [m.id]: null }))}
-                className="text-cap-s text-lab-sc underline cursor-pointer block mt-1"
+                className="text-cap-l font-medium text-brand-900 hover:underline cursor-pointer block leading-none my-1"
               >
-                Translated · Show original
+                Show untranslated
               </button>
             )}
+            <p className="text-par-l leading-snug font-medium text-lab-pr2 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {msgTranslations[m.id] || m.content}
+            </p>
           </div>
         )}
 
@@ -2470,239 +2499,261 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         (isDraggingLeft || isDraggingRight) && 'select-none cursor-col-resize'
       )}
     >
-      {/* Desktop Far-Left Vertical Action Bar (Grupo + PHP MessengerActionBar parity, hidden on mobile & hidden in Expand mode) */}
+      {/* Desktop Far-Left Vertical Action Bar (100% PHP MessengerActionBar.vue parity) */}
       <aside
         className={cn(
-          'w-16 shrink-0 h-full max-h-full border-r border-bord-pr bg-bg-pr flex-col items-center justify-between py-5 overflow-hidden select-none',
+          'w-16 shrink-0 h-full max-h-full bg-bg-pr flex-col items-center py-6 overflow-hidden select-none',
           middleFullScreen ? 'hidden' : 'hidden md:flex'
         )}
       >
-        <div className="flex flex-col items-center">
-          <Link
-            href="/"
-            title={appName}
-            className="size-10 rounded-full flex items-center justify-center hover:bg-fill-fv transition-colors"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoSrc} alt={appName} className="size-7 object-contain" />
-          </Link>
+        <Link href="/" title={appName} className="flex justify-center mb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoSrc} alt={appName} className="h-7 object-contain" />
+        </Link>
 
-          <div className="w-6 border-t border-bord-pr my-3" />
+        <div className="w-full px-4 pb-2">
+          <div className="h-px w-full bg-bord-card" />
+        </div>
 
+        <div className="w-full flex justify-center">
           <button
             type="button"
             onClick={() => setNewChatOpen(true)}
             title="New conversation"
             aria-label="New conversation"
-            className="size-10 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
+            className={cn(
+              'inline-flex items-center justify-center cursor-pointer leading-none rounded-xl size-12 transition-colors text-lab-pr',
+              newChatOpen ? 'bg-fill-qt' : 'hover:bg-fill-fv'
+            )}
           >
-            <Plus className="size-5" />
+            <Plus className="size-[22px]" strokeWidth={2} />
           </button>
+        </div>
 
-          <div className="w-6 border-t border-bord-pr my-3" />
+        <div className="w-full px-4 py-2">
+          <div className="h-px w-full bg-bord-card" />
+        </div>
 
-          <div className="flex flex-col items-center gap-2">
+        <div className="w-full flex flex-col items-center gap-1">
+          <div className="w-full flex justify-center">
             <button
               type="button"
               onClick={() => setTab('chats')}
               title="Messages"
               aria-label="Messages"
               className={cn(
-                'size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-                tab === 'chats' || tab === 'groups'
-                  ? 'bg-fill-sc text-lab-pr'
-                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                'inline-flex items-center justify-center cursor-pointer leading-none rounded-xl size-12 transition-colors text-lab-pr',
+                tab === 'chats' || tab === 'groups' ? 'bg-fill-qt' : 'hover:bg-fill-fv'
               )}
             >
-              <MessageCircle className="size-5" />
+              <MessageCircle className="size-[22px]" strokeWidth={1.75} />
             </button>
-            <button
-              type="button"
-              onClick={() => setTab('discover')}
-              title="Discover Community Groups"
-              aria-label="Discover Community Groups"
-              className={cn(
-                'size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-                tab === 'discover'
-                  ? 'bg-fill-sc text-brand-900'
-                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
-              )}
-            >
-              <Compass className="size-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('invites')}
-              title="Group Invites"
-              aria-label="Group Invites"
-              className={cn(
-                'relative size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-                tab === 'invites'
-                  ? 'bg-fill-sc text-brand-900'
-                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
-              )}
-            >
-              <Users className="size-5" />
-              {inviteCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-brand-900 text-white text-[10px] font-bold flex items-center justify-center px-1">
-                  {inviteCount}
-                </span>
-              )}
-            </button>
+          </div>
+          <div className="w-full flex justify-center">
             <button
               type="button"
               onClick={() => setTab('archive')}
               title="Archive"
               aria-label="Archive"
               className={cn(
-                'size-10 rounded-full flex items-center justify-center transition-colors cursor-pointer',
-                tab === 'archive'
-                  ? 'bg-fill-sc text-lab-pr'
-                  : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                'inline-flex items-center justify-center cursor-pointer leading-none rounded-xl size-12 transition-colors text-lab-pr',
+                tab === 'archive' ? 'bg-fill-qt' : 'hover:bg-fill-fv'
               )}
             >
-              <Archive className="size-5" />
+              <Archive className="size-[22px]" strokeWidth={1.75} />
+            </button>
+          </div>
+          <div className="w-full flex justify-center">
+            <button
+              type="button"
+              onClick={() => setTab('discover')}
+              title="Discover Community Groups"
+              aria-label="Discover Community Groups"
+              className={cn(
+                'inline-flex items-center justify-center cursor-pointer leading-none rounded-xl size-12 transition-colors text-lab-pr',
+                tab === 'discover' ? 'bg-fill-qt' : 'hover:bg-fill-fv'
+              )}
+            >
+              <Compass className="size-[22px]" strokeWidth={1.75} />
+            </button>
+          </div>
+          <div className="w-full flex justify-center">
+            <button
+              type="button"
+              onClick={() => setTab('invites')}
+              title="Group Invites"
+              aria-label="Group Invites"
+              className={cn(
+                'relative inline-flex items-center justify-center cursor-pointer leading-none rounded-xl size-12 transition-colors text-lab-pr',
+                tab === 'invites' ? 'bg-fill-qt' : 'hover:bg-fill-fv'
+              )}
+            >
+              <Users className="size-[22px]" strokeWidth={1.75} />
+              {inviteCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                  {inviteCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
 
-        <div className="mt-auto shrink-0 flex flex-col items-center gap-3">
-          <Link
-            href="/settings"
-            title="Settings"
-            aria-label="Settings"
-            className="size-10 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv transition-colors"
-          >
-            <Settings className="size-5" />
-          </Link>
-          <Link href={`/@${user.username}`} title={`@${user.username}`} className="block">
-            <Avatar src={user.avatar} alt={user.username} size="sm" />
-          </Link>
+        <div className="mt-auto w-full shrink-0">
+          <div className="mb-2 w-full flex justify-center">
+            <Link
+              href="/settings"
+              title="Settings"
+              aria-label="Settings"
+              className="inline-flex items-center justify-center cursor-pointer leading-none rounded-xl size-12 text-lab-pr hover:bg-fill-fv transition-colors"
+            >
+              <Settings className="size-[22px]" strokeWidth={1.75} />
+            </Link>
+          </div>
+          <div className="flex justify-center">
+            <Link
+              href={`/@${user.username}`}
+              title={`@${user.username}`}
+              className="size-10 overflow-hidden rounded-full cursor-pointer block"
+            >
+              <Avatar src={user.avatar} alt={user.username} size="sm" className="!size-10" />
+            </Link>
+          </div>
         </div>
       </aside>
 
-      {/* Left Conversation List (Simplified Grupo aside + Homepage typography, resizable) */}
+      {/* Left Conversation List (100% PHP MessengerNavbar.vue + SidebarContainer.vue + ChatItem.vue parity, resizable) */}
       <div
         style={{
           '--left-sidebar-w': `${leftSidebarWidth}px`,
         } as React.CSSProperties}
         className={cn(
-          'w-full md:w-[var(--left-sidebar-w,360px)] shrink-0 h-full min-h-0 overflow-hidden flex flex-col bg-bg-pr min-w-0',
+          'w-full md:w-[var(--left-sidebar-w,350px)] shrink-0 h-full min-h-0 overflow-hidden flex flex-col bg-bg-pr border-r border-bord-card min-w-0',
           activeChatId || middleFullScreen ? (middleFullScreen ? 'hidden' : 'hidden md:flex') : 'flex'
         )}
       >
-        {/* Sticky Messages Header matching Notifications & App UI */}
-        <div className="sticky top-0 z-20 pt-safe px-safe bg-bg-pr/95 backdrop-blur-md border-b border-bord-pr shrink-0">
-          <div className="px-4 py-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+        {/* Sidebar Title (PHP PageTitle.vue + SidebarContainer mt-top-offset parity) */}
+        <div className="pt-6 px-4 mb-4 shrink-0 pt-safe">
+          <div className="flex items-center justify-between gap-2 leading-none">
+            <div className="flex gap-2 items-center leading-none min-w-0">
               <Link
                 href="/"
-                className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+                className="shrink-0 cursor-pointer text-lab-pr hover:opacity-80 transition-opacity"
                 title="Back to Home"
                 aria-label="Back to Home"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="size-[22px]" strokeWidth={1.9} />
               </Link>
-              <h1 className="text-title-3 font-bold text-lab-pr truncate">
-                {tab === 'archive' ? 'Archived' : tab === 'invites' ? 'Invites' : 'Messages'}
+              <h1 className="text-title-3 2xl:text-title-2 font-bold text-lab-pr2 leading-tight truncate">
+                {tab === 'archive'
+                  ? 'Archived'
+                  : tab === 'discover'
+                    ? 'Discover'
+                    : 'Messages'}
               </h1>
             </div>
-            <button
-              type="button"
-              onClick={() => setNewChatOpen(true)}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-lab-pr text-bg-pr text-par-s font-semibold hover:opacity-90 transition-opacity cursor-pointer shrink-0"
-            >
-              <Plus className="h-4 w-4" /> New
-            </button>
-          </div>
-        </div>
-
-        {/* Search & Chat Filters Bar matching Marketplace & App UI */}
-        <div className="p-4 border-b border-bord-tr space-y-3 bg-bg-pr shrink-0">
-          <div className="relative rounded-full border border-bord-card/90 bg-bg-pr focus-within:border-brand-900/60 transition-colors">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-sc" />
-            <input
-              type="search"
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              placeholder="Search chats & rooms..."
-              className="w-full h-10 rounded-full bg-transparent pl-10 pr-10 text-par-n text-lab-pr placeholder:text-lab-tr outline-hidden"
-            />
-            {searchQ ? (
+            <div className="md:hidden flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
-                onClick={() => setSearchQ('')}
-                aria-label="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 size-6 rounded-full hover:bg-fill-qt flex items-center justify-center text-lab-sc cursor-pointer"
-              >
-                <X className="size-3.5" />
-              </button>
-            ) : null}
-          </div>
-
-          {/* Section with horizontal scrolling below the search icon */}
-          <div
-            onWheel={(e) => {
-              if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
-            }}
-            className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-4 px-4"
-          >
-            {(
-              [
-                { key: 'chats', label: 'All Chats' },
-                { key: 'groups', label: 'Groups' },
-                { key: 'discover', label: 'Discover' },
-              ] as const
-            ).map((item) => {
-              const active = tab === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setTab(item.key)}
-                  className={cn(
-                    'shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
-                    active
-                      ? 'bg-brand-900 text-white'
-                      : 'bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc'
-                  )}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-            {(inviteCount > 0 || tab === 'invites') && (
-              <button
-                type="button"
-                onClick={() => setTab('invites')}
+                onClick={() => setTab(tab === 'archive' ? 'chats' : 'archive')}
+                title={tab === 'archive' ? 'Inbox' : 'Archived chats'}
+                aria-label={tab === 'archive' ? 'Inbox' : 'Archived chats'}
                 className={cn(
-                  'md:hidden shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
-                  tab === 'invites'
-                    ? 'bg-brand-900 text-white'
-                    : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
+                  'inline-flex items-center justify-center size-9 rounded-xl cursor-pointer transition-colors',
+                  tab === 'archive' ? 'bg-fill-sc text-lab-pr' : 'bg-fill-qt text-lab-pr hover:bg-fill-sc'
                 )}
               >
-                Invites{inviteCount > 0 ? ` (${inviteCount})` : ''}
+                <Archive className="size-[18px]" />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setTab(tab === 'archive' ? 'chats' : 'archive')}
-              className={cn(
-                'md:hidden shrink-0 rounded-full px-3.5 py-1.5 text-par-s font-semibold transition-colors cursor-pointer whitespace-nowrap',
-                tab === 'archive'
-                  ? 'bg-brand-900 text-white'
-                  : 'bg-fill-qt text-lab-sc hover:text-lab-pr'
-              )}
-            >
-              Archive
-            </button>
+              <button
+                type="button"
+                onClick={() => setNewChatOpen(true)}
+                title="New conversation"
+                aria-label="New conversation"
+                className="inline-flex items-center justify-center size-9 rounded-xl bg-fill-qt text-lab-pr hover:bg-fill-sc cursor-pointer"
+              >
+                <Plus className="size-5" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-bord-pr pb-safe">
+        {/* ContentTabs (100% PHP ContentTabs.vue + TabsItem.vue underline parity) */}
+        {tab !== 'archive' ? (
+          <div className="border-b border-b-bord-card mb-4 shrink-0">
+            <div className="grid grid-cols-4">
+              {(
+                [
+                  { key: 'chats', label: 'Chats' },
+                  { key: 'groups', label: 'Groups' },
+                  { key: 'discover', label: 'Discover' },
+                  { key: 'invites', label: inviteCount > 0 ? `Requests (${inviteCount})` : 'Requests' },
+                ] as const
+              ).map((item) => {
+                const active = tab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setTab(item.key)}
+                    className={cn(
+                      'cursor-pointer w-full flex-1 text-center overflow-hidden truncate leading-4 text-par-m px-2 py-4 transition-colors relative',
+                      active
+                        ? "after:content-[''] after:absolute after:-bottom-px after:left-0 after:w-full after:h-0.5 after:bg-lab-pr"
+                        : 'hover:bg-fill-fv/60'
+                    )}
+                  >
+                    <span className={cn('font-semibold', active ? 'text-lab-pr2' : 'text-lab-sc')}>
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="border-b border-b-bord-card mb-4 px-4 pb-3 flex items-center justify-between shrink-0">
+            <span className="text-par-s text-lab-sc">Archived conversations</span>
+            <button
+              type="button"
+              onClick={() => setTab('chats')}
+              className="text-par-s font-semibold text-brand-900 hover:underline cursor-pointer"
+            >
+              Back to Inbox
+            </button>
+          </div>
+        )}
+
+        {/* QuickSearch (100% PHP QuickSearch.vue parity) */}
+        {tab !== 'invites' && (
+          <div className="px-4 mb-4 shrink-0">
+            <div className="block bg-fill-qt overflow-hidden rounded-xl relative">
+              <div className="z-10 absolute left-3 top-0 bottom-0 inline-flex items-center justify-center pointer-events-none">
+                <Search className="size-[18px] text-lab-tr" />
+              </div>
+              <input
+                type="text"
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Search"
+                className="block w-full bg-transparent placeholder-shown:text-center outline-hidden text-par-m text-lab-pr placeholder:text-lab-sc px-10 h-10"
+              />
+              {searchQ ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQ('')}
+                  aria-label="Clear search"
+                  className="inline-flex items-center justify-center cursor-pointer outline-hidden bg-fill-pr text-lab-tr rounded-full size-6 absolute top-2 right-2"
+                >
+                  <X className="size-3.5 text-lab-tr" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto pb-12 pb-safe">
           {tab === 'discover' ? (
-            <div className="p-4 space-y-3.5">
+            <div className="px-4 pb-4 space-y-3.5">
               <div
                 onWheel={(e) => {
                   if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
@@ -2834,16 +2885,16 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             </div>
           ) : (
             <>
-              {loadingList && <p className="p-4 text-center text-lab-sc text-par-n">Loading...</p>}
+              {loadingList && <p className="py-12 text-center text-lab-sc text-par-s">Loading...</p>}
 
               {!loadingList && tab === 'invites' && invites.length === 0 && (
-                <p className="p-6 text-center text-lab-sc text-par-n">No pending group invitations.</p>
+                <p className="py-24 text-center text-lab-sc text-par-s">No pending group invitations.</p>
               )}
 
               {tab === 'invites' &&
                 invites.map((inv) => (
-                  <div key={inv._id} className="p-4 space-y-2.5">
-                    <p className="text-par-m font-semibold text-lab-pr">
+                  <div key={inv._id} className="px-4 py-3.5 border-b border-bord-card/60 space-y-2.5">
+                    <p className="text-par-m font-semibold text-lab-pr2">
                       {inv.chatId?.group?.name || 'Group Chat'}
                     </p>
                     <p className="text-par-s text-lab-sc">
@@ -2861,15 +2912,17 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 ))}
 
               {tab !== 'invites' && !loadingList && visibleChats.length === 0 && (
-                <div className="p-6 text-center space-y-3">
-                  <p className="text-lab-sc text-par-n">
-                    {tab === 'groups'
-                      ? 'No group chats yet.'
-                      : tab === 'archive'
-                        ? 'No archived conversations.'
-                        : 'No conversations yet.'}
+                <div className="py-24 px-4 text-center space-y-3">
+                  <p className="text-lab-sc text-par-s">
+                    {searchQ.trim()
+                      ? 'No chats found.'
+                      : tab === 'groups'
+                        ? 'No group chats yet.'
+                        : tab === 'archive'
+                          ? 'No archived conversations.'
+                          : 'No chat history yet.'}
                   </p>
-                  {tab === 'groups' && (
+                  {tab === 'groups' && !searchQ.trim() && (
                     <Button size="sm" variant="outline" onClick={() => setTab('discover')}>
                       Browse Community Groups
                     </Button>
@@ -2890,41 +2943,55 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                     (onlineUsers.has(String(c.interlocutor._id)) ||
                       isRecentlyActive(c.interlocutor.lastActive, pollNow, Boolean(socket)))
                   );
+                  const isSelectedChat = activeChatId === c.id;
 
                   return (
                     <div
                       key={c.id}
                       className={cn(
-                        'flex items-center hover:bg-fill-pr transition-colors group/row',
-                        activeChatId === c.id && 'bg-fill-sc'
+                        'flex items-center transition-colors group/row',
+                        isSelectedChat ? 'bg-brand-900/5' : 'hover:bg-fill-fv'
                       )}
                     >
                       <Link
                         href={`/messenger/c/${c.id}`}
-                        className="flex-1 min-w-0 flex items-center gap-3.5 px-4 py-3.5"
+                        className="flex-1 min-w-0 flex gap-3 items-center pl-4 min-h-[72px] py-2"
                       >
-                        <Avatar src={avatarSrc} alt={title} online={isOnline} size="md" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <p className="text-par-m font-semibold text-lab-pr truncate">{title}</p>
-                              {c.type === 'group' && c.group?.verified && (
-                                <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />
+                        <div className="shrink-0">
+                          <Avatar src={avatarSrc} alt={title} online={isOnline} size="md" />
+                        </div>
+                        <div className="flex-1 overflow-hidden pr-4">
+                          <div className="flex justify-between items-center gap-4">
+                            <strong className="font-semibold text-par-m whitespace-nowrap truncate text-lab-pr2 inline-flex items-center gap-1">
+                              <span className="truncate">{title}</span>
+                              {((c.type === 'group' && c.group?.verified) ||
+                                (c.type === 'direct' && c.interlocutor?.verified)) && (
+                                <BadgeCheck className="size-3.5 text-brand-900 shrink-0" />
                               )}
                               {c.type === 'group' && c.group?.isPinned && (
-                                <Pin className="h-3.5 w-3.5 text-brand-900 shrink-0" />
+                                <Pin className="size-3 text-brand-900 shrink-0" />
                               )}
-                            </div>
-                            <span className="text-cap-l text-lab-tr shrink-0">
-                              {formatRelativeTime(c.lastActivity, locale)}
-                            </span>
+                            </strong>
                           </div>
-                          <div className="flex items-center justify-between gap-2 mt-0.5">
-                            <p className="text-par-s text-lab-sc truncate">
-                              {c.lastMessagePreview || 'No messages yet'}
-                            </p>
-                            {c.unreadCount > 0 && (
-                              <span className="h-5 min-w-[22px] px-1.5 rounded-full bg-brand-900 text-white text-cap-s font-bold flex items-center justify-center">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 overflow-hidden">
+                              <p className="text-lab-sc text-par-n">
+                                {c.lastMessagePreview ? (
+                                  <span className="flex items-end gap-1.5 overflow-hidden max-w-full">
+                                    <span className="truncate">{c.lastMessagePreview}</span>
+                                    <span className="text-par-s text-lab-sc whitespace-nowrap shrink-0">
+                                      · {formatRelativeTime(c.lastActivity, locale)}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <time className="text-par-s text-lab-sc whitespace-nowrap">
+                                    Active {formatRelativeTime(c.lastActivity, locale)}
+                                  </time>
+                                )}
+                              </p>
+                            </div>
+                            {!isSelectedChat && c.unreadCount > 0 && (
+                              <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-green-600 text-white text-cap-s font-semibold inline-flex items-center justify-center shrink-0">
                                 {c.unreadCount}
                               </span>
                             )}
@@ -2952,7 +3019,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         </div>
       </div>
 
-      {/* Draggable Divider Handle between Left Chat List and Middle Chat View */}
+      {/* Draggable Divider Handle between Left Chat List and Middle Chat View (Preserved resizable width!) */}
       {!middleFullScreen && (
         <div
           role="separator"
@@ -2967,12 +3034,12 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
             }
           }}
           className={cn(
-            'hidden md:flex relative items-center justify-center w-2 -ml-1 z-20 cursor-col-resize hover:bg-brand-900/40 active:bg-brand-900 transition-colors select-none group shrink-0 border-l border-bord-pr',
-            isDraggingLeft && 'bg-brand-900/80 border-brand-900'
+            'hidden md:flex relative items-center justify-center w-1.5 -ml-0.5 z-20 cursor-col-resize hover:bg-brand-900/40 active:bg-brand-900 transition-colors select-none group shrink-0',
+            isDraggingLeft && 'bg-brand-900/80'
           )}
           title="Drag to resize chat list"
         >
-          <div className="w-0.5 h-7 rounded-full bg-lab-tr group-hover:bg-brand-900 transition-colors" />
+          <div className="w-0.5 h-7 rounded-full bg-transparent group-hover:bg-brand-900 transition-colors" />
         </div>
       )}
 
@@ -2984,22 +3051,26 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
         )}
       >
         {!activeChatId ? (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <EmptyState
-              icon={Users}
-              title="Select a conversation"
-              description="Choose an existing chat or start a new direct or group conversation."
-              action={
-                <Button variant="primary" onClick={() => setNewChatOpen(true)}>
-                  Start Conversation
-                </Button>
-              }
-            />
+          <div className="flex-1 h-full flex flex-col justify-center items-center p-6 bg-bg-pr">
+            <div className="flex justify-center mb-3">
+              <Avatar src={user.avatar} alt={user.username} size="xl" />
+            </div>
+            <h4 className="text-center text-title-3 font-semibold text-lab-pr2">
+              {appName} Messenger
+            </h4>
+            <p className="text-center text-par-s text-lab-sc max-w-sm mt-1">
+              Choose an existing conversation from the sidebar or start a new direct or group chat.
+            </p>
+            <div className="mt-4">
+              <Button variant="primary" onClick={() => setNewChatOpen(true)}>
+                Start Conversation
+              </Button>
+            </div>
           </div>
         ) : !activeChat ? (
           <div className="flex-1 flex flex-col bg-bg-pr animate-pulse">
-            <div className="pt-safe px-safe border-b border-bord-pr">
-              <div className="h-16 px-4 flex items-center gap-3">
+            <div className="pt-safe px-safe border-b border-bord-card">
+              <div className="h-16 px-6 flex items-center gap-3">
                 <Link
                   href="/messenger"
                   className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
@@ -3007,36 +3078,34 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Link>
-                <div className="size-10 rounded-full bg-fill-sc shrink-0" />
+                <div className="size-[38px] rounded-full bg-fill-sc shrink-0" />
                 <div className="space-y-1.5 flex-1 max-w-[180px]">
                   <div className="h-3.5 w-32 rounded-full bg-fill-sc" />
                   <div className="h-2.5 w-20 rounded-full bg-fill-sc" />
                 </div>
               </div>
             </div>
-            <div className="flex-1 p-4 space-y-4 overflow-hidden">
-              <div className="h-10 w-52 rounded-2xl bg-fill-fv" />
-              <div className="h-12 w-64 rounded-2xl bg-fill-fv ml-auto" />
-              <div className="h-9 w-44 rounded-2xl bg-fill-fv" />
-              <div className="h-14 w-60 rounded-2xl bg-fill-fv ml-auto" />
+            <div className="flex-1 p-6 space-y-5 overflow-hidden">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="flex items-start gap-3">
+                  <div className="size-[38px] rounded-full bg-fill-fv shrink-0" />
+                  <div className="space-y-2 flex-1 max-w-sm">
+                    <div className="h-3 w-28 rounded-full bg-fill-fv" />
+                    <div className="h-4 w-full rounded-full bg-fill-fv" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ) : (
           <>
-            {/* Thread Header (PHP ChatHeader.vue px-6 h-16 parity) */}
-            <div className="border-b border-bord-pr bg-bg-pr shrink-0 pt-safe px-safe">
-              <div
-                className={cn(
-                  'h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between gap-2 transition-all',
-                  middleFullScreen
-                    ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto w-full'
-                    : 'max-w-[840px] mx-auto w-full'
-                )}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
+            {/* Thread Header (100% PHP ChatHeader.vue h-16 px-6 parity + all call/expand/options actions) */}
+            <div className="border-b border-bord-card bg-bg-pr shrink-0 pt-safe px-safe">
+              <div className="h-16 px-4 sm:px-6 flex justify-between items-center gap-2">
+                <div className="inline-flex items-center min-w-0 leading-none">
                   <Link
                     href="/messenger"
-                    className="md:hidden p-1.5 -ml-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
+                    className="md:hidden p-1.5 -ml-1.5 mr-1.5 rounded-full text-lab-pr hover:bg-fill-tr shrink-0"
                     aria-label="Back to Messenger"
                   >
                     <ArrowLeft className="h-5 w-5" />
@@ -3052,56 +3121,55 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         setDirectInfoOpen((prev) => !prev);
                       }
                     }}
-                    className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
+                    className="inline-flex items-center cursor-pointer leading-none min-w-0 text-left"
                   >
                     <Avatar
                       src={activeAvatar}
                       alt={activeTitle}
                       online={activeChat.type === 'direct' ? interlocutorOnline : false}
-                      size="md"
+                      size="sm"
                     />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="text-par-l font-bold text-lab-pr truncate">{activeTitle}</p>
-                        {activeChat.type === 'group' && activeChat.group?.verified && (
-                          <BadgeCheck className="h-4 w-4 text-brand-900 shrink-0" />
+                    <div className="ml-3 min-w-0">
+                      <h4 className="text-par-l font-bold mb-1 text-lab-pr truncate flex items-center gap-1.5">
+                        <span className="truncate">{activeTitle}</span>
+                        {((activeChat.type === 'group' && activeChat.group?.verified) ||
+                          (activeChat.type === 'direct' && interlocutor?.verified)) && (
+                          <BadgeCheck className="size-4 text-brand-900 shrink-0" />
                         )}
                         {activeChat.type === 'group' && activeChat.group?.category && (
-                          <span className="hidden sm:inline-flex rounded-full bg-fill-qt px-2.5 py-0.5 text-cap-s font-semibold text-lab-sc shrink-0">
+                          <span className="hidden sm:inline-flex rounded-full bg-fill-qt px-2 py-0.5 text-cap-s font-semibold text-lab-sc shrink-0">
                             {activeChat.group.category}
                           </span>
                         )}
-                      </div>
-                      {typingUsers.length > 0 ? (
-                        <p className="text-par-s text-green-600 font-medium animate-pulse truncate">
-                          {activeChat.type === 'group' ? `${typingNames} typing...` : 'typing...'}
-                        </p>
-                      ) : activeChat.type === 'group' ? (
-                        <p className="text-par-s text-lab-sc truncate">
-                          {activeChat.participants?.length ?? activeChat.membersCount ?? 0} members · Click to view info
-                        </p>
-                      ) : interlocutorOnline ? (
-                        <p className="text-par-s text-green-600 font-medium truncate">Online</p>
-                      ) : (
-                        <p className="text-par-s text-lab-sc truncate">
-                          {interlocutor?.lastActive
-                            ? `Active ${formatRelativeTime(interlocutor.lastActive, locale)}`
-                            : interlocutor?.username
-                              ? `@${interlocutor.username}`
-                              : ''}
-                        </p>
-                      )}
+                      </h4>
+                      <span className="block text-par-s text-lab-sc truncate">
+                        {typingUsers.length > 0 ? (
+                          <span className="text-green-900 font-medium">
+                            {activeChat.type === 'group' ? `${typingNames} is typing...` : 'typing...'}
+                          </span>
+                        ) : activeChat.type === 'group' ? (
+                          `${activeChat.participants?.length ?? activeChat.membersCount ?? 0} participants`
+                        ) : interlocutorOnline ? (
+                          <span className="text-green-900 font-medium">Online</span>
+                        ) : interlocutor?.lastActive ? (
+                          `Was online ${formatRelativeTime(interlocutor.lastActive, locale)}`
+                        ) : interlocutor?.username ? (
+                          `@${interlocutor.username}`
+                        ) : (
+                          'Was online N/A'
+                        )}
+                      </span>
                     </div>
                   </button>
                 </div>
 
                 {!joinPreviewStatus && (
-                  <div className="flex items-center gap-1 shrink-0 relative">
+                  <div className="inline-flex items-center gap-1.5 sm:gap-2 shrink-0 relative">
                     <button
                       type="button"
                       onClick={() => handleStartCall('audio')}
                       className={cn(
-                        'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        'size-9 rounded-full inline-flex items-center justify-center text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
                         (callMode === 'audio' || activeCall?.audioOnly) &&
                         'bg-green-600/15 text-green-600'
                       )}
@@ -3115,7 +3183,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       type="button"
                       onClick={() => handleStartCall('video')}
                       className={cn(
-                        'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        'size-9 rounded-full inline-flex items-center justify-center text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
                         (callMode === 'video' || (activeCall && !activeCall.audioOnly)) &&
                         'bg-brand-900/15 text-brand-900'
                       )}
@@ -3127,7 +3195,7 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                       <GrupoVideoCallIcon className="size-[20px]" />
                     </button>
 
-                    {/* Exact Grupo Pro Expand Chat Icon & toggle_middle_full_screen Usage */}
+                    {/* Expand / restore chat full screen */}
                     <button
                       type="button"
                       onClick={() => {
@@ -3141,13 +3209,40 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         });
                       }}
                       className={cn(
-                        'hidden md:inline-flex size-9 rounded-full items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        'hidden md:inline-flex size-9 rounded-full items-center justify-center text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
                         middleFullScreen && 'bg-brand-900/15 text-brand-900'
                       )}
                       title={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
                       aria-label={middleFullScreen ? 'Restore sidebar layout' : 'Expand chat full screen'}
                     >
                       <GrupoExpandChatIcon expanded={middleFullScreen} className="size-[19px]" />
+                    </button>
+
+                    {/* PHP ChatHeader Info Panel Toggle (info-circle for group / layout-right for direct) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (middleFullScreen) setMiddleFullScreen(false);
+                        if (activeChat.type === 'group') {
+                          setGroupInfoOpen((prev) => !prev);
+                        } else {
+                          setDirectInfoOpen((prev) => !prev);
+                        }
+                      }}
+                      className={cn(
+                        'size-9 rounded-full inline-flex items-center justify-center text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                        ((activeChat.type === 'group' && groupInfoOpen) ||
+                          (activeChat.type === 'direct' && directInfoOpen)) &&
+                        'bg-fill-qt text-brand-900'
+                      )}
+                      title={activeChat.type === 'group' ? 'Group information' : 'Chat information'}
+                      aria-label={activeChat.type === 'group' ? 'Group information' : 'Chat information'}
+                    >
+                      {activeChat.type === 'group' ? (
+                        <Info className="size-[20px]" strokeWidth={1.8} />
+                      ) : (
+                        <PanelRight className="size-[20px]" strokeWidth={1.8} />
+                      )}
                     </button>
 
                     {/* Conversation options with hover open & auto-close on mouse leave */}
@@ -3160,8 +3255,8 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         type="button"
                         onClick={() => setThreadMenuOpen((prev) => !prev)}
                         className={cn(
-                          'size-9 rounded-full flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
-                          threadMenuOpen && 'bg-fill-sc text-lab-pr'
+                          'size-9 rounded-full inline-flex items-center justify-center text-lab-pr hover:bg-fill-fv cursor-pointer transition-colors',
+                          threadMenuOpen && 'bg-fill-qt'
                         )}
                         title="Conversation options"
                         aria-label="Conversation options"
@@ -3307,24 +3402,24 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
               </div>
 
               {threadSearchOpen && (
-                <div className="px-4 pb-3">
-                  <div className={cn('relative', middleFullScreen && 'max-w-[1040px] lg:max-w-[1140px] mx-auto')}>
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-lab-tr" />
+                <div className="px-4 sm:px-6 pb-3">
+                  <div className="relative bg-fill-qt rounded-xl overflow-hidden">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-[18px] text-lab-tr" />
                     <input
-                      type="search"
+                      type="text"
                       autoFocus
                       value={threadSearchQ}
                       onChange={(e) => setThreadSearchQ(e.target.value)}
                       placeholder="Search messages in this chat..."
-                      className="w-full h-9 rounded-full bg-fill-qt border border-bord-card pl-9 pr-8 text-[16px] md:text-par-n text-lab-pr placeholder:text-lab-tr focus:outline-none focus:border-bord-pr"
+                      className="w-full h-10 bg-transparent pl-10 pr-9 text-par-m text-lab-pr placeholder:text-lab-sc outline-hidden"
                     />
                     {threadSearchQ && (
                       <button
                         type="button"
                         onClick={() => setThreadSearchQ('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-lab-tr hover:text-lab-pr cursor-pointer"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 size-6 rounded-full bg-fill-pr inline-flex items-center justify-center text-lab-tr hover:text-lab-pr cursor-pointer"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="size-3.5" />
                       </button>
                     )}
                   </div>
@@ -3490,17 +3585,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   />
                 )}
 
-                {/* Pinned Messages Carousel (Grupo Pro parity) */}
+                {/* Pinned Messages Carousel (Full-width PHP alignment) */}
                 {currentPinned && pinnedMessages.length > 0 && (!callMode || showChatInCall) && (
-                  <div className="px-4 sm:px-6 md:px-8 py-2.5 border-b border-bord-card bg-fill-qt shrink-0">
-                    <div
-                      className={cn(
-                        'w-full flex items-center justify-between gap-2',
-                        middleFullScreen
-                          ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto'
-                          : 'max-w-[840px] mx-auto'
-                      )}
-                    >
+                  <div className="px-4 sm:px-6 py-2.5 border-b border-bord-card bg-fill-qt shrink-0">
+                    <div className="w-full flex items-center justify-between gap-2">
                       <button
                         type="button"
                         onClick={() => {
@@ -3557,72 +3645,88 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                   </div>
                 )}
 
-                {/* Messages Timeline (Previous theme colors + Telegram layout & proper margins) */}
+                {/* Messages Timeline (100% PHP MessengerChat.vue + ChatOverview.vue + ChatMessage.vue parity) */}
                 <div
                   className={cn(
-                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-4 px-4 sm:px-6 md:px-8 px-safe space-y-2 bg-fill-fv/35',
+                    'flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain py-4 bg-bg-pr',
                     callMode && !showChatInCall && 'hidden'
                   )}
                 >
-                  <div
-                    className={cn(
-                      'mx-auto w-full space-y-2 transition-all duration-150',
-                      middleFullScreen
-                        ? 'max-w-[1040px] lg:max-w-[1140px]'
-                        : 'max-w-[840px]'
-                    )}
-                  >
-                    {!loadingThread && !threadSearchQ && (
-                      <div className="border-b border-bord-card/60 px-4 py-5 mb-2 text-center">
-                        <div className="flex justify-center mb-2.5">
-                          <Avatar src={activeAvatar} alt={activeTitle} size="lg" />
-                        </div>
-                        <div className="flex items-center justify-center gap-1">
-                          <h3 className="text-par-l font-bold text-lab-pr">{activeTitle}</h3>
-                          {activeChat.type === 'direct' && interlocutor?.verified && (
-                            <BadgeCheck className="size-4 text-brand-900 shrink-0" />
+                  {/* ChatOverview at top of thread (PHP ChatOverview.vue exact parity) */}
+                  {!loadingThread && !threadSearchQ && (
+                    <div className="border-b border-bord-card py-8 px-4">
+                      <div className="flex justify-center">
+                        <div className="w-full max-w-[600px]">
+                          <div className="flex justify-center mb-2">
+                            <Avatar src={activeAvatar} alt={activeTitle} size="xl" />
+                          </div>
+                          <div className="text-center flex flex-col gap-1">
+                            <h2 className="text-par-l font-bold text-lab-pr inline-flex items-center justify-center gap-1">
+                              <span>{activeTitle}</span>
+                              {((activeChat.type === 'direct' && interlocutor?.verified) ||
+                                (activeChat.type === 'group' && activeChat.group?.verified)) && (
+                                <BadgeCheck className="size-4 text-brand-900 shrink-0" />
+                              )}
+                            </h2>
+                            <span className="block text-par-s text-lab-sc">
+                              {activeChat.type === 'group'
+                                ? `Group — ${activeChat.participants?.length ?? activeChat.membersCount ?? 0} participants`
+                                : interlocutorOnline
+                                  ? 'Online now'
+                                  : interlocutor?.lastActive
+                                    ? `Was online ${formatRelativeTime(interlocutor.lastActive, locale)}`
+                                    : interlocutor?.username
+                                      ? `@${interlocutor.username}`
+                                      : 'Was online N/A'}
+                            </span>
+                            {activeChat.type === 'group' && activeChat.group?.description && (
+                              <span className="block text-par-l text-lab-pr2 mt-1">
+                                {activeChat.group.description}
+                              </span>
+                            )}
+                            {activeChat.type === 'direct' && interlocutor?.username && (
+                              <span className="block text-par-s text-lab-sc">
+                                @{interlocutor.username}
+                              </span>
+                            )}
+                          </div>
+                          {activeChat.type === 'direct' && interlocutor?.username && (
+                            <div className="flex justify-center mt-4">
+                              <Link
+                                href={`/@${interlocutor.username}`}
+                                className="inline-flex items-center justify-center rounded-full bg-fill-qt hover:bg-fill-sc px-5 py-2 text-par-s font-semibold text-lab-pr transition-colors"
+                              >
+                                View profile
+                              </Link>
+                            </div>
                           )}
                         </div>
-                        {activeChat.type === 'group' ? (
-                          <p className="text-cap-l text-lab-sc mt-1">
-                            {activeChat.group?.description || `${activeChat.participants?.length || 0} participants`}
-                          </p>
-                        ) : (
-                          <>
-                            <p className="text-cap-l text-lab-sc mt-0.5">
-                              @{interlocutor?.username}
-                              {interlocutor?.lastActive
-                                ? ` · Last active ${formatRelativeTime(interlocutor.lastActive, locale)}`
-                                : ''}
-                            </p>
-                            {interlocutor?.username && (
-                              <div className="mt-2.5">
-                                <Link
-                                  href={`/@${interlocutor.username}`}
-                                  className="inline-flex items-center rounded-full border border-bord-pr px-3.5 py-1 text-cap-l font-medium text-lab-pr hover:bg-fill-fv transition-colors"
-                                >
-                                  View profile
-                                </Link>
-                              </div>
-                            )}
-                          </>
-                        )}
                       </div>
-                    )}
+                    </div>
+                  )}
 
+                  {/* Messages Feed (PHP MessengerChat.vue pb-24 pt-2 + ChatMessage.vue full-width rows) */}
+                  <div className="pb-12 pt-2">
                     {loadingThread && messages.length === 0 && (
-                      <div className="space-y-3 animate-pulse py-2 px-2 sm:px-4">
-                        <div className="h-10 w-52 rounded-2xl bg-fill-fv" />
-                        <div className="h-12 w-64 rounded-2xl bg-fill-fv ml-auto" />
-                        <div className="h-9 w-44 rounded-2xl bg-fill-fv" />
-                        <div className="h-14 w-60 rounded-2xl bg-fill-fv ml-auto" />
+                      <div className="flex flex-col gap-4 opacity-70 px-6 py-4 animate-pulse">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n} className="flex items-start gap-3">
+                            <div className="size-[38px] rounded-full bg-fill-fv shrink-0" />
+                            <div className="space-y-2 flex-1 max-w-sm">
+                              <div className="h-3 w-28 rounded-full bg-fill-fv" />
+                              <div className="h-4 w-full rounded-full bg-fill-fv" />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
 
                     {!loadingThread && messages.length === 0 && (
-                      <p className="text-center text-par-n text-lab-sc py-12">
-                        {threadSearchQ ? 'No matching messages found.' : 'Say hello to start the conversation!'}
-                      </p>
+                      <div className="py-12 text-center">
+                        <p className="text-par-s text-lab-sc">
+                          {threadSearchQ ? 'No matching messages found.' : 'No messages yet. Say hello!'}
+                        </p>
+                      </div>
                     )}
 
                     {messages.map((m, idx) => {
@@ -3636,45 +3740,35 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         ? new Date(m.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()
                         : Number.POSITIVE_INFINITY;
 
-                      const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
-                      const isNextDateDivider = !nextMsg || getDateKey(nextMsg.createdAt) !== getDateKey(m.createdAt);
-                      const nextSenderId = nextMsg ? String(nextMsg.sender?._id || nextMsg.senderId) : '';
-                      const nextTimeDiffMs = nextMsg
-                        ? new Date(nextMsg.createdAt).getTime() - new Date(m.createdAt).getTime()
-                        : Number.POSITIVE_INFINITY;
-
-                      const isFirstInCluster =
-                        !prevMsg ||
-                        showDateDivider ||
-                        prevMsg.type === 'system' ||
-                        prevSenderId !== currSenderId ||
-                        timeDiffMs > 300_000;
-
-                      const isLastInCluster =
-                        !nextMsg ||
-                        isNextDateDivider ||
-                        nextMsg.type === 'system' ||
-                        nextSenderId !== currSenderId ||
-                        nextTimeDiffMs > 300_000;
+                      const isCompacted = Boolean(
+                        prevMsg &&
+                        !showDateDivider &&
+                        prevMsg.type !== 'system' &&
+                        prevSenderId === currSenderId &&
+                        timeDiffMs <= 300_000
+                      );
 
                       const senderName =
                         `${m.sender?.firstName || ''} ${m.sender?.lastName || ''}`.trim() ||
                         (m.sender?.username ? `@${m.sender.username}` : 'User');
-                      const isStickerOnly = m.type === 'sticker' && !m.content && !m.parentId && !m.isDeleted;
-                      const isGroupChat = activeChat.type === 'group';
+                      const senderColor = getParticipantColor(currSenderId);
+                      const replyColor = getParticipantColor(
+                        m.parentId?.senderId?._id || m.parentId?.senderId?.username || 'reply'
+                      );
+                      const displayMessageControls = reactionPickerMsgId === m.id;
 
                       if (m.type === 'system') {
                         return (
                           <React.Fragment key={m.id}>
                             <span id={`msg-${m.id}`} className="sr-only" />
                             {showDateDivider && (
-                              <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
-                                <span className="px-3.5 py-1 rounded-full bg-fill-sc border border-bord-card/60 text-par-s text-lab-sc font-medium shadow-xs select-none backdrop-blur-xs">
+                              <div className="py-4">
+                                <p className="text-par-n font-semibold text-lab-pr3 text-center">
                                   {formatDateDivider(m.createdAt, locale)}
-                                </span>
+                                </p>
                               </div>
                             )}
-                            <div className="flex justify-center py-1 select-none">
+                            <div className="flex justify-center py-2 px-6 select-none">
                               {renderMessageBody(m, 'desktop')}
                             </div>
                           </React.Fragment>
@@ -3685,260 +3779,248 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                         <React.Fragment key={m.id}>
                           <span id={`msg-${m.id}`} className="sr-only" />
                           {showDateDivider && (
-                            <div className="sticky top-2 z-10 flex justify-center py-2 pointer-events-none">
-                              <span className="px-3.5 py-1 rounded-full bg-fill-sc border border-bord-card/60 text-par-s text-lab-sc font-medium shadow-xs select-none backdrop-blur-xs">
+                            <div className="py-4">
+                              <p className="text-par-n font-semibold text-lab-pr3 text-center">
                                 {formatDateDivider(m.createdAt, locale)}
-                              </span>
+                              </p>
                             </div>
                           )}
 
+                          {/* PHP ChatMessage.vue exact full-width row */}
                           <div
+                            onDoubleClick={() => {
+                              if (m.isDeleted) return;
+                              setReplyTo(m);
+                              messageInputRef.current?.focus();
+                            }}
+                            onContextMenu={(e) => {
+                              if (m.isDeleted) return;
+                              e.preventDefault();
+                              setMobileActionMsg(m);
+                            }}
+                            title={m.isDeleted ? undefined : 'Double click to reply'}
                             className={cn(
-                              'flex items-start gap-2 group relative w-full min-w-0 transition-all',
-                              mine ? 'justify-end' : 'justify-start',
-                              isFirstInCluster ? 'mt-2.5 mb-0.5' : 'mt-0.5 mb-0.5'
+                              'flex group px-4 sm:px-6 items-start relative transition-colors',
+                              displayMessageControls ? 'bg-brand-900/5' : 'hover:bg-fill-fv',
+                              isCompacted ? 'py-1' : 'py-2'
                             )}
                           >
-                            {!mine &&
-                              (isFirstInCluster ? (
-                                <div className="shrink-0 mt-0.5">
-                                  <Avatar
-                                    src={m.sender?.avatar}
-                                    alt={m.sender?.username}
-                                    size="sm"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-8 shrink-0" />
-                              ))}
-
-                            {/* Action Buttons for mine (left side on hover) */}
-                            {mine && !m.isDeleted && (
-                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity relative self-center">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setReactionPickerMsgId((prev) => (prev === m.id ? null : m.id))
-                                  }
-                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
-                                  title="React"
-                                >
-                                  <Smile className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReplyTo(m);
-                                    messageInputRef.current?.focus();
-                                  }}
-                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
-                                  title="Reply"
-                                >
-                                  <CornerUpLeft className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setMobileActionMsg(m)}
-                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
-                                  title="Options"
-                                >
-                                  <MoreHorizontal className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            )}
-
-                            <div
-                              className={cn(
-                                'min-w-0 flex flex-col',
-                                middleFullScreen
-                                  ? 'max-w-[85%] sm:max-w-[75%] lg:max-w-[65%]'
-                                  : 'max-w-[85%] sm:max-w-[74%] lg:max-w-[64%]',
-                                mine ? 'items-end' : 'items-start'
-                              )}
-                            >
-                              {/* Grupo Sender Name & Timestamp Header */}
-                              {isFirstInCluster && (
-                                <div
-                                  className={cn(
-                                    'flex items-center gap-1.5 mb-1 px-1',
-                                    mine && 'flex-row-reverse'
-                                  )}
-                                >
-                                  <span className="text-par-s font-semibold text-lab-pr truncate">
-                                    {mine ? 'You' : senderName}
-                                  </span>
-                                  {m.isEdited && <span className="text-[10px] italic text-lab-tr">edited</span>}
-                                  <span className="text-cap-s text-lab-tr shrink-0 tabular-nums">
-                                    {formatMessageTime(m.createdAt, locale)}
-                                  </span>
-                                  {mine &&
-                                    (readByOther ? (
-                                      <CheckCheck className="h-3.5 w-3.5 text-brand-900 shrink-0" />
-                                    ) : (
-                                      <Check className="h-3.5 w-3.5 text-lab-tr shrink-0" />
-                                    ))}
-                                </div>
-                              )}
-
-                              <div
-                                onDoubleClick={() => {
-                                  if (m.isDeleted) return;
-                                  setReplyTo(m);
-                                  messageInputRef.current?.focus();
-                                }}
-                                className={cn(
-                                  'min-w-0 max-w-full overflow-hidden space-y-1.5',
-                                  isStickerOnly
-                                    ? 'bg-transparent p-0'
-                                    : cn(
-                                        'rounded-xl px-3.5 py-2.5 border shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
-                                        mine
-                                          ? 'bg-fill-qt border-bord-pr/80 text-lab-pr rounded-tr-xs'
-                                          : 'bg-bg-pr border-bord-card text-lab-pr rounded-tl-xs'
-                                      )
-                                )}
-                              >
-                                {m.parentId && !m.isDeleted && (
-                                  <div
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const el = document.getElementById(`msg-${m.parentId?.id}`);
-                                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    }}
-                                    className="max-w-full min-w-0 overflow-hidden rounded-lg px-2.5 py-1.5 border-l-2 border-brand-900 bg-fill-fv/80 text-par-s text-lab-sc text-left cursor-pointer hover:bg-fill-sc transition-colors"
-                                  >
-                                    <p className="text-cap-l font-semibold text-brand-900 truncate">
-                                      {m.parentId.senderId?.firstName ||
-                                        m.parentId.senderId?.username ||
-                                        'Reply'}
-                                    </p>
-                                    <p className="truncate text-lab-sc">{getMessagePreviewLabel(m.parentId)}</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex overflow-hidden">
+                                {isCompacted ? (
+                                  <div className="w-[38px] shrink-0" />
+                                ) : (
+                                  <div className="shrink-0">
+                                    <Avatar
+                                      src={m.sender?.avatar}
+                                      alt={senderName}
+                                      size="sm"
+                                    />
                                   </div>
                                 )}
 
-                                <div className="space-y-1.5 text-left">
-                                  {renderMessageBody(m, mine ? 'mobile-mine' : 'mobile-other')}
-                                </div>
-
-                                {!isFirstInCluster && !isStickerOnly && !m.isDeleted && (
-                                  <div className="flex items-center justify-end gap-1 text-[10px] select-none tabular-nums mt-0.5 text-lab-tr">
-                                    {m.isEdited && <span className="text-[9.5px] italic mr-0.5">edited</span>}
-                                    <span>{formatMessageTime(m.createdAt, locale)}</span>
-                                    {mine &&
-                                      (readByOther ? (
-                                        <CheckCheck className="h-3 w-3 text-brand-900" />
-                                      ) : (
-                                        <Check className="h-3 w-3 text-lab-tr" />
-                                      ))}
-                                  </div>
-                                )}
-
-                                {reactionPickerMsgId === m.id && (
-                                  <div
-                                    className={cn(
-                                      'absolute bottom-full mb-1.5 z-20 flex items-center gap-1 rounded-full border border-bord-pr bg-bg-pr px-2 py-1 shadow-lg',
-                                      mine ? 'right-0' : 'left-0'
+                                <div className="flex-1 min-w-0 ml-3">
+                                  <div className="max-w-xl w-full">
+                                    {!isCompacted && (
+                                      <div className="leading-none mb-0.5 flex items-center gap-1.5">
+                                        <strong
+                                          className="text-par-n font-semibold inline-flex items-center gap-1 truncate"
+                                          style={{ color: senderColor }}
+                                        >
+                                          <span className="truncate">{senderName}</span>
+                                          {m.sender?.verified && (
+                                            <BadgeCheck className="size-3.5 text-brand-900 shrink-0" />
+                                          )}
+                                        </strong>
+                                        {m.isEdited && (
+                                          <span className="text-cap-s italic text-lab-tr">edited</span>
+                                        )}
+                                      </div>
                                     )}
-                                  >
-                                    {CHAT_REACTIONS.map((r) => (
-                                      <button
-                                        key={r.unifiedId}
-                                        type="button"
-                                        onClick={() => {
-                                          setReactionPickerMsgId(null);
-                                          void handleToggleReaction(m.id, r.unifiedId, r.nativeSymbol);
-                                        }}
-                                        className="h-7 w-7 rounded-full hover:bg-fill-sc flex items-center justify-center text-base cursor-pointer"
-                                      >
-                                        {r.nativeSymbol}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
 
-                              {m.reactionSummary && m.reactionSummary.length > 0 && (
-                                <div
-                                  className={cn(
-                                    'flex flex-wrap gap-1 pt-1',
-                                    mine ? 'justify-end' : 'justify-start'
-                                  )}
-                                >
-                                  {m.reactionSummary.map((rs) => (
-                                    <button
-                                      key={rs.unifiedId}
-                                      type="button"
-                                      onClick={() => void handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)}
-                                      className="inline-flex items-center gap-1 rounded-full bg-bg-pr border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr hover:bg-fill-sc cursor-pointer shadow-xs"
-                                    >
-                                      <span>{rs.nativeSymbol}</span>
-                                      <span className="font-semibold text-lab-sc text-[11px]">
-                                        {rs.count}
-                                      </span>
-                                    </button>
-                                  ))}
+                                    <div className="block">
+                                      {/* PHP ChatMessageReply.vue inline quote */}
+                                      {m.parentId && !m.isDeleted && (
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const el = document.getElementById(`msg-${m.parentId?.id || m.parentId?._id}`);
+                                            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                          }}
+                                          className="mt-1.5 mb-1 flex cursor-pointer group/reply"
+                                        >
+                                          <div className="shrink-0 overflow-hidden max-w-full">
+                                            <div className="flex relative items-stretch overflow-hidden">
+                                              <div
+                                                className="w-[3px] shrink-0 relative z-10 rounded-xs"
+                                                style={{ backgroundColor: replyColor }}
+                                              />
+                                              <div className="pl-2 py-0.5 relative z-10 overflow-hidden">
+                                                <h3
+                                                  className="text-cap-l font-semibold leading-none mb-0.5 truncate"
+                                                  style={{ color: replyColor }}
+                                                >
+                                                  {`${m.parentId.senderId?.firstName || ''} ${m.parentId.senderId?.lastName || ''}`.trim() ||
+                                                    m.parentId.senderId?.username ||
+                                                    'Reply'}
+                                                </h3>
+                                                <p className="text-par-m truncate text-lab-sc group-hover/reply:text-lab-pr transition-colors">
+                                                  {getMessagePreviewLabel(m.parentId)}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      <div className="block space-y-1.5">
+                                        {renderMessageBody(m, 'desktop')}
+                                      </div>
+                                    </div>
+
+                                    {!m.isDeleted && m.reactionSummary && m.reactionSummary.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {m.reactionSummary.map((rs) => (
+                                          <button
+                                            key={rs.unifiedId}
+                                            type="button"
+                                            onClick={() =>
+                                              void handleToggleReaction(m.id, rs.unifiedId, rs.nativeSymbol)
+                                            }
+                                            className="inline-flex items-center gap-1 rounded-full bg-fill-qt hover:bg-fill-sc border border-bord-card px-2 py-0.5 text-cap-s text-lab-pr cursor-pointer transition-colors"
+                                          >
+                                            <span>{rs.nativeSymbol}</span>
+                                            <span className="font-semibold text-lab-sc text-[11px]">
+                                              {rs.count}
+                                            </span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
+                              </div>
                             </div>
 
-                            {/* Action Buttons for incoming messages (right side on hover) */}
-                            {!mine && !m.isDeleted && (
-                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity self-center">
+                            {/* Action Controls (PHP ChatMessage.vue right-side hover bar: Reply, Heart React, Dropdown) */}
+                            {!m.isDeleted && (
+                              <div
+                                className={cn(
+                                  'shrink-0 hidden md:inline-flex items-center gap-0.5 leading-none ml-2',
+                                  displayMessageControls
+                                    ? 'visible'
+                                    : 'invisible group-hover:visible focus-within:visible'
+                                )}
+                              >
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setReplyTo(m);
                                     messageInputRef.current?.focus();
                                   }}
-                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
+                                  className="size-8 rounded-full inline-flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-qt cursor-pointer transition-colors"
                                   title="Reply"
+                                  aria-label="Reply"
                                 >
-                                  <CornerUpLeft className="h-3.5 w-3.5" />
+                                  <CornerUpLeft className="size-[18px]" strokeWidth={1.75} />
                                 </button>
+
+                                <div className="shrink-0 relative">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReactionPickerMsgId((prev) => (prev === m.id ? null : m.id));
+                                    }}
+                                    className="size-8 rounded-full inline-flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-qt cursor-pointer transition-colors"
+                                    title="Add reaction"
+                                    aria-label="Add reaction"
+                                  >
+                                    <Heart className="size-[18px]" strokeWidth={1.75} />
+                                  </button>
+                                  {reactionPickerMsgId === m.id && (
+                                    <div className="absolute right-0 top-9 z-30 flex items-center gap-1 rounded-full border border-bord-card bg-bg-pr px-2 py-1 shadow-lg">
+                                      {CHAT_REACTIONS.map((r) => (
+                                        <button
+                                          key={r.unifiedId}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setReactionPickerMsgId(null);
+                                            void handleToggleReaction(m.id, r.unifiedId, r.nativeSymbol);
+                                          }}
+                                          className="h-7 w-7 rounded-full hover:bg-fill-sc flex items-center justify-center text-base cursor-pointer"
+                                        >
+                                          {r.nativeSymbol}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setReactionPickerMsgId((prev) => (prev === m.id ? null : m.id))
-                                  }
-                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
-                                  title="React"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMobileActionMsg(m);
+                                  }}
+                                  className="size-8 rounded-full inline-flex items-center justify-center text-lab-sc opacity-80 hover:opacity-100 hover:text-lab-pr hover:bg-fill-qt cursor-pointer transition-colors"
+                                  title="Message options"
+                                  aria-label="Message options"
                                 >
-                                  <Smile className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setMobileActionMsg(m)}
-                                  className="p-1 rounded-full text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer"
-                                  title="Options"
-                                >
-                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                  <MoreHorizontal className="size-[18px]" strokeWidth={1.75} />
                                 </button>
                               </div>
                             )}
 
-                            {/* Mobile action button (visible on touch viewports) */}
+                            {/* Mobile touch action trigger */}
                             {!m.isDeleted && (
                               <button
                                 type="button"
                                 onClick={() => setMobileActionMsg(m)}
-                                className="md:hidden shrink-0 size-6 rounded-full flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer self-center"
+                                className="md:hidden shrink-0 size-7 rounded-full inline-flex items-center justify-center text-lab-tr hover:text-lab-pr hover:bg-fill-sc cursor-pointer ml-1"
                                 title="Message options"
                                 aria-label="Message actions"
                               >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                <MoreHorizontal className="size-4" />
                               </button>
                             )}
+
+                            {/* Read Receipt (PHP ChatMessage.vue sender-only double-check colored by participant color) */}
+                            {mine && !m.isDeleted && (
+                              <div className="shrink-0 size-8 inline-flex items-center justify-center ml-1">
+                                {readByOther ? (
+                                  <CheckCheck className="size-[18px]" style={{ color: senderColor }} />
+                                ) : (
+                                  <Check className="size-[18px] text-lab-sc" />
+                                )}
+                              </div>
+                            )}
+
+                            {/* Timestamp (PHP ChatMessage.vue far right) */}
+                            <div className="shrink-0 ml-1 pt-1">
+                              <time className="text-cap-l text-lab-sc tabular-nums whitespace-nowrap">
+                                {formatMessageTime(m.createdAt, locale)}
+                              </time>
+                            </div>
                           </div>
                         </React.Fragment>
                       );
                     })}
 
+                    {/* Typing Indicator (100% PHP ChatMessageTyping.vue parity) */}
                     {typingUsers.length > 0 && (
-                      <div className="flex items-end gap-2 justify-start px-1 py-1">
-                        <div className="rounded-2xl rounded-bl-[4px] bg-bg-pr border border-bord-card px-3.5 py-2.5 flex items-center gap-1.5 shadow-xs">
-                          <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.3s]" />
-                          <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce [animation-delay:-0.15s]" />
-                          <span className="h-1.5 w-1.5 rounded-full bg-lab-sc animate-bounce" />
+                      <div className="flex items-center px-6 bg-green-100 dark:bg-green-950/40 py-2 mt-1">
+                        <div className="shrink-0">
+                          <p className="text-par-s text-lab-pr font-medium">
+                            {typingNames || 'Someone'} is typing...
+                          </p>
+                        </div>
+                        <div className="shrink-0 ml-4 flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-900 animate-bounce [animation-delay:-0.3s]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-900 animate-bounce [animation-delay:-0.15s]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-900 animate-bounce" />
                         </div>
                       </div>
                     )}
@@ -3949,42 +4031,10 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
 
                 {(!callMode || showChatInCall) && (
                   <>
-                    {/* Reply Preview Banner (Telegram style) */}
-                    {replyTo && (
-                      <div className="border-t border-bord-pr bg-bg-pr px-4 sm:px-6 md:px-8 py-2 shrink-0 shadow-xs">
-                        <div
-                          className={cn(
-                            'w-full flex items-center justify-between gap-3',
-                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
-                          )}
-                        >
-                          <div className="min-w-0 border-l-[3px] border-brand-900 dark:border-emerald-400 pl-2.5">
-                            <p className="text-cap-s font-bold text-brand-900 dark:text-emerald-400 truncate">
-                              Replying to {replyTo.sender?.firstName || replyTo.sender?.username || 'Message'}
-                            </p>
-                            <p className="text-cap-l text-lab-sc truncate">{getMessagePreviewLabel(replyTo)}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setReplyTo(null)}
-                            className="p-1 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
-                            aria-label="Cancel reply"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Upload Progress Bar */}
                     {uploadingMedia && (
-                      <div className="border-t border-bord-pr bg-fill-qt px-4 sm:px-6 md:px-8 py-2 shrink-0">
-                        <div
-                          className={cn(
-                            'w-full flex items-center gap-3',
-                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
-                          )}
-                        >
+                      <div className="border-t border-bord-card bg-fill-qt px-4 sm:px-6 py-2 shrink-0">
+                        <div className="w-full flex items-center gap-3">
                           <div className="flex-1 h-1.5 rounded-full bg-fill-sc overflow-hidden">
                             <div
                               className="h-full bg-brand-900 transition-all"
@@ -3992,90 +4042,76 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                             />
                           </div>
                           <span className="text-cap-s text-lab-sc shrink-0">
-                            Uploading to R2{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
+                            Uploading{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
                           </span>
                         </div>
                       </div>
                     )}
 
                     {showGifPicker && !recording && (
-                      <div className="px-4 sm:px-6 md:px-8 py-2 border-t border-bord-pr bg-bg-pr shrink-0">
-                        <div
-                          className={cn(
-                            'w-full',
-                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
-                          )}
-                        >
-                          <GiphyPicker
-                            onSelect={(url) => void handleSendGif(url)}
-                            onClose={() => setShowGifPicker(false)}
-                          />
-                        </div>
+                      <div className="px-4 sm:px-6 py-2 border-t border-bord-card bg-bg-pr shrink-0">
+                        <GiphyPicker
+                          onSelect={(url) => void handleSendGif(url)}
+                          onClose={() => setShowGifPicker(false)}
+                        />
                       </div>
                     )}
 
-                    {/* Composer (matches PHP ChatForm + AudioRecorder.vue) */}
+                    {/* Composer (100% PHP ChatForm.vue + ChatFormLock.vue + AudioRecorder.vue + MessageReplyPreview.vue parity) */}
                     {isGroupMuted || isReadOnlyRoom ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 sm:px-6 md:px-8 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-fill-qt shrink-0">
-                        <div
-                          className={cn(
-                            'w-full flex items-center justify-center gap-2 text-cap-l text-lab-sc',
-                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
-                          )}
-                        >
-                          <MessageSquareOff className="h-4 w-4 text-lab-sc shrink-0" />
+                      <div className="py-4 px-6 pb-[max(1rem,env(safe-area-inset-bottom,0px))] text-center border-t border-bord-card bg-bg-pr shrink-0">
+                        <p className="text-par-s text-red-500 inline-flex items-center justify-center gap-1.5">
+                          <MessageSquareOff className="h-4 w-4 shrink-0" />
                           <span>
                             {isGroupMuted
                               ? 'You are muted in this group and cannot send messages.'
                               : 'Only group admins and owners can post messages in this room.'}
                           </span>
-                        </div>
+                        </p>
                       </div>
                     ) : recording ? (
-                      <div className="sticky bottom-0 z-20 w-full px-4 sm:px-6 md:px-8 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
-                        <div
-                          className={cn(
-                            'w-full flex items-center justify-between gap-3',
-                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse" />
-                            <span className="text-par-n font-semibold text-lab-pr tabular-nums">
+                      <div className="bg-bg-pr px-4 sm:px-6 border-t border-t-bord-card shrink-0 pb-[max(0px,env(safe-area-inset-bottom,0px))]">
+                        <div className="flex h-16 items-center">
+                          <div className="w-4/12 sm:w-3/12 inline-flex items-center gap-2">
+                            <span className="size-3 bg-red-900 rounded-full animate-pulse shrink-0" />
+                            <span className="text-par-l text-lab-pr font-normal tabular-nums">
                               {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
                             </span>
-                            <span className="text-cap-l text-lab-sc hidden sm:inline">Recording voice note (max 2:00)</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
+
+                          <div className="w-5/12 sm:w-6/12 text-center">
+                            <button
                               type="button"
-                              size="sm"
-                              variant="outline"
                               onClick={() => stopVoiceRecording(true)}
+                              className="text-par-m text-lab-sc hover:text-lab-pr font-normal cursor-pointer transition-colors"
                             >
-                              <X className="h-4 w-4" /> Cancel
-                            </Button>
-                            <Button
+                              Cancel recording
+                            </button>
+                          </div>
+
+                          <div className="w-3/12 flex justify-end">
+                            <button
                               type="button"
-                              size="sm"
-                              variant="primary"
                               onClick={() => stopVoiceRecording(false)}
+                              title="Send voice note"
+                              aria-label="Send voice note"
+                              className="outline-hidden size-6 text-lab-pr hover:text-brand-900 cursor-pointer transition-colors"
                             >
-                              <Send className="h-4 w-4" /> Send
-                            </Button>
+                              <Send className="size-6" strokeWidth={1.8} />
+                            </button>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="sticky bottom-0 z-20 w-full relative px-4 sm:px-6 md:px-8 px-safe py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-bord-pr bg-bg-pr shrink-0">
-                        <div
-                          className={cn(
-                            'w-full relative',
-                            middleFullScreen ? 'max-w-[1040px] lg:max-w-[1140px] mx-auto' : 'max-w-[840px] mx-auto'
-                          )}
-                        >
+                      <div
+                        className={cn(
+                          'bg-bg-pr px-4 sm:px-6 shrink-0 relative',
+                          replyTo && 'border-t border-t-bord-card'
+                        )}
+                      >
+                        <div className="py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] relative">
                           {mentionCandidates.length > 0 && (
-                            <div className="absolute bottom-full left-4 right-4 sm:right-auto sm:w-72 mb-1.5 z-30 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl overflow-hidden divide-y divide-bord-pr">
+                            <div className="absolute bottom-full left-0 right-0 sm:right-auto sm:w-72 mb-1.5 z-30 rounded-2xl border border-bord-card bg-bg-pr shadow-xl overflow-hidden divide-y divide-bord-pr">
                               {mentionCandidates.map((cand) => (
                                 <button
                                   key={cand.user._id}
@@ -4104,225 +4140,291 @@ export function MessengerClient({ activeChatId }: { activeChatId?: string }) {
                               ))}
                             </div>
                           )}
-                          {/* Telegram-style Composer Form */}
-                          <form
-                            onSubmit={handleSendText}
-                            className="flex items-center gap-2 min-w-0 max-w-full"
-                          >
-                            {/* Telegram Attachment button (Paperclip on far left) with hover popup and auto-close on mouse leave */}
+
+                          {/* PHP MessageReplyPreview.vue inline above textarea */}
+                          {replyTo && (() => {
+                            const replyColor = getParticipantColor(replyTo.sender?._id || replyTo.senderId);
+                            const replyAuthor =
+                              `${replyTo.sender?.firstName || ''} ${replyTo.sender?.lastName || ''}`.trim() ||
+                              replyTo.sender?.username ||
+                              'Message';
+                            return (
+                              <div className="mb-3 flex items-center justify-between gap-2">
+                                <div className="flex relative items-stretch overflow-hidden min-w-0 flex-1">
+                                  <div
+                                    className="w-[3px] shrink-0 rounded-xs"
+                                    style={{ backgroundColor: replyColor }}
+                                  />
+                                  <div className="pl-2.5 py-0.5 min-w-0 overflow-hidden">
+                                    <h3
+                                      className="text-cap-l font-semibold leading-none mb-0.5 truncate"
+                                      style={{ color: replyColor }}
+                                    >
+                                      {replyAuthor}
+                                    </h3>
+                                    <p className="text-par-m truncate text-lab-pr2">
+                                      {getMessagePreviewLabel(replyTo)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setReplyTo(null)}
+                                  className="size-8 rounded-full inline-flex items-center justify-center text-lab-sc hover:text-lab-pr hover:bg-fill-fv cursor-pointer shrink-0"
+                                  aria-label="Cancel reply"
+                                >
+                                  <X className="size-4" />
+                                </button>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Hidden quick photo/video file input (PHP ChatForm.vue messageImageFileInput) */}
+                          <input
+                            ref={quickImageInputRef}
+                            type="file"
+                            accept="image/*,video/*"
+                            disabled={uploadingMedia}
+                            className="hidden"
+                            onChange={(e) => void handleFileUpload(e)}
+                          />
+
+                          {/* PHP ChatForm.vue pill-shaped auto-resizing textarea with internal icons */}
+                          <form onSubmit={handleSendText} className="relative leading-none">
+                            {/* Left inside textarea: Emoji & Sticker Picker (PHP face-smile absolute left-3 top-3) */}
                             <div
-                              className="relative shrink-0"
-                              onMouseEnter={handleAttachEnter}
-                              onMouseLeave={handleAttachLeave}
+                              className="absolute left-3 top-3 z-20"
+                              onMouseEnter={handleStickerEnter}
+                              onMouseLeave={handleStickerLeave}
                             >
                               <button
                                 type="button"
                                 disabled={uploadingMedia}
-                                onClick={() => setAttachMenuOpen((v) => !v)}
+                                onClick={() => {
+                                  setAttachMenuOpen(false);
+                                  setShowGifPicker(false);
+                                  setShowStickerPicker((v) => !v);
+                                }}
                                 className={cn(
-                                  'size-9 rounded-full flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 shrink-0',
-                                  attachMenuOpen
-                                    ? 'bg-brand-900 text-white rotate-45'
-                                    : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
+                                  'outline-hidden size-6 inline-flex items-center justify-center cursor-pointer disabled:opacity-60 transition-colors',
+                                  showStickerPicker ? 'text-brand-900' : 'text-lab-pr hover:opacity-75'
                                 )}
-                                title="Attach file or media"
-                                aria-label="Attach file or media"
+                                title="Emoji & Stickers"
+                                aria-label="Emoji and stickers"
                               >
-                                <Paperclip className="h-5 w-5" strokeWidth={1.8} />
+                                <Smile className="size-6" strokeWidth={1.7} />
                               </button>
 
-                              {/* Attachment Popover Menu */}
-                              {attachMenuOpen && (
+                              {showStickerPicker && !recording && (
                                 <div
-                                  className="absolute bottom-full left-0 mb-2 z-30 w-56 rounded-2xl border border-bord-pr bg-bg-pr shadow-xl p-1.5 space-y-0.5"
-                                  onMouseEnter={handleAttachEnter}
-                                  onMouseLeave={handleAttachLeave}
+                                  className="absolute bottom-9 left-0 z-50 w-[calc(100vw-2rem)] sm:w-[380px] max-w-[380px] h-[380px] sm:h-[430px] rounded-2xl border border-bord-card bg-bg-pr/95 backdrop-blur-md shadow-2xl overflow-hidden"
+                                  onMouseEnter={handleStickerEnter}
+                                  onMouseLeave={handleStickerLeave}
                                 >
-                                  <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
-                                    <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
-                                    <span>Photo or Video</span>
-                                    <input
-                                      type="file"
-                                      accept="image/*,video/*"
-                                      disabled={uploadingMedia}
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        setAttachMenuOpen(false);
-                                        void handleFileUpload(e);
-                                      }}
-                                    />
-                                  </label>
-
-                                  <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
-                                    <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                    <span>Attach File</span>
-                                    <input
-                                      type="file"
-                                      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
-                                      disabled={uploadingMedia}
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        setAttachMenuOpen(false);
-                                        void handleFileUpload(e);
-                                      }}
-                                    />
-                                  </label>
-
-                                  <button
-                                    type="button"
-                                    disabled={uploadingMedia}
-                                    onClick={() => {
-                                      setAttachMenuOpen(false);
-                                      setShowStickerPicker(false);
-                                      setShowGifPicker(true);
+                                  <StickerEmojiPicker
+                                    onSelectEmoji={(emoji) => {
+                                      setMsgText((prev) => prev + emoji);
+                                      messageInputRef.current?.focus();
                                     }}
-                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                  >
-                                    <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                    <span>GIFs</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    disabled={uploadingMedia}
-                                    onClick={() => {
-                                      setAttachMenuOpen(false);
-                                      setShowGifPicker(false);
-                                      setShowStickerPicker(true);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                  >
-                                    <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                    <span>Stickers &amp; Emoji</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    disabled={uploadingMedia}
-                                    onClick={() => {
-                                      setAttachMenuOpen(false);
-                                      setPollQuestion('');
-                                      setPollOptions(['', '']);
-                                      setPollModalOpen(true);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                  >
-                                    <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                    <span>Create Poll</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    disabled={uploadingMedia || sendingLocation}
-                                    onClick={() => {
-                                      setAttachMenuOpen(false);
-                                      void handleShareLocation();
-                                    }}
-                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                  >
-                                    <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                    <span>Share Location</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    disabled={uploadingMedia}
-                                    onClick={() => {
-                                      setAttachMenuOpen(false);
-                                      void startVoiceRecording();
-                                    }}
-                                    className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
-                                  >
-                                    <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
-                                    <span>Voice Message</span>
-                                  </button>
+                                    onSelectSticker={(stickerUrl) => void handleSendSticker(stickerUrl)}
+                                    onSelectGif={(gifUrl) => void handleSendGif(gifUrl)}
+                                    onClose={() => setShowStickerPicker(false)}
+                                  />
                                 </div>
                               )}
                             </div>
 
-                            {/* Telegram Rounded Input Pill with Smile/Sticker Button inside */}
-                            <div className="flex-1 min-w-0 flex items-center bg-fill-qt dark:bg-fill-sc/60 border border-transparent focus-within:border-brand-900/40 focus-within:bg-bg-pr rounded-full px-3.5 py-1 transition-all">
-                              <input
-                                ref={messageInputRef}
-                                type="text"
-                                value={msgText}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setMsgText(val);
-                                  emitTypingChange(val.length > 0);
-                                }}
-                                placeholder="Write a message..."
-                                className="flex-1 min-w-[80px] bg-transparent border-0 py-1.5 text-par-m text-lab-pr placeholder:text-lab-tr focus:outline-none"
-                              />
+                            {/* PHP ChatForm.vue Textarea */}
+                            <textarea
+                              ref={messageInputRef}
+                              rows={1}
+                              value={msgText}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setMsgText(val);
+                                emitTypingChange(val.length > 0);
+                                e.target.style.height = '48px';
+                                e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  if (msgText.trim() && !uploadingMedia) {
+                                    void handleSendText(e as unknown as React.FormEvent);
+                                  }
+                                }
+                              }}
+                              placeholder="Write a message..."
+                              className="block resize-none pl-11 pr-36 pt-2.5 pb-2 leading-normal text-lab-pr font-normal text-par-l bg-bg-pr border border-bord-card w-full h-12 min-h-12 max-h-40 overflow-x-hidden overflow-y-auto rounded-3xl outline-hidden placeholder:text-par-l placeholder:text-lab-sc placeholder:font-normal focus:border-edge-sc transition-colors"
+                            />
 
-                              {/* Telegram Hover Floating Sticker & Emoji Popover Card */}
-                              <div
-                                className="relative shrink-0 flex items-center"
-                                onMouseEnter={handleStickerEnter}
-                                onMouseLeave={handleStickerLeave}
-                              >
-                                <button
-                                  type="button"
-                                  disabled={uploadingMedia}
-                                  onClick={() => {
-                                    setAttachMenuOpen(false);
-                                    setShowGifPicker(false);
-                                    setShowStickerPicker((v) => !v);
-                                  }}
-                                  className={cn(
-                                    'size-8 rounded-full flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 shrink-0 ml-1',
-                                    showStickerPicker
-                                      ? 'text-brand-900 bg-brand-900/10'
-                                      : 'text-lab-sc hover:text-lab-pr hover:bg-fill-fv'
-                                  )}
-                                  title="Emoji & Stickers"
-                                  aria-label="Emoji and stickers"
+                            {/* Right inside textarea: Send OR Image + Attach Menu + Mic (PHP absolute right-4 top-3 flex gap-4) */}
+                            <div className="absolute right-4 top-3 z-20">
+                              <div className="flex items-center gap-3.5 sm:gap-4">
+                                {/* Attachment Popover Trigger (Paperclip — preserves Files, GIFs, Stickers, Poll, Location, Voice) */}
+                                <div
+                                  className="relative shrink-0"
+                                  onMouseEnter={handleAttachEnter}
+                                  onMouseLeave={handleAttachLeave}
                                 >
-                                  <Smile className="h-5 w-5" strokeWidth={1.8} />
-                                </button>
-
-                                {showStickerPicker && !recording && (
-                                  <div
-                                    className="absolute bottom-full right-0 mb-3 z-50 w-[calc(100vw-1.5rem)] sm:w-[410px] max-w-[410px] h-[380px] sm:h-[450px] rounded-2xl border border-bord-pr bg-bg-pr/95 backdrop-blur-md shadow-2xl overflow-hidden"
-                                    onMouseEnter={handleStickerEnter}
-                                    onMouseLeave={handleStickerLeave}
+                                  <button
+                                    type="button"
+                                    disabled={uploadingMedia}
+                                    onClick={() => setAttachMenuOpen((v) => !v)}
+                                    className={cn(
+                                      'outline-hidden size-6 inline-flex items-center justify-center cursor-pointer disabled:opacity-60 transition-colors',
+                                      attachMenuOpen ? 'text-brand-900' : 'text-lab-pr hover:opacity-75'
+                                    )}
+                                    title="More attachments (Files, GIFs, Polls, Location)"
+                                    aria-label="More attachments"
                                   >
-                                    <StickerEmojiPicker
-                                      onSelectEmoji={(emoji) => {
-                                        setMsgText((prev) => prev + emoji);
-                                        messageInputRef.current?.focus();
-                                      }}
-                                      onSelectSticker={(stickerUrl) => void handleSendSticker(stickerUrl)}
-                                      onSelectGif={(gifUrl) => void handleSendGif(gifUrl)}
-                                      onClose={() => setShowStickerPicker(false)}
-                                    />
-                                  </div>
+                                    <Paperclip className="size-[22px]" strokeWidth={1.7} />
+                                  </button>
+
+                                  {attachMenuOpen && (
+                                    <div
+                                      className="absolute bottom-9 right-0 z-30 w-56 rounded-2xl border border-bord-card bg-bg-pr shadow-xl p-1.5 space-y-0.5"
+                                      onMouseEnter={handleAttachEnter}
+                                      onMouseLeave={handleAttachLeave}
+                                    >
+                                      <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                        <ImageIcon className="h-4 w-4 text-brand-900 shrink-0" strokeWidth={1.75} />
+                                        <span>Photo or Video</span>
+                                        <input
+                                          type="file"
+                                          accept="image/*,video/*"
+                                          disabled={uploadingMedia}
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            setAttachMenuOpen(false);
+                                            void handleFileUpload(e);
+                                          }}
+                                        />
+                                      </label>
+
+                                      <label className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer">
+                                        <Paperclip className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                        <span>Attach File</span>
+                                        <input
+                                          type="file"
+                                          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                                          disabled={uploadingMedia}
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            setAttachMenuOpen(false);
+                                            void handleFileUpload(e);
+                                          }}
+                                        />
+                                      </label>
+
+                                      <button
+                                        type="button"
+                                        disabled={uploadingMedia}
+                                        onClick={() => {
+                                          setAttachMenuOpen(false);
+                                          setShowStickerPicker(false);
+                                          setShowGifPicker(true);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                      >
+                                        <Film className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                        <span>GIFs</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={uploadingMedia}
+                                        onClick={() => {
+                                          setAttachMenuOpen(false);
+                                          setShowGifPicker(false);
+                                          setShowStickerPicker(true);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                      >
+                                        <Smile className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                        <span>Stickers &amp; Emoji</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={uploadingMedia}
+                                        onClick={() => {
+                                          setAttachMenuOpen(false);
+                                          setPollQuestion('');
+                                          setPollOptions(['', '']);
+                                          setPollModalOpen(true);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                      >
+                                        <BarChart2 className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                        <span>Create Poll</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={uploadingMedia || sendingLocation}
+                                        onClick={() => {
+                                          setAttachMenuOpen(false);
+                                          void handleShareLocation();
+                                        }}
+                                        className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                      >
+                                        <MapPin className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                        <span>Share Location</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={uploadingMedia}
+                                        onClick={() => {
+                                          setAttachMenuOpen(false);
+                                          void startVoiceRecording();
+                                        }}
+                                        className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-par-s font-medium text-lab-pr hover:bg-fill-fv cursor-pointer disabled:opacity-50"
+                                      >
+                                        <Mic className="h-4 w-4 text-lab-sc shrink-0" strokeWidth={1.75} />
+                                        <span>Voice Message</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {msgText.trim() ? (
+                                  <button
+                                    type="submit"
+                                    disabled={uploadingMedia}
+                                    aria-label="Send message"
+                                    title="Send message"
+                                    className="outline-hidden size-6 inline-flex items-center justify-center text-brand-900 hover:opacity-80 cursor-pointer disabled:opacity-50 transition-opacity"
+                                  >
+                                    <Send className="size-6" strokeWidth={1.9} />
+                                  </button>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      disabled={uploadingMedia}
+                                      onClick={() => quickImageInputRef.current?.click()}
+                                      title="Send photo or video"
+                                      aria-label="Send photo or video"
+                                      className="outline-hidden size-6 inline-flex items-center justify-center text-lab-pr hover:opacity-75 cursor-pointer disabled:opacity-60 transition-opacity"
+                                    >
+                                      <ImageIcon className="size-6" strokeWidth={1.7} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={uploadingMedia}
+                                      onClick={startVoiceRecording}
+                                      title="Record voice note"
+                                      aria-label="Record voice note"
+                                      className="outline-hidden size-6 inline-flex items-center justify-center text-lab-pr hover:opacity-75 cursor-pointer disabled:opacity-60 transition-opacity"
+                                    >
+                                      <Mic className="size-6" strokeWidth={1.7} />
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
-
-                            {/* Telegram Circular Action Button: Send Paperplane or Voice Note Mic */}
-                            {msgText.trim() ? (
-                              <button
-                                type="submit"
-                                disabled={uploadingMedia}
-                                aria-label="Send message"
-                                className="size-10 rounded-full bg-brand-900 text-white hover:opacity-90 inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50 shadow-xs"
-                              >
-                                <Send className="h-4 w-4 ml-0.5" strokeWidth={2.2} />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={uploadingMedia}
-                                onClick={startVoiceRecording}
-                                title="Record voice note"
-                                aria-label="Record voice note"
-                                className="size-10 rounded-full bg-fill-qt text-lab-sc hover:text-lab-pr hover:bg-fill-sc dark:bg-fill-sc/60 dark:hover:bg-fill-sc inline-flex items-center justify-center transition-transform active:scale-95 shrink-0 cursor-pointer disabled:opacity-50"
-                              >
-                                <Mic className="h-5 w-5" strokeWidth={1.8} />
-                              </button>
-                            )}
                           </form>
                         </div>
                       </div>

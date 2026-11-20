@@ -10,7 +10,6 @@ import {
   BellOff,
   Coins,
   Copy,
-  ExternalLink,
   FileText,
   Image as ImageIcon,
   Phone,
@@ -20,7 +19,6 @@ import {
   X,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/ToastProvider';
 import { formatRelativeTime } from '@/lib/i18n';
 import { resolveMediaUrl } from '@/lib/media-url';
@@ -112,223 +110,212 @@ export function DirectProfilePanel({
 
   return (
     <aside className="h-full flex flex-col bg-bg-pr text-lab-pr overflow-hidden select-none">
-      {/* Top Header */}
-      <div className="px-4 py-3 border-b border-bord-pr flex items-center justify-between shrink-0 bg-bg-pr">
-        <h3 className="text-par-l font-bold text-lab-pr truncate">User Info</h3>
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
-            title="Close info"
-            aria-label="Close info"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
-      </div>
-
-      {/* Main Scrollable Content */}
-      <div className="flex-1 overflow-y-auto hidden-scroll divide-y divide-bord-pr">
-        {/* User Hero Section */}
-        <div className="p-4 flex flex-col items-center text-center space-y-3 bg-fill-fv/25">
-          <div className="relative">
-            <Avatar src={user.avatar} alt={displayName} size="xl" online={isOnline} />
-          </div>
-
-          <div className="space-y-0.5 max-w-full">
-            <div className="flex items-center justify-center gap-1.5">
-              <h2 className="text-title-3 font-bold text-lab-pr truncate">{displayName}</h2>
-              {user.verified && <BadgeCheck className="size-4 text-brand-900 shrink-0" />}
-            </div>
-            <button
-              type="button"
-              onClick={handleCopyUsername}
-              className="inline-flex items-center gap-1 text-par-s text-lab-sc hover:text-brand-900 transition-colors cursor-pointer group"
-              title="Copy @username"
-            >
-              <span>@{user.username}</span>
-              <Copy className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-            <p className="text-cap-l text-lab-sc">
-              {isOnline
-                ? 'Online'
-                : user.lastActive
-                ? `Last seen ${formatRelativeTime(user.lastActive, locale)}`
-                : 'Offline'}
-            </p>
-          </div>
-
-          {/* Quick Action Circles */}
-          <div className="flex items-center justify-center gap-3 pt-1">
-            {onStartCall && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onStartCall('audio')}
-                  className="flex flex-col items-center gap-1.5 text-lab-sc hover:text-brand-900 transition-colors cursor-pointer group"
-                  title="Audio call"
-                >
-                  <div className="size-10 rounded-full bg-fill-qt group-hover:bg-brand-900/10 flex items-center justify-center transition-colors">
-                    <Phone className="size-4 text-lab-pr group-hover:text-brand-900" />
-                  </div>
-                  <span className="text-[12.5px] font-medium">Call</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onStartCall('video')}
-                  className="flex flex-col items-center gap-1.5 text-lab-sc hover:text-brand-900 transition-colors cursor-pointer group"
-                  title="Video call"
-                >
-                  <div className="size-10 rounded-full bg-fill-qt group-hover:bg-brand-900/10 flex items-center justify-center transition-colors">
-                    <Video className="size-4 text-lab-pr group-hover:text-brand-900" />
-                  </div>
-                  <span className="text-[12.5px] font-medium">Video</span>
-                </button>
-              </>
-            )}
-
-            {onOpenTip && (
+      {/* Main Scrollable Content (100% PHP ChatInfo.vue structure) */}
+      <div className="flex-1 overflow-y-auto hidden-scroll">
+        {/* Top Information + ChatOverview Section */}
+        <div className="py-4 px-4">
+          <div className="mb-6 flex items-center justify-between gap-2">
+            <h3 className="text-title-3 font-bold text-lab-pr2 leading-tight truncate">
+              Information
+            </h3>
+            {onClose && (
               <button
                 type="button"
-                onClick={onOpenTip}
-                className="flex flex-col items-center gap-1.5 text-lab-sc hover:text-amber-500 transition-colors cursor-pointer group"
-                title="Send Tip"
+                onClick={onClose}
+                className="p-1.5 rounded-full text-lab-sc hover:text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
+                title="Close info"
+                aria-label="Close info"
               >
-                <div className="size-10 rounded-full bg-amber-500/10 group-hover:bg-amber-500/20 flex items-center justify-center transition-colors">
-                  <Coins className="size-4 text-amber-500" />
-                </div>
-                <span className="text-[12.5px] font-medium">Tip</span>
+                <X className="h-5 w-5" />
               </button>
             )}
+          </div>
 
-            <Link
-              href={`/@${user.username}`}
-              className="flex flex-col items-center gap-1.5 text-lab-sc hover:text-brand-900 transition-colors cursor-pointer group"
-              title="View full profile"
-            >
-              <div className="size-10 rounded-full bg-fill-qt group-hover:bg-brand-900/10 flex items-center justify-center transition-colors">
-                <ExternalLink className="size-4 text-lab-pr group-hover:text-brand-900" />
-              </div>
-              <span className="text-[12.5px] font-medium">Profile</span>
-            </Link>
+          <div className="flex flex-col items-center text-center">
+            <div className="flex justify-center mb-2">
+              <Avatar src={user.avatar} alt={displayName} size="xl" online={isOnline} />
+            </div>
+
+            <div className="text-center flex flex-col gap-1 max-w-full">
+              <h2 className="text-par-l font-bold text-lab-pr inline-flex items-center justify-center gap-1">
+                <span className="truncate">{displayName}</span>
+                {user.verified && <BadgeCheck className="size-4 text-brand-900 shrink-0" />}
+              </h2>
+              <button
+                type="button"
+                onClick={handleCopyUsername}
+                className="inline-flex items-center justify-center gap-1 text-par-s text-lab-sc hover:text-brand-900 transition-colors cursor-pointer group"
+                title="Copy @username"
+              >
+                <span>@{user.username}</span>
+                <Copy className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+              <span className="block text-par-s text-lab-sc">
+                {isOnline
+                  ? 'Online'
+                  : user.lastActive
+                  ? `Was online ${formatRelativeTime(user.lastActive, locale)}`
+                  : 'Was online N/A'}
+              </span>
+              {(user.bio || user.about) && (
+                <span className="block text-par-n text-lab-pr2 mt-1 whitespace-pre-wrap">
+                  {user.bio || user.about}
+                </span>
+              )}
+            </div>
+
+            {/* Quick Action Buttons (View Profile + Calls + Tip) */}
+            <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
+              <Link
+                href={`/@${user.username}`}
+                className="inline-flex items-center justify-center rounded-full bg-fill-qt hover:bg-fill-sc px-5 py-2 text-par-s font-semibold text-lab-pr transition-colors"
+                title="View full profile"
+              >
+                View profile
+              </Link>
+              {onStartCall && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onStartCall('audio')}
+                    className="size-9 rounded-full bg-fill-qt hover:bg-fill-sc inline-flex items-center justify-center text-lab-pr transition-colors cursor-pointer"
+                    title="Audio call"
+                    aria-label="Audio call"
+                  >
+                    <Phone className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onStartCall('video')}
+                    className="size-9 rounded-full bg-fill-qt hover:bg-fill-sc inline-flex items-center justify-center text-lab-pr transition-colors cursor-pointer"
+                    title="Video call"
+                    aria-label="Video call"
+                  >
+                    <Video className="size-4" />
+                  </button>
+                </>
+              )}
+              {onOpenTip && (
+                <button
+                  type="button"
+                  onClick={onOpenTip}
+                  className="size-9 rounded-full bg-amber-500/10 hover:bg-amber-500/20 inline-flex items-center justify-center text-amber-500 transition-colors cursor-pointer"
+                  title="Send Tip"
+                  aria-label="Send Tip"
+                >
+                  <Coins className="size-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* 2 Tabs: Info & Shared Media */}
-        <div className="flex border-b border-bord-pr bg-fill-fv/30 shrink-0">
+        {/* PHP ChatInfo.vue thick separator bar */}
+        <div className="h-3 w-full bg-fill-qt opacity-70" />
+
+        {/* PHP ContentTabs underline switcher: Details & Shared Media */}
+        <div className="grid grid-cols-2 border-b border-b-bord-card">
           <button
             type="button"
             onClick={() => setTab('info')}
             className={cn(
-              'flex-1 py-2.5 text-par-s font-semibold text-center border-b-2 transition-colors cursor-pointer',
+              'py-3.5 text-par-m font-semibold text-center relative transition-colors cursor-pointer',
               tab === 'info'
-                ? 'border-brand-900 text-brand-900 bg-bg-pr'
-                : 'border-transparent text-lab-sc hover:text-lab-pr'
+                ? "text-lab-pr2 after:content-[''] after:absolute after:-bottom-px after:left-0 after:w-full after:h-0.5 after:bg-lab-pr"
+                : 'text-lab-sc hover:text-lab-pr'
             )}
           >
-            Details
+            Actions
           </button>
           <button
             type="button"
             onClick={() => setTab('media')}
             className={cn(
-              'flex-1 py-2.5 text-par-s font-semibold text-center border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5',
+              'py-3.5 text-par-m font-semibold text-center relative transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5',
               tab === 'media'
-                ? 'border-brand-900 text-brand-900 bg-bg-pr'
-                : 'border-transparent text-lab-sc hover:text-lab-pr'
+                ? "text-lab-pr2 after:content-[''] after:absolute after:-bottom-px after:left-0 after:w-full after:h-0.5 after:bg-lab-pr"
+                : 'text-lab-sc hover:text-lab-pr'
             )}
           >
             <span>Media</span>
             {(mediaItems.length > 0 || fileItems.length > 0) && (
-              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-fill-sc text-lab-sc">
-                {mediaItems.length + fileItems.length}
+              <span className="text-cap-s text-lab-sc">
+                ({mediaItems.length + fileItems.length})
               </span>
             )}
           </button>
         </div>
 
-        {/* Tab 1: Info & Management */}
+        {/* Tab 1: Flat ModalRowButton List (100% PHP ChatInfo.vue parity) */}
         {tab === 'info' && (
-          <div className="p-4 space-y-4">
-            {/* Bio / About */}
-            {(user.bio || user.about) && (
-              <div className="p-3 rounded-2xl bg-fill-qt/50 border border-bord-card space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-lab-sc">Bio</p>
-                <p className="text-par-s text-lab-pr whitespace-pre-wrap">{user.bio || user.about}</p>
-              </div>
+          <div className="block">
+            {onOpenSearch && (
+              <button
+                type="button"
+                onClick={onOpenSearch}
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-par-n font-medium text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
+              >
+                <Search className="size-[19px] text-lab-sc shrink-0" />
+                <span>Search in conversation</span>
+              </button>
             )}
 
-            {/* Quick Actions List */}
-            <div className="rounded-2xl border border-bord-pr overflow-hidden divide-y divide-bord-pr bg-bg-pr">
-              {onOpenSearch && (
+            {onToggleMute && (
+              <button
+                type="button"
+                onClick={onToggleMute}
+                className="w-full flex items-center justify-between px-4 py-3.5 text-left text-par-n font-medium text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  {isMuted ? (
+                    <BellOff className="size-[19px] text-amber-500 shrink-0" />
+                  ) : (
+                    <Bell className="size-[19px] text-lab-sc shrink-0" />
+                  )}
+                  <span>Notifications</span>
+                </div>
+                <span className="text-cap-l text-lab-sc font-medium">
+                  {isMuted ? 'Muted' : 'On'}
+                </span>
+              </button>
+            )}
+
+            {onChatAction && (
+              <>
                 <button
                   type="button"
-                  onClick={onOpenSearch}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left text-par-s text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
+                  onClick={() => onChatAction(isArchived ? 'unarchive' : 'archive')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-par-n font-medium text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center gap-3">
-                    <Search className="size-4 text-lab-sc" />
-                    <span>Search in conversation</span>
-                  </div>
+                  {isArchived ? (
+                    <ArchiveRestore className="size-[19px] text-lab-sc shrink-0" />
+                  ) : (
+                    <Archive className="size-[19px] text-lab-sc shrink-0" />
+                  )}
+                  <span>{isArchived ? 'Unarchive chat' : 'Archive chat'}</span>
                 </button>
-              )}
 
-              {onToggleMute && (
                 <button
                   type="button"
-                  onClick={onToggleMute}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left text-par-s text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
+                  onClick={() => onChatAction('clear')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-par-n font-medium text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center gap-3">
-                    {isMuted ? (
-                      <BellOff className="size-4 text-amber-500" />
-                    ) : (
-                      <Bell className="size-4 text-lab-sc" />
-                    )}
-                    <span>Notifications</span>
-                  </div>
-                  <span className="text-cap-l text-lab-sc font-medium">
-                    {isMuted ? 'Muted' : 'On'}
-                  </span>
+                  <X className="size-[19px] text-lab-sc shrink-0" />
+                  <span>Clear conversation</span>
                 </button>
-              )}
 
-              {onChatAction && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onChatAction(isArchived ? 'unarchive' : 'archive')}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-s text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
-                  >
-                    {isArchived ? (
-                      <ArchiveRestore className="size-4 text-lab-sc" />
-                    ) : (
-                      <Archive className="size-4 text-lab-sc" />
-                    )}
-                    <span>{isArchived ? 'Unarchive chat' : 'Archive chat'}</span>
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => onChatAction('delete')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-par-n font-medium text-red-900 hover:bg-fill-fv transition-colors cursor-pointer"
+                >
+                  <Trash2 className="size-[19px] text-red-900 shrink-0" />
+                  <span>Delete chat</span>
+                </button>
+              </>
+            )}
 
-                  <button
-                    type="button"
-                    onClick={() => onChatAction('clear')}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-s text-lab-pr hover:bg-fill-fv transition-colors cursor-pointer"
-                  >
-                    <X className="size-4 text-lab-sc" />
-                    <span>Clear chat history</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onChatAction('delete')}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-par-s text-red-600 hover:bg-red-500/10 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="size-4 text-red-600" />
-                    <span>Delete conversation</span>
-                  </button>
-                </>
-              )}
-            </div>
+            <div className="h-3 w-full bg-fill-qt opacity-70" />
           </div>
         )}
 
