@@ -82,4 +82,7 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+// Only run Cloudflare dev init locally — never on Vercel or CI
+if (process.env.NODE_ENV === 'development' && !process.env.VERCEL && !process.env.CI) {
+  import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev()).catch(() => {});
+}
