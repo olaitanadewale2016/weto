@@ -1267,7 +1267,12 @@ function AdminDashboardContent() {
                       <div>
                         <p className="text-cap-s text-lab-sc">Deduction Rule</p>
                         <p className="text-par-s font-bold text-lab-pr">
-                          {String(cfg.billingModel || 'viewable_cpm').toUpperCase()} · {formatCurrency(Number(cfg.pricePerView || 25), defaultCurrency, bootstrap?.currencies, locale)}/view
+                          {String(cfg.billingModel || 'viewable_cpm').toUpperCase()}
+                        </p>
+                        <p className="text-cap-l text-lab-sc space-y-0.5">
+                          <span className="block">{formatCurrency(Number(cfg.pricePerView || 25), defaultCurrency, bootstrap?.currencies, locale)}/view · {formatCurrency(Number(cfg.pricePerClick || 75), defaultCurrency, bootstrap?.currencies, locale)}/click</span>
+                          <span className="block">Cooldown: {Number(cfg.chargeIntervalMinutes ?? 10)}min · Daily cap: {Number(cfg.maxDailySpendPerAd || 0) > 0 ? formatCurrency(Number(cfg.maxDailySpendPerAd), defaultCurrency, bootstrap?.currencies, locale) : 'unlimited'}</span>
+                          <span className="block">Refund on delete: {cfg.refundUnspentOnDelete !== false ? 'Yes' : 'No'} · Auto-approve: {cfg.defaultApproval ? 'Yes' : 'No'}</span>
                         </p>
                       </div>
                       <Button
@@ -1359,6 +1364,24 @@ function AdminDashboardContent() {
                           value={String(adBillingDraft.minBudget ?? 5000)}
                           onChange={(e) =>
                             setAdBillingDraft((prev) => ({ ...prev, minBudget: Number(e.target.value) }))
+                          }
+                        />
+                        <Input
+                          label={`Default Budget Pre-fill (${defaultCurrency})`}
+                          type="number"
+                          min="100"
+                          value={String(adBillingDraft.defaultBudget ?? 25000)}
+                          onChange={(e) =>
+                            setAdBillingDraft((prev) => ({ ...prev, defaultBudget: Number(e.target.value) }))
+                          }
+                        />
+                        <Input
+                          label="Ad Refresh Interval (minutes)"
+                          type="number"
+                          min="1"
+                          value={String(adBillingDraft.refreshIntervalMinutes ?? 5)}
+                          onChange={(e) =>
+                            setAdBillingDraft((prev) => ({ ...prev, refreshIntervalMinutes: Number(e.target.value) }))
                           }
                         />
                       </div>
