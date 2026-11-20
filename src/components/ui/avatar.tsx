@@ -83,6 +83,7 @@ export function Avatar({
           src={effectiveSrc}
           alt={alt}
           decoding="async"
+          suppressHydrationWarning
           onError={() => {
             if (normalizedSrc && !fallbackApplied && normalizedSrc !== '/assets/avatars/default-avatar.png') {
               setFailedForSrc(normalizedSrc);

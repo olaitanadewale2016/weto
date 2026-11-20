@@ -116,12 +116,11 @@ export function FeedList({
   const { user, loading: authLoading } = useApp();
   const currentUserId = user?.id;
   const cacheKey = `${mode}:${username || ''}:${hashtag || ''}:${query || ''}`;
-  const cachedEntry = readFeedCache(cacheKey);
-  const [posts, setPosts] = useState<SerializedPost[]>(() => cachedEntry?.posts || []);
+  const [posts, setPosts] = useState<SerializedPost[]>([]);
   const [composerOpen, setComposerOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(() => cachedEntry?.hasMore ?? false);
-  const [loading, setLoading] = useState(() => !cachedEntry || cachedEntry.posts.length === 0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const [quotePost, setQuotePost] = useState<SerializedPost | null>(null);

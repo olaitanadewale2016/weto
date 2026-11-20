@@ -553,7 +553,7 @@ export function PostCard({
     post.content.trim().length <= 120;
 
   return (
-    <article className="bg-bg-pr border-b border-bord-tr transition-colors">
+    <article suppressHydrationWarning className="bg-bg-pr border-b border-bord-tr transition-colors">
       <div className="px-4 pt-4 space-y-3">
         {(post.globalPinned || pinned) && (
           <div className="flex items-center gap-1.5 text-cap-l text-lab-sc">
