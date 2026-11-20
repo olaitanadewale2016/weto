@@ -71,10 +71,9 @@ export function getServerEnv(): ServerEnv {
  */
 export function getAppBaseUrl(fallbackOrigin?: string): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, '');
-
-  const cfPagesUrl = process.env.NEXT_PUBLIC_CF_PAGES_URL?.trim() || process.env.CF_PAGES_URL?.trim();
-  if (cfPagesUrl) return `https://${cfPagesUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
+  if (configured && (!configured.includes('localhost') || process.env.NODE_ENV !== 'production')) {
+    return configured.replace(/\/+$/, '');
+  }
 
   const vercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (vercelProd) return `https://${vercelProd.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
@@ -82,14 +81,22 @@ export function getAppBaseUrl(fallbackOrigin?: string): string {
   const vercelUrl = process.env.VERCEL_URL?.trim();
   if (vercelUrl) return `https://${vercelUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
 
+  const cfPagesUrl = process.env.NEXT_PUBLIC_CF_PAGES_URL?.trim() || process.env.CF_PAGES_URL?.trim();
+  if (cfPagesUrl) return `https://${cfPagesUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
+
+  if (configured) return configured.replace(/\/+$/, '');
   if (fallbackOrigin) return fallbackOrigin.replace(/\/+$/, '');
   return 'http://localhost:3000';
 }
 
-const defaultAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+const defaultAppUrl = (process.env.NEXT_PUBLIC_APP_URL && (!process.env.NEXT_PUBLIC_APP_URL.includes('localhost') || process.env.NODE_ENV !== 'production'))
+  ? process.env.NEXT_PUBLIC_APP_URL.trim()
+  : (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
+  || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+  || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '')
   || (process.env.NEXT_PUBLIC_CF_PAGES_URL ? `https://${process.env.NEXT_PUBLIC_CF_PAGES_URL.replace(/^https?:\/\//, '')}` : '')
   || (process.env.CF_PAGES_URL ? `https://${process.env.CF_PAGES_URL.replace(/^https?:\/\//, '')}` : '')
-  || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '')
+  || process.env.NEXT_PUBLIC_APP_URL?.trim()
   || 'http://localhost:3000';
 
 const defaultRealtimeUrl = process.env.NEXT_PUBLIC_REALTIME_URL?.trim()

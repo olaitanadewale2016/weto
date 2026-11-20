@@ -3,9 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
-  outputFileTracingExcludes: {
-    "*": ["node_modules/sharp", "node_modules/@img/**"],
-  },
+  ...(process.env.CF_PAGES || process.env.OPENNEXT
+    ? {
+        outputFileTracingExcludes: {
+          "*": ["node_modules/sharp", "node_modules/@img/**"],
+        },
+      }
+    : {}),
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -86,4 +90,6 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+if (process.env.NODE_ENV === 'development' && !process.env.VERCEL) {
+  import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev()).catch(() => {});
+}
